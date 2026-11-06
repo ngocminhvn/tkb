@@ -12,6 +12,8 @@ import android.widget.RemoteViews
 import com.sv.tnu.MainActivity
 import com.sv.tnu.R
 import com.sv.tnu.data.AppDatabase
+import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import java.text.SimpleDateFormat
@@ -71,21 +73,51 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 val date = dateFormat.format(todayCalendar.time)
                 val periods = dao.periodsOnce()
                 val todayLessons = dao.lessonsOn(date)
+                val todayExams = dao.examsOn(date).filter { !it.isHoanThi }
                 val preferences = widgetPreferences(context)
                 val storedOffset = preferences.let {
                     val key = offsetKey(appWidgetId)
                     if (it.contains(key)) it.getInt(key, 0) else null
                 }
                 val offset = (storedOffset ?: if (
-                    todayLessons.isEmpty() || isDayFinished(todayLessons, periods)
+                    (todayLessons.isEmpty() && todayExams.isEmpty()) || isDayFinished(todayLessons, todayExams, periods)
                 ) 1 else 0).coerceIn(MIN_OFFSET, MAX_OFFSET)
                 val selectedDay = (todayCalendar.clone() as Calendar).apply {
                     add(Calendar.DAY_OF_YEAR, offset)
                 }
                 val selectedDate = dateFormat.format(selectedDay.time)
+                val lessons = if (offset == 0) todayLessons else dao.lessonsOn(selectedDate)
+                val exams = if (offset == 0) todayExams else dao.examsOn(selectedDate).filter { !it.isHoanThi }
+
+                val examItems = exams.map { exam ->
+                    WidgetItem(
+                        title = buildString {
+                            append(exam.tenMon)
+                            if (exam.maPhong.isNotBlank()) append(" • P.${exam.maPhong}")
+                            if (exam.soBaoDanh.isNotBlank()) append(" • SBD ${exam.soBaoDanh}")
+                        },
+                        time = if (exam.gioBatDau.isNotBlank()) {
+                            if (exam.soPhut > 0) "Thi: ${exam.gioBatDau} (${exam.soPhut}p)" else "Thi: ${exam.gioBatDau}"
+                        } else {
+                            "Lịch thi"
+                        },
+                        isExam = true,
+                    )
+                }
+                val lessonItems = lessons.map { lesson ->
+                    WidgetItem(
+                        title = buildString {
+                            append(lesson.tenMon)
+                            if (!lesson.maPhong.isNullOrBlank()) append(" • ${lesson.maPhong}")
+                        },
+                        time = lessonTime(lesson, periods),
+                        isExam = false,
+                    )
+                }
+
                 val schedule = WidgetSchedule(
                     title = scheduleTitle(selectedDay, offset),
-                    lessons = if (offset == 0) todayLessons else dao.lessonsOn(selectedDate),
+                    items = examItems + lessonItems,
                     offset = offset,
                 )
                 if (storedOffset == null) {
@@ -103,7 +135,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
                 manager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, appWidgetId, schedule, periods, availableHeight, layoutMode),
+                    buildViews(context, appWidgetId, schedule, availableHeight, layoutMode),
                 )
             } finally {
                 pendingResult.finish()
@@ -115,7 +147,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetId: Int,
         schedule: WidgetSchedule,
-        periods: List<PeriodEntity>,
         availableHeight: Int,
         layoutMode: LayoutMode,
     ): RemoteViews {
@@ -125,6 +156,12 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             R.layout.widget_timetable
         }
         val views = RemoteViews(context.packageName, layout)
+        val isDark = try {
+            AuthStore(context).isDarkMode
+        } catch (_: Exception) {
+            false
+        }
+
         val openApp = PendingIntent.getActivity(
             context,
             0,
@@ -139,6 +176,25 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_title, today)
         views.setOnClickPendingIntent(R.id.widget_next_day, nextDay)
         views.setTextViewText(R.id.widget_title, schedule.title)
+
+        // Đồng bộ màu nền và chữ theo Dark / Light mode của ứng dụng
+        views.setInt(
+            R.id.widget_root,
+            "setBackgroundResource",
+            if (isDark) R.drawable.widget_bg_dark else R.drawable.widget_bg_light,
+        )
+        views.setTextColor(R.id.widget_previous_day, 0xFF0A84FF.toInt())
+        views.setTextColor(R.id.widget_next_day, 0xFF0A84FF.toInt())
+        views.setTextColor(
+            R.id.widget_title,
+            if (isDark) 0xFFF0F2F5.toInt() else 0xFF111418.toInt(),
+        )
+        views.setTextColor(
+            R.id.widget_empty,
+            if (isDark) 0xFF8E9AA8.toInt() else 0xFF5B6470.toInt(),
+        )
+        views.setTextViewText(R.id.widget_empty, "Không có lịch học hoặc lịch thi")
+
         val horizontalPadding = dp(
             context,
             when (layoutMode) {
@@ -164,19 +220,41 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
         views.removeAllViews(R.id.widget_lessons_container)
         val density = lessonDensity(
-            lessonCount = schedule.lessons.size,
+            lessonCount = schedule.items.size,
             availableHeight = availableHeight,
             layoutMode = layoutMode,
         )
-        schedule.lessons.forEach { lesson ->
+        schedule.items.forEach { itemData ->
             val itemLayout = if (layoutMode == LayoutMode.SQUARE) {
                 R.layout.widget_lesson_item_square
             } else {
                 R.layout.widget_lesson_item_horizontal
             }
             val item = RemoteViews(context.packageName, itemLayout).apply {
-                setTextViewText(R.id.widget_lesson_subject, lesson.tenMon)
-                setTextViewText(R.id.widget_lesson_time, lessonTime(lesson, periods))
+                setTextViewText(R.id.widget_lesson_subject, itemData.title)
+                setTextViewText(R.id.widget_lesson_time, itemData.time)
+
+                // Lịch thi màu đỏ, lịch học bình thường màu xanh dương
+                val timeColor = if (itemData.isExam) {
+                    if (isDark) 0xFFFF5252.toInt() else 0xFFD32F2F.toInt()
+                } else {
+                    0xFF0A84FF.toInt()
+                }
+                val subjectColor = if (isDark) {
+                    if (itemData.isExam) 0xFFFFF0F0.toInt() else 0xFFF0F2F5.toInt()
+                } else {
+                    0xFF111418.toInt()
+                }
+                val bgResource = if (itemData.isExam) {
+                    if (isDark) R.drawable.widget_exam_item_bg_dark else R.drawable.widget_exam_item_bg_light
+                } else {
+                    if (isDark) R.drawable.widget_item_bg_dark else R.drawable.widget_item_bg_light
+                }
+
+                setTextColor(R.id.widget_lesson_time, timeColor)
+                setTextColor(R.id.widget_lesson_subject, subjectColor)
+                setInt(R.id.widget_lesson_item_root, "setBackgroundResource", bgResource)
+
                 setTextViewTextSize(
                     R.id.widget_lesson_subject,
                     TypedValue.COMPLEX_UNIT_SP,
@@ -199,7 +277,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
         views.setViewVisibility(
             R.id.widget_empty,
-            if (schedule.lessons.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
+            if (schedule.items.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
         )
         return views
     }
@@ -248,18 +326,28 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     private fun isDayFinished(
         lessons: List<LessonEntity>,
+        exams: List<ExamEntity>,
         periods: List<PeriodEntity>,
     ): Boolean {
-        val lastEndMinutes = lessons.maxOfOrNull { lesson ->
+        if (lessons.isEmpty() && exams.isEmpty()) return true
+        val now = Calendar.getInstance()
+        val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        val lastLessonEnd = lessons.maxOfOrNull { lesson ->
             val lastPeriod = lesson.tietBatDau + lesson.soTiet - 1
             periods.firstOrNull { it.tiet == lastPeriod }
                 ?.gioKetThuc
                 .toMinutesOrNull()
                 ?: Int.MAX_VALUE
-        } ?: return true
-        val now = Calendar.getInstance()
-        val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-        return nowMinutes >= lastEndMinutes
+        } ?: 0
+
+        val lastExamEnd = exams.maxOfOrNull { exam ->
+            val startMinutes = exam.gioBatDau.toMinutesOrNull() ?: return@maxOfOrNull Int.MAX_VALUE
+            startMinutes + (if (exam.soPhut > 0) exam.soPhut else 90)
+        } ?: 0
+
+        val latestEnd = maxOf(lastLessonEnd, lastExamEnd)
+        return nowMinutes >= latestEnd
     }
 
     private fun scheduleTitle(day: Calendar, offset: Int): String {
@@ -358,9 +446,15 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    private data class WidgetItem(
+        val title: String,
+        val time: String,
+        val isExam: Boolean,
+    )
+
     private data class WidgetSchedule(
         val title: String,
-        val lessons: List<LessonEntity>,
+        val items: List<WidgetItem>,
         val offset: Int,
     )
 

@@ -100,6 +100,9 @@ interface TkbDao {
     @Query("SELECT * FROM lessons WHERE substr(ngayHoc, 1, 10) = :date ORDER BY tietBatDau ASC")
     suspend fun lessonsOn(date: String): List<LessonEntity>
 
+    @Query("SELECT * FROM exams WHERE substr(ngayThi, 1, 10) = :date AND isHoanThi = 0 ORDER BY gioBatDau ASC")
+    suspend fun examsOn(date: String): List<ExamEntity>
+
     @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
     fun exams(hocKy: Int): Flow<List<ExamEntity>>
 

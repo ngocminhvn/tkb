@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Không gửi đi đâu ngoài portal.tnut.edu.vn.
  */
 class AuthStore(context: Context) {
+    private val appContext: Context = context.applicationContext
     private val prefs: SharedPreferences
 
     init {
@@ -82,6 +83,9 @@ class AuthStore(context: Context) {
         set(value) {
             _isDarkMode.value = value
             prefs.edit().putBoolean(KEY_IS_DARK_MODE, value).apply()
+            try {
+                com.sv.tnu.widget.TimetableWidgetProvider.updateAll(appContext)
+            } catch (_: Exception) {}
         }
 
     val hasCredentials: Boolean
