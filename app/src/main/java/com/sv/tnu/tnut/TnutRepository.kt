@@ -7,6 +7,7 @@ import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
+import com.sv.tnu.widget.TimetableWidgetProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -108,6 +109,7 @@ class TnutRepository(
             }
         }
         dao.replaceTimetable(hocKy, periods, weeks, lessons)
+        TimetableWidgetProvider.updateAll(context)
     }
 
     /** Lần đầu mở app chưa có dữ liệu: seed Room từ file JSON mẫu trong assets. */
