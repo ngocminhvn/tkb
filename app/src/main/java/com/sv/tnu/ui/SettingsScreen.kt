@@ -104,12 +104,12 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = authStore.username?.ifBlank { "Sinh viên TNUT" } ?: "Sinh viên TNUT",
+                            text = authStore.username?.ifBlank { "Sinh viên" } ?: "Sinh viên",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Portal TNUT",
+                            text = "Portal sinh viên",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )

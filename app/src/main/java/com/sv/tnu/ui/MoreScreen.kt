@@ -131,7 +131,7 @@ fun MoreScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Đại học Kỹ thuật Công nghiệp (TNUT)",
+                                text = "Cổng thông tin đào tạo sinh viên",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             )
@@ -173,8 +173,8 @@ fun MoreScreen(
 
             ActionCard(
                 icon = Icons.AutoMirrored.Filled.OpenInNew,
-                title = "Cổng đào tạo TNUT",
-                subtitle = "Truy cập portal qldt.tnut.edu.vn",
+                title = "Cổng thông tin đào tạo",
+                subtitle = "Truy cập portal trực tuyến của trường",
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qldt.tnut.edu.vn"))
                     context.startActivity(intent)

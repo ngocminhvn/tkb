@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
                         LoginScreen(
                             viewModel = vm,
                             state = state,
-                            schoolName = "TNUT",
                             onLoggedIn = {
                                 navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }

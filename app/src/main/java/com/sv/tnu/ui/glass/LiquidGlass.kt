@@ -8,6 +8,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -30,7 +32,11 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -40,12 +46,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 val CapsuleShape: RoundedCornerShape = RoundedCornerShape(percent = 50)
 
@@ -154,7 +165,8 @@ fun Modifier.glassEffect(
 
 /**
  * Thanh điều hướng Liquid Glass dạng viên thuốc lơ lửng (Floating Glass Tab Bar)
- * Hiệu ứng lăng kính chất lỏng Liquid Lens mượt mà, chữ và icon sắc nét 100%.
+ * Hỗ trợ cử chỉ bấm giữ và kéo vuốt lăng kính (hold & drag liquid lens) mượt mà,
+ * đàn hồi nảy spring theo đúng thiết kế của thư viện liquidglass.
  */
 @Composable
 fun GlassTabBar(
@@ -167,6 +179,7 @@ fun GlassTabBar(
     item: @Composable (index: Int, isSelected: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
 
     BoxWithConstraints(
         modifier = modifier
@@ -195,71 +208,190 @@ fun GlassTabBar(
         val tabWidth = totalWidth / itemCount
         val tabWidthPx = with(density) { tabWidth.toPx() }
 
-        // Vị trí lens trượt theo tab được chọn
+        // Vị trí lens trượt theo tab
         val lensOffsetAnim = remember { Animatable(selectedIndex * tabWidthPx) }
 
+        // Trạng thái bấm giữ / kéo vuốt
+        var isHolding by remember { mutableStateOf(false) }
+        var isDragging by remember { mutableStateOf(false) }
+        var activePreviewIndex by remember { mutableIntStateOf(selectedIndex) }
+
+        // Hiệu ứng phình to / dãn nở đàn hồi khi bấm giữ (liquid swelling)
+        val lensScaleX by animateFloatAsState(
+            targetValue = if (isHolding) 1.15f else 1f,
+            animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+            label = "lensScaleX",
+        )
+        val lensScaleY by animateFloatAsState(
+            targetValue = if (isHolding) 1.08f else 1f,
+            animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+            label = "lensScaleY",
+        )
+        val lensElevation by animateFloatAsState(
+            targetValue = if (isHolding) 8f else 4f,
+            animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+            label = "lensElevation",
+        )
+
+        // Cập nhật vị trí khi selectedIndex thay đổi từ bên ngoài (khi không trong gesture)
         LaunchedEffect(selectedIndex, tabWidthPx) {
-            if (tabWidthPx > 0f) {
+            if (!isDragging && !isHolding && tabWidthPx > 0f) {
                 lensOffsetAnim.animateTo(
                     targetValue = selectedIndex * tabWidthPx,
                     animationSpec = spring(
-                        dampingRatio = 0.74f,
-                        stiffness = 500f,
+                        dampingRatio = 0.68f,
+                        stiffness = 450f,
                     ),
                 )
+                activePreviewIndex = selectedIndex
             }
         }
 
-        // Lớp Liquid Lens (viên ngọc kính trượt nổi bật)
         Box(
             modifier = Modifier
-                .offset {
-                    val x = lensOffsetAnim.value
-                    IntOffset(if (x.isFinite()) x.roundToInt() else 0, 0)
-                }
-                .width(tabWidth)
-                .fillMaxHeight()
-                .padding(horizontal = 2.dp, vertical = 2.dp)
-                .shadow(
-                    elevation = 4.dp,
-                    shape = CapsuleShape,
-                    spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x20000000),
-                )
-                .background(
-                    if (isDark) Color(0xFF2E3646) else Color(0xFFE8EEF8),
-                    CapsuleShape,
-                )
-                .border(
-                    BorderStroke(
-                        1.dp,
-                        if (isDark) Color(0xFF434E64) else Color(0xFFD0DBEC),
-                    ),
-                    CapsuleShape,
-                ),
-        )
+                .fillMaxSize()
+                .pointerInput(itemCount, tabWidthPx) {
+                    coroutineScope {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val downX = down.position.x
+                            var currentFingerX = downX
+                            var hasMoved = false
 
-        // Các nút tab phân bổ đều
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                            // Bấm giữ (hold threshold) làm phình to viên lens
+                            val holdJob = launch {
+                                delay(110)
+                                isHolding = true
+                            }
+
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) {
+                                        break
+                                    }
+
+                                    val newX = change.position.x
+                                    if (!hasMoved && abs(newX - downX) > 8f) {
+                                        hasMoved = true
+                                        isDragging = true
+                                        isHolding = true
+                                        holdJob.cancel()
+                                    }
+
+                                    if (hasMoved || isHolding) {
+                                        change.consume()
+                                        currentFingerX = newX
+                                        val maxOffset = ((itemCount - 1) * tabWidthPx).coerceAtLeast(0f)
+                                        val targetLensX = (currentFingerX - tabWidthPx / 2f).coerceIn(0f, maxOffset)
+
+                                        launch {
+                                            lensOffsetAnim.snapTo(targetLensX)
+                                        }
+
+                                        val currentTab = (currentFingerX / tabWidthPx)
+                                            .toInt()
+                                            .coerceIn(0, itemCount - 1)
+                                        activePreviewIndex = currentTab
+                                    }
+                                }
+                            } finally {
+                                holdJob.cancel()
+                                isDragging = false
+                                isHolding = false
+
+                                // Tính tab đích khi thả ngón tay
+                                val finalTab = if (hasMoved) {
+                                    val centreX = lensOffsetAnim.value + tabWidthPx / 2f
+                                    (centreX / tabWidthPx)
+                                        .roundToInt()
+                                        .coerceIn(0, itemCount - 1)
+                                } else {
+                                    (downX / tabWidthPx)
+                                        .toInt()
+                                        .coerceIn(0, itemCount - 1)
+                                }
+
+                                activePreviewIndex = finalTab
+                                onSelected(finalTab)
+
+                                launch {
+                                    lensOffsetAnim.animateTo(
+                                        targetValue = finalTab * tabWidthPx,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.65f,
+                                            stiffness = 420f,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
         ) {
-            for (index in 0 until itemCount) {
-                val isSelected = index == selectedIndex
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(CapsuleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Tab,
-                            onClick = { onSelected(index) },
+            // Lớp Liquid Lens (viên ngọc kính trượt nổi bật)
+            Box(
+                modifier = Modifier
+                    .offset {
+                        val x = lensOffsetAnim.value
+                        IntOffset(if (x.isFinite()) x.roundToInt() else 0, 0)
+                    }
+                    .width(tabWidth)
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        scaleX = lensScaleX
+                        scaleY = lensScaleY
+                    }
+                    .padding(horizontal = 2.dp, vertical = 2.dp)
+                    .shadow(
+                        elevation = lensElevation.dp,
+                        shape = CapsuleShape,
+                        spotColor = if (isDark) Color.Black.copy(alpha = if (isHolding) 0.6f else 0.4f) else Color(0x25000000),
+                    )
+                    .background(
+                        if (isDark) {
+                            if (isHolding) Color(0xFF384357) else Color(0xFF2E3646)
+                        } else {
+                            if (isHolding) Color(0xFFDCE6F5) else Color(0xFFE8EEF8)
+                        },
+                        CapsuleShape,
+                    )
+                    .border(
+                        BorderStroke(
+                            1.dp,
+                            if (isDark) {
+                                if (isHolding) Color(0xFF5A6987) else Color(0xFF434E64)
+                            } else {
+                                if (isHolding) Color(0xFFBACCE4) else Color(0xFFD0DBEC)
+                            },
                         ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    item(index, isSelected)
+                        CapsuleShape,
+                    ),
+            )
+
+            // Các nút tab phân bổ đều
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                for (index in 0 until itemCount) {
+                    val isSelected = if (isDragging || isHolding) {
+                        index == activePreviewIndex
+                    } else {
+                        index == selectedIndex
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(CapsuleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        item(index, isSelected)
+                    }
                 }
             }
         }
