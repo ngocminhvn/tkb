@@ -104,36 +104,37 @@ fun SettingsScreen(
 
     val totalSubjects = lessons.map { it.maMon }.distinct().size
     val totalCredits = lessons.distinctBy { it.maMon }.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .statusBarsPadding()
-                .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
+        topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(CircleShape)
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = CircleShape,
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                        )
                         .background(
                             if (isDark) Color.White.copy(alpha = 0.12f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                            else Color.White.copy(alpha = 0.65f),
+                            CircleShape,
                         )
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.20f)
+                            else Color.White.copy(alpha = 0.85f),
+                            CircleShape,
+                        )
+                        .clip(CircleShape)
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -150,6 +151,18 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                 )
             }
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Student summary card
             Card(
@@ -379,16 +392,13 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (isDarkMode) Color(0xFF5C6BC0).copy(alpha = 0.16f)
-                                else Color(0xFFF57C00).copy(alpha = 0.16f)
-                            ),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
                             contentDescription = null,
-                            tint = if (isDarkMode) Color(0xFF7986CB) else Color(0xFFF57C00),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp),
                         )
                     }

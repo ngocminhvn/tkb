@@ -369,7 +369,7 @@ fun GlassTabBar(
                         if (isDark) {
                             if (isHolding) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.15f)
                         } else {
-                            if (isHolding) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.82f)
+                            if (isHolding) Color.White.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.52f)
                         },
                         CapsuleShape,
                     )
@@ -379,7 +379,7 @@ fun GlassTabBar(
                             if (isDark) {
                                 if (isHolding) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.20f)
                             } else {
-                                if (isHolding) Color.White.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.70f)
+                                if (isHolding) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.75f)
                             },
                         ),
                         CapsuleShape,

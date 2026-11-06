@@ -2,6 +2,7 @@ package com.sv.tnu.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -189,11 +191,23 @@ private fun MoreScreen(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(CircleShape)
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = CircleShape,
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                        )
                         .background(
                             if (isDark) Color.White.copy(alpha = 0.12f)
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                            else Color.White.copy(alpha = 0.65f),
+                            CircleShape,
                         )
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.20f)
+                            else Color.White.copy(alpha = 0.85f),
+                            CircleShape,
+                        )
+                        .clip(CircleShape)
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
