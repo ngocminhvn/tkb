@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import com.sv.tnu.ui.glass.Glass
+import com.sv.tnu.ui.glass.glassEffect
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.LessonEntity
@@ -190,6 +192,7 @@ fun TimetableScreen(
     val refreshing by viewModel.refreshing.collectAsState()
     val error by viewModel.error.collectAsState()
     var askedRefresh by remember { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
 
     // Date logic: Hôm nay và lọc ngày đã qua
     val todayCalendar = remember {
@@ -280,18 +283,18 @@ fun TimetableScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            // Week Selector Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
+            // Week Selector Card with Liquid Glass
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(
+                        glass = Glass(alpha = if (isDark) 0.88f else 0.92f),
+                        shape = RoundedCornerShape(20.dp),
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
