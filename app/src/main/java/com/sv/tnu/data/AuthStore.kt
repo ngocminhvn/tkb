@@ -54,6 +54,10 @@ class AuthStore(context: Context) {
         get() = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_SYNC_TIME, value).apply()
 
+    var lastAutoSyncAttempt: Long
+        get() = prefs.getLong(KEY_LAST_AUTO_SYNC_ATTEMPT, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_AUTO_SYNC_ATTEMPT, value).apply()
+
     var avatarPath: String?
         get() = prefs.getString(KEY_AVATAR_PATH, null)
         set(value) = prefs.edit().putString(KEY_AVATAR_PATH, value).apply()
@@ -99,6 +103,7 @@ class AuthStore(context: Context) {
         private const val KEY_IDPC = "idpc"
         private const val KEY_HOC_KY = "hoc_ky"
         private const val KEY_LAST_SYNC_TIME = "last_sync_time"
+        private const val KEY_LAST_AUTO_SYNC_ATTEMPT = "last_auto_sync_attempt"
         private const val KEY_AVATAR_PATH = "avatar_path"
     }
 }

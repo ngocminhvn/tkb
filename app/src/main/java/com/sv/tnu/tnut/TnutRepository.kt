@@ -94,6 +94,7 @@ class TnutRepository(
                     fetchAndSaveAvatar(authStore.username!!)
                 } catch (_: Exception) {}
             }
+            authStore.lastSyncTime = System.currentTimeMillis()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

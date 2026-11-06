@@ -150,13 +150,28 @@ class TimetableViewModel(
             _error.value = null
             repository.refresh(hocKy)
                 .onSuccess {
-                    val now = System.currentTimeMillis()
-                    authStore.lastSyncTime = now
-                    _lastSyncTime.value = now
+                    _lastSyncTime.value = authStore.lastSyncTime
                 }
                 .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
             _refreshing.value = false
         }
+    }
+
+    fun refreshIfNeeded() {
+        val now = System.currentTimeMillis()
+        val lastAutomaticCheck = maxOf(authStore.lastSyncTime, authStore.lastAutoSyncAttempt)
+        if (lastAutomaticCheck == 0L || !isSameLocalDay(lastAutomaticCheck, now)) {
+            authStore.lastAutoSyncAttempt = now
+            refresh()
+        }
+    }
+
+    private fun isSameLocalDay(first: Long, second: Long): Boolean {
+        val firstDay = Calendar.getInstance().apply { timeInMillis = first }
+        val secondDay = Calendar.getInstance().apply { timeInMillis = second }
+        return firstDay.get(Calendar.ERA) == secondDay.get(Calendar.ERA) &&
+            firstDay.get(Calendar.YEAR) == secondDay.get(Calendar.YEAR) &&
+            firstDay.get(Calendar.DAY_OF_YEAR) == secondDay.get(Calendar.DAY_OF_YEAR)
     }
 
     fun saveLessonNote(lessonId: String, note: String) {
@@ -284,7 +299,7 @@ fun TimetableScreen(
     LaunchedEffect(Unit) {
         if (!askedRefresh) {
             askedRefresh = true
-            viewModel.refresh()
+            viewModel.refreshIfNeeded()
         }
     }
 
