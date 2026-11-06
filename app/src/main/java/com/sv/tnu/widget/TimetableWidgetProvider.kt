@@ -11,9 +11,13 @@ import android.widget.RemoteViews
 import com.sv.tnu.MainActivity
 import com.sv.tnu.R
 import com.sv.tnu.data.AppDatabase
+import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
+import com.sv.tnu.tnut.TnutApiClient
+import com.sv.tnu.tnut.TnutRepository
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +44,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH ||
-            intent.action == Intent.ACTION_DATE_CHANGED ||
+        if (intent.action == ACTION_REFRESH) {
+            refreshFromPortal(context)
+        } else if (intent.action == Intent.ACTION_DATE_CHANGED ||
             intent.action == Intent.ACTION_TIMEZONE_CHANGED
         ) {
             updateAll(context)
@@ -58,8 +63,12 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             try {
                 val dao = AppDatabase.get(context).tkbDao()
                 val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                val lessons = dao.lessonsOn(date)
                 val periods = dao.periodsOnce()
+                val schedule = selectSchedule(
+                    today = date,
+                    lessons = dao.lessonsFrom(date),
+                    periods = periods,
+                )
                 val minHeight = manager.getAppWidgetOptions(appWidgetId)
                     .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
                 val rowLimit = when {
@@ -69,7 +78,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
                 manager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, lessons, periods, rowLimit),
+                    buildViews(context, schedule, periods, rowLimit),
                 )
             } finally {
                 pendingResult.finish()
@@ -79,7 +88,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     private fun buildViews(
         context: Context,
-        lessons: List<LessonEntity>,
+        schedule: WidgetSchedule,
         periods: List<PeriodEntity>,
         rowLimit: Int,
     ): RemoteViews {
@@ -98,6 +107,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_root, openApp)
         views.setOnClickPendingIntent(R.id.widget_refresh, refresh)
+        views.setTextViewText(R.id.widget_title, schedule.title)
+        views.setTextViewText(R.id.widget_refresh, "↻")
 
         val rows = listOf(
             Triple(R.id.lesson_1, R.id.lesson_1_title, R.id.lesson_1_detail),
@@ -105,7 +116,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             Triple(R.id.lesson_3, R.id.lesson_3_title, R.id.lesson_3_detail),
         )
         rows.forEachIndexed { index, (containerId, titleId, detailId) ->
-            val lesson = lessons.getOrNull(index).takeIf { index < rowLimit }
+            val lesson = schedule.lessons.getOrNull(index).takeIf { index < rowLimit }
             if (lesson == null) {
                 views.setViewVisibility(containerId, android.view.View.GONE)
             } else {
@@ -116,9 +127,106 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
         views.setViewVisibility(
             R.id.widget_empty,
-            if (lessons.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
+            if (schedule.lessons.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
         )
         return views
+    }
+
+    private fun selectSchedule(
+        today: String,
+        lessons: List<LessonEntity>,
+        periods: List<PeriodEntity>,
+    ): WidgetSchedule {
+        val grouped = lessons.groupBy { it.ngayHoc.take(10) }.toSortedMap()
+        val todayLessons = grouped[today].orEmpty()
+        val todayFinished = todayLessons.isEmpty() || isDayFinished(todayLessons, periods)
+        val selectedDate = if (!todayFinished) {
+            today
+        } else {
+            grouped.keys.firstOrNull { it > today }
+        }
+        return if (selectedDate == null) {
+            WidgetSchedule(
+                title = "Sắp tới",
+                lessons = emptyList(),
+            )
+        } else {
+            WidgetSchedule(
+                title = scheduleTitle(selectedDate, today),
+                lessons = grouped[selectedDate].orEmpty(),
+            )
+        }
+    }
+
+    private fun isDayFinished(
+        lessons: List<LessonEntity>,
+        periods: List<PeriodEntity>,
+    ): Boolean {
+        val lastEndMinutes = lessons.maxOfOrNull { lesson ->
+            val lastPeriod = lesson.tietBatDau + lesson.soTiet - 1
+            periods.firstOrNull { it.tiet == lastPeriod }
+                ?.gioKetThuc
+                .toMinutesOrNull()
+                ?: Int.MAX_VALUE
+        } ?: return true
+        val now = Calendar.getInstance()
+        val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        return nowMinutes >= lastEndMinutes
+    }
+
+    private fun scheduleTitle(date: String, today: String): String {
+        if (date == today) return "Hôm nay"
+        val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+        val tomorrowString = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(tomorrow.time)
+        if (date == tomorrowString) return "Ngày mai"
+        val parsed = runCatching {
+            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
+        }.getOrNull() ?: return date
+        return SimpleDateFormat("EEEE, dd/MM", Locale("vi", "VN"))
+            .format(parsed)
+            .replaceFirstChar { it.uppercase() }
+    }
+
+    private fun String?.toMinutesOrNull(): Int? {
+        val parts = this?.trim()?.split(":") ?: return null
+        if (parts.size < 2) return null
+        val hour = parts[0].toIntOrNull() ?: return null
+        val minute = parts[1].take(2).toIntOrNull() ?: return null
+        return hour * 60 + minute
+    }
+
+    private fun refreshFromPortal(context: Context) {
+        setRefreshing(context)
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val authStore = AuthStore(context)
+                if (authStore.isLoggedIn) {
+                    val dao = AppDatabase.get(context).tkbDao()
+                    val repository = TnutRepository(
+                        context = context,
+                        api = TnutApiClient.create(authStore),
+                        dao = dao,
+                        authStore = authStore,
+                    )
+                    val hocKy = authStore.hocKy.takeIf { it != 0 } ?: repository.defaultHocKy
+                    repository.refresh(hocKy)
+                }
+            } finally {
+                updateAll(context)
+                pendingResult.finish()
+            }
+        }
+    }
+
+    private fun setRefreshing(context: Context) {
+        val manager = AppWidgetManager.getInstance(context)
+        val component = ComponentName(context, TimetableWidgetProvider::class.java)
+        manager.getAppWidgetIds(component).forEach { id ->
+            val views = RemoteViews(context.packageName, R.layout.widget_timetable)
+            views.setTextViewText(R.id.widget_refresh, "…")
+            manager.partiallyUpdateAppWidget(id, views)
+        }
     }
 
     private fun lessonDetail(lesson: LessonEntity, periods: List<PeriodEntity>): String {
@@ -146,4 +254,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             }
         }
     }
+
+    private data class WidgetSchedule(
+        val title: String,
+        val lessons: List<LessonEntity>,
+    )
 }
