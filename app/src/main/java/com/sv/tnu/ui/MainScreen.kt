@@ -31,8 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
-import com.wexpa.liquidglass.GlassTabBar
-import com.wexpa.liquidglass.GlassTabBarStyle
+import com.sv.tnu.ui.glass.GlassTabBar
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -88,9 +87,7 @@ fun MainScreen(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 24.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
-            style = GlassTabBarStyle.Calm(dark = isDark).copy(
-                height = 64.dp,
-            ),
+            height = 64.dp,
         ) { index, isSelected ->
             val tab = NavigationTab.entries[index]
             val tint = if (isSelected) selectedColor else unselectedColor

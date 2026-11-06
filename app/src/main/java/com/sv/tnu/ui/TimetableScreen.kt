@@ -64,9 +64,9 @@ import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.tnut.TnutRepository
-import com.wexpa.liquidglass.CapsuleShape
-import com.wexpa.liquidglass.glassEffect
-import com.wexpa.liquidglass.material3.GlassMaterialDefaults
+import com.sv.tnu.ui.glass.CapsuleShape
+import com.sv.tnu.ui.glass.GlassMaterialDefaults
+import com.sv.tnu.ui.glass.glassEffect
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

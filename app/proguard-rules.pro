@@ -20,6 +20,3 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--keep class com.wexpa.liquidglass.** { *; }
--dontwarn com.wexpa.liquidglass.**
-

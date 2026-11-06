@@ -42,8 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
-import com.wexpa.liquidglass.glassEffect
-import com.wexpa.liquidglass.material3.GlassMaterialDefaults
+import com.sv.tnu.ui.glass.GlassMaterialDefaults
+import com.sv.tnu.ui.glass.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

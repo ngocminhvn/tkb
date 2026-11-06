@@ -10,7 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.wexpa.liquidglass.LiquidGlassTheme
+import com.sv.tnu.ui.glass.LiquidGlassTheme
 
 private val DarkBackground = Color(0xFF0F1115)
 private val DarkSurface = Color(0xFF16191F)
