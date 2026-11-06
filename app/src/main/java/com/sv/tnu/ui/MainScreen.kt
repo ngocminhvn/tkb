@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sv.tnu.data.AuthStore
@@ -56,7 +57,7 @@ fun MainScreen(
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     val showUpdateDialog by appUpdateViewModel.showDialog.collectAsState()
     val updateInfo by appUpdateViewModel.updateInfo.collectAsState()

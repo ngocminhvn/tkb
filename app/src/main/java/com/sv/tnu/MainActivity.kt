@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
         val repository = TnutRepository(this, api, db.tkbDao(), authStore)
 
         setContent {
-            TkbTheme {
+            val isDarkMode by authStore.isDarkModeFlow.collectAsState()
+            TkbTheme(darkTheme = isDarkMode) {
                 val navController = rememberNavController()
                 val startDestination = if (authStore.isLoggedIn) "main" else "login"
                 NavHost(navController = navController, startDestination = startDestination) {

@@ -376,7 +376,7 @@ fun TimetableScreen(
     val lessonNotes by viewModel.lessonNotes.collectAsState()
     var askedRefresh by remember { mutableStateOf(false) }
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     // Date logic: Hôm nay và lọc ngày đã qua
     val todayCalendar = remember {

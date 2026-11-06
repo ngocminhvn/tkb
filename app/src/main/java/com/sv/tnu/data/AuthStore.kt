@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.sv.tnu.tnut.LoginResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Tài khoản + token chỉ lưu trên máy, mã hóa bằng EncryptedSharedPreferences.
@@ -70,6 +73,17 @@ class AuthStore(context: Context) {
         get() = prefs.getInt(KEY_VISIBLE_WEEK_COUNT, 5).coerceIn(1, 20)
         set(value) = prefs.edit().putInt(KEY_VISIBLE_WEEK_COUNT, value.coerceIn(1, 20)).apply()
 
+    private val _isDarkMode = MutableStateFlow(prefs.getBoolean(KEY_IS_DARK_MODE, false))
+    val isDarkModeFlow: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    /** Chế độ giao diện: false = Sáng (Light Mode - Mặc định), true = Tối (Dark Mode). */
+    var isDarkMode: Boolean
+        get() = _isDarkMode.value
+        set(value) {
+            _isDarkMode.value = value
+            prefs.edit().putBoolean(KEY_IS_DARK_MODE, value).apply()
+        }
+
     val hasCredentials: Boolean
         get() = !username.isNullOrBlank() && !password.isNullOrBlank()
 
@@ -115,5 +129,6 @@ class AuthStore(context: Context) {
         private const val KEY_AVATAR_PATH = "avatar_path"
         private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
         private const val KEY_VISIBLE_WEEK_COUNT = "visible_week_count"
+        private const val KEY_IS_DARK_MODE = "is_dark_mode"
     }
 }
