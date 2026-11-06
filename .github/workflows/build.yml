@@ -39,11 +39,12 @@ jobs:
 
       - name: Build signed debug APK
         run: |
+          # The committed keystore is PKCS#12, so its private key uses the store password.
           gradle assembleDebug \
             -Pandroid.injected.signing.store.file="$PWD/tkb-release.keystore" \
             -Pandroid.injected.signing.store.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias=tkb \
-            -Pandroid.injected.signing.key.password="${{ secrets.TKB_KEY_PASSWORD }}"
+            -Pandroid.injected.signing.key.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}"
 
       - name: Verify APK
         run: |
