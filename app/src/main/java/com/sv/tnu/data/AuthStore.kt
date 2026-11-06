@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.sv.tnu.tnut.LoginResponse
 
 /**
  * Tài khoản + token chỉ lưu trên máy, mã hóa bằng EncryptedSharedPreferences.
