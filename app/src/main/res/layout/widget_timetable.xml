@@ -49,17 +49,6 @@
             android:textColor="@color/widget_primary"
             android:textSize="24sp" />
 
-        <TextView
-            android:id="@+id/widget_refresh"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:contentDescription="@string/widget_refresh"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="↻"
-            android:textColor="@color/widget_primary"
-            android:textSize="22sp" />
     </LinearLayout>
 
     <TextView

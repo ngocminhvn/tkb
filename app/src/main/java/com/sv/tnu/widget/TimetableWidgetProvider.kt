@@ -7,15 +7,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.TypedValue
 import android.widget.RemoteViews
 import com.sv.tnu.MainActivity
 import com.sv.tnu.R
 import com.sv.tnu.data.AppDatabase
-import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
-import com.sv.tnu.tnut.TnutApiClient
-import com.sv.tnu.tnut.TnutRepository
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -44,7 +42,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_REFRESH -> refreshFromPortal(context)
             ACTION_PREVIOUS_DAY -> changeDay(context, intent, -1)
             ACTION_NEXT_DAY -> changeDay(context, intent, 1)
             ACTION_TODAY -> changeDay(context, intent, 0, reset = true)
@@ -95,16 +92,29 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                     preferences.edit().putInt(offsetKey(appWidgetId), schedule.offset).apply()
                 }
                 val options = manager.getAppWidgetOptions(appWidgetId)
-                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-                val isCompact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) < 240
-                val rowLimit = when {
-                    minHeight >= 250 -> 3
-                    minHeight >= 180 -> 2
-                    else -> 1
+                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
+                val layoutMode = when {
+                    minWidth <= 220 || minWidth <= minHeight + 32 -> LayoutMode.SQUARE
+                    minWidth < 320 -> LayoutMode.MEDIUM
+                    else -> LayoutMode.WIDE
+                }
+                val rowLimit = when (layoutMode) {
+                    LayoutMode.SQUARE -> if (minHeight >= 230) 2 else 1
+                    LayoutMode.MEDIUM -> when {
+                        minHeight >= 240 -> 3
+                        minHeight >= 170 -> 2
+                        else -> 1
+                    }
+                    LayoutMode.WIDE -> when {
+                        minHeight >= 250 -> 3
+                        minHeight >= 180 -> 2
+                        else -> 1
+                    }
                 }
                 manager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, appWidgetId, schedule, periods, rowLimit, isCompact),
+                    buildViews(context, appWidgetId, schedule, periods, rowLimit, layoutMode),
                 )
             } finally {
                 pendingResult.finish()
@@ -118,33 +128,37 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         schedule: WidgetSchedule,
         periods: List<PeriodEntity>,
         rowLimit: Int,
-        isCompact: Boolean,
+        layoutMode: LayoutMode,
     ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_timetable)
+        val layout = if (layoutMode == LayoutMode.SQUARE) {
+            R.layout.widget_timetable_square
+        } else {
+            R.layout.widget_timetable
+        }
+        val views = RemoteViews(context.packageName, layout)
         val openApp = PendingIntent.getActivity(
             context,
             0,
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val refresh = PendingIntent.getBroadcast(
-            context,
-            appWidgetId * 10 + 1,
-            Intent(context, TimetableWidgetProvider::class.java).setAction(ACTION_REFRESH),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         val previousDay = navigationPendingIntent(context, appWidgetId, ACTION_PREVIOUS_DAY, 2)
         val today = navigationPendingIntent(context, appWidgetId, ACTION_TODAY, 3)
         val nextDay = navigationPendingIntent(context, appWidgetId, ACTION_NEXT_DAY, 4)
         views.setOnClickPendingIntent(R.id.widget_root, openApp)
-        views.setOnClickPendingIntent(R.id.widget_refresh, refresh)
         views.setOnClickPendingIntent(R.id.widget_previous_day, previousDay)
         views.setOnClickPendingIntent(R.id.widget_title, today)
         views.setOnClickPendingIntent(R.id.widget_next_day, nextDay)
         views.setTextViewText(R.id.widget_title, schedule.title)
-        views.setTextViewText(R.id.widget_refresh, "↻")
-        val horizontalPadding = dp(context, if (isCompact) 10 else 16)
-        val verticalPadding = dp(context, if (isCompact) 10 else 12)
+        val horizontalPadding = dp(
+            context,
+            when (layoutMode) {
+                LayoutMode.SQUARE -> 10
+                LayoutMode.MEDIUM -> 12
+                LayoutMode.WIDE -> 16
+            },
+        )
+        val verticalPadding = dp(context, if (layoutMode == LayoutMode.WIDE) 12 else 10)
         views.setViewPadding(
             R.id.widget_root,
             horizontalPadding,
@@ -152,10 +166,12 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             horizontalPadding,
             verticalPadding,
         )
-        views.setViewVisibility(
-            R.id.widget_refresh,
-            if (isCompact) android.view.View.GONE else android.view.View.VISIBLE,
-        )
+        val titleSize = when (layoutMode) {
+            LayoutMode.SQUARE -> 12f
+            LayoutMode.MEDIUM -> 13f
+            LayoutMode.WIDE -> 14f
+        }
+        views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, titleSize)
 
         val rows = listOf(
             Triple(R.id.lesson_1, R.id.lesson_1_title, R.id.lesson_1_detail),
@@ -170,6 +186,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(containerId, android.view.View.VISIBLE)
                 views.setTextViewText(titleId, lesson.tenMon)
                 views.setTextViewText(detailId, lessonTime(lesson, periods))
+                if (layoutMode == LayoutMode.MEDIUM) {
+                    views.setTextViewTextSize(titleId, TypedValue.COMPLEX_UNIT_SP, 12f)
+                    views.setTextViewTextSize(detailId, TypedValue.COMPLEX_UNIT_SP, 11f)
+                }
             }
         }
         views.setViewVisibility(
@@ -258,40 +278,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         return hour * 60 + minute
     }
 
-    private fun refreshFromPortal(context: Context) {
-        setRefreshing(context)
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val authStore = AuthStore(context)
-                if (authStore.isLoggedIn) {
-                    val dao = AppDatabase.get(context).tkbDao()
-                    val repository = TnutRepository(
-                        context = context,
-                        api = TnutApiClient.create(authStore),
-                        dao = dao,
-                        authStore = authStore,
-                    )
-                    val hocKy = authStore.hocKy.takeIf { it != 0 } ?: repository.defaultHocKy
-                    repository.refresh(hocKy)
-                }
-            } finally {
-                updateAll(context)
-                pendingResult.finish()
-            }
-        }
-    }
-
-    private fun setRefreshing(context: Context) {
-        val manager = AppWidgetManager.getInstance(context)
-        val component = ComponentName(context, TimetableWidgetProvider::class.java)
-        manager.getAppWidgetIds(component).forEach { id ->
-            val views = RemoteViews(context.packageName, R.layout.widget_timetable)
-            views.setTextViewText(R.id.widget_refresh, "…")
-            manager.partiallyUpdateAppWidget(id, views)
-        }
-    }
-
     private fun lessonTime(lesson: LessonEntity, periods: List<PeriodEntity>): String {
         val start = periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau
             ?: "Tiết ${lesson.tietBatDau}"
@@ -304,7 +290,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         (value * context.resources.displayMetrics.density).toInt()
 
     companion object {
-        private const val ACTION_REFRESH = "com.sv.tnu.widget.REFRESH"
         private const val ACTION_PREVIOUS_DAY = "com.sv.tnu.widget.PREVIOUS_DAY"
         private const val ACTION_NEXT_DAY = "com.sv.tnu.widget.NEXT_DAY"
         private const val ACTION_TODAY = "com.sv.tnu.widget.TODAY"
@@ -331,4 +316,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         val lessons: List<LessonEntity>,
         val offset: Int,
     )
+
+    private enum class LayoutMode {
+        SQUARE,
+        MEDIUM,
+        WIDE,
+    }
 }
