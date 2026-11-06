@@ -101,26 +101,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                     minWidth < 320 -> LayoutMode.MEDIUM
                     else -> LayoutMode.WIDE
                 }
-                val rowLimit = when (layoutMode) {
-                    LayoutMode.SQUARE -> when {
-                        availableHeight >= 230 -> 3
-                        availableHeight >= 120 -> 2
-                        else -> 1
-                    }
-                    LayoutMode.MEDIUM -> when {
-                        availableHeight >= 200 -> 3
-                        availableHeight >= 110 -> 2
-                        else -> 1
-                    }
-                    LayoutMode.WIDE -> when {
-                        availableHeight >= 220 -> 3
-                        availableHeight >= 120 -> 2
-                        else -> 1
-                    }
-                }
                 manager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, appWidgetId, schedule, periods, rowLimit, layoutMode),
+                    buildViews(context, appWidgetId, schedule, periods, availableHeight, layoutMode),
                 )
             } finally {
                 pendingResult.finish()
@@ -133,7 +116,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int,
         schedule: WidgetSchedule,
         periods: List<PeriodEntity>,
-        rowLimit: Int,
+        availableHeight: Int,
         layoutMode: LayoutMode,
     ): RemoteViews {
         val layout = if (layoutMode == LayoutMode.SQUARE) {
@@ -179,30 +162,88 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
         views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, titleSize)
 
-        val rows = listOf(
-            Triple(R.id.lesson_1, R.id.lesson_1_title, R.id.lesson_1_detail),
-            Triple(R.id.lesson_2, R.id.lesson_2_title, R.id.lesson_2_detail),
-            Triple(R.id.lesson_3, R.id.lesson_3_title, R.id.lesson_3_detail),
+        views.removeAllViews(R.id.widget_lessons_container)
+        val density = lessonDensity(
+            lessonCount = schedule.lessons.size,
+            availableHeight = availableHeight,
+            layoutMode = layoutMode,
         )
-        rows.forEachIndexed { index, (containerId, titleId, detailId) ->
-            val lesson = schedule.lessons.getOrNull(index).takeIf { index < rowLimit }
-            if (lesson == null) {
-                views.setViewVisibility(containerId, android.view.View.GONE)
+        schedule.lessons.forEach { lesson ->
+            val itemLayout = if (layoutMode == LayoutMode.SQUARE) {
+                R.layout.widget_lesson_item_square
             } else {
-                views.setViewVisibility(containerId, android.view.View.VISIBLE)
-                views.setTextViewText(titleId, lesson.tenMon)
-                views.setTextViewText(detailId, lessonTime(lesson, periods))
-                if (layoutMode == LayoutMode.MEDIUM) {
-                    views.setTextViewTextSize(titleId, TypedValue.COMPLEX_UNIT_SP, 12f)
-                    views.setTextViewTextSize(detailId, TypedValue.COMPLEX_UNIT_SP, 11f)
-                }
+                R.layout.widget_lesson_item_horizontal
             }
+            val item = RemoteViews(context.packageName, itemLayout).apply {
+                setTextViewText(R.id.widget_lesson_subject, lesson.tenMon)
+                setTextViewText(R.id.widget_lesson_time, lessonTime(lesson, periods))
+                setTextViewTextSize(
+                    R.id.widget_lesson_subject,
+                    TypedValue.COMPLEX_UNIT_SP,
+                    density.subjectSize,
+                )
+                setTextViewTextSize(
+                    R.id.widget_lesson_time,
+                    TypedValue.COMPLEX_UNIT_SP,
+                    density.timeSize,
+                )
+                setViewPadding(
+                    R.id.widget_lesson_item_root,
+                    dp(context, density.horizontalPadding),
+                    dp(context, density.verticalPadding),
+                    dp(context, density.horizontalPadding),
+                    dp(context, density.verticalPadding),
+                )
+            }
+            views.addView(R.id.widget_lessons_container, item)
         }
         views.setViewVisibility(
             R.id.widget_empty,
             if (schedule.lessons.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
         )
         return views
+    }
+
+    private fun lessonDensity(
+        lessonCount: Int,
+        availableHeight: Int,
+        layoutMode: LayoutMode,
+    ): LessonDensity {
+        if (lessonCount <= 0) return LessonDensity(12f, 11f, 8, 4)
+        val usableHeight = (availableHeight - if (layoutMode == LayoutMode.SQUARE) 48 else 52)
+            .coerceAtLeast(40)
+        val heightPerLesson = usableHeight / lessonCount
+        val baseSubject = when (layoutMode) {
+            LayoutMode.SQUARE -> 12f
+            LayoutMode.MEDIUM -> 12f
+            LayoutMode.WIDE -> 14f
+        }
+        val countReduction = when {
+            lessonCount <= 2 -> 0f
+            lessonCount == 3 -> 1f
+            lessonCount == 4 -> 2f
+            else -> 4f
+        }
+        val heightReduction = when {
+            heightPerLesson >= 48 -> 0f
+            heightPerLesson >= 36 -> 1f
+            heightPerLesson >= 28 -> 2f
+            else -> 4f
+        }
+        val subjectSize = (baseSubject - maxOf(countReduction, heightReduction)).coerceAtLeast(7f)
+        val timeSize = (subjectSize - 1f).coerceAtLeast(7f)
+        val verticalPadding = when {
+            heightPerLesson >= 52 && lessonCount <= 2 -> 6
+            heightPerLesson >= 38 -> 4
+            heightPerLesson >= 28 -> 2
+            else -> 0
+        }
+        val horizontalPadding = when (layoutMode) {
+            LayoutMode.SQUARE -> if (lessonCount >= 4) 5 else 8
+            LayoutMode.MEDIUM -> if (lessonCount >= 4) 7 else 10
+            LayoutMode.WIDE -> if (lessonCount >= 5) 8 else 12
+        }
+        return LessonDensity(subjectSize, timeSize, horizontalPadding, verticalPadding)
     }
 
     private fun isDayFinished(
@@ -328,4 +369,11 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         MEDIUM,
         WIDE,
     }
+
+    private data class LessonDensity(
+        val subjectSize: Float,
+        val timeSize: Float,
+        val horizontalPadding: Int,
+        val verticalPadding: Int,
+    )
 }

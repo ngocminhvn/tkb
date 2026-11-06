@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_lesson_item_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="4dp"
+    android:layout_marginTop="3dp"
     android:background="@drawable/widget_lesson_background"
     android:gravity="center"
     android:orientation="vertical"
     android:paddingHorizontal="8dp"
-    android:paddingVertical="6dp">
+    android:paddingVertical="4dp">
 
     <TextView
-        android:id="@+id/lesson_1_detail"
+        android:id="@+id/widget_lesson_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
@@ -21,10 +22,10 @@
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/lesson_1_title"
+        android:id="@+id/widget_lesson_subject"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="1dp"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="2"

@@ -68,17 +68,12 @@
             android:textColor="@color/widget_on_surface_variant"
             android:textSize="12sp" />
 
-        <include
-            android:id="@+id/lesson_1"
-            layout="@layout/widget_lesson_row_square" />
-
-        <include
-            android:id="@+id/lesson_2"
-            layout="@layout/widget_lesson_row_square_2" />
-
-        <include
-            android:id="@+id/lesson_3"
-            layout="@layout/widget_lesson_row_square_3" />
+        <LinearLayout
+            android:id="@+id/widget_lessons_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical" />
     </LinearLayout>
 
 </LinearLayout>
