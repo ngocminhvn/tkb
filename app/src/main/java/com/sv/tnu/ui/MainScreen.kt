@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +38,6 @@ import com.sv.tnu.update.AppUpdateViewModel
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
-    MORE("Xem thêm", Icons.Default.GridView),
     SETTINGS("Cài đặt", Icons.Default.Settings),
 }
 
@@ -76,19 +74,11 @@ fun MainScreen(
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
-            NavigationTab.MORE -> {
-                MoreScreen(
-                    authStore = authStore,
-                    repository = repository,
-                    timetableViewModel = timetableViewModel,
-                    appUpdateViewModel = appUpdateViewModel,
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                )
-            }
             NavigationTab.SETTINGS -> {
                 SettingsScreen(
                     authStore = authStore,
                     repository = repository,
+                    timetableViewModel = timetableViewModel,
                     appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
                     contentPadding = PaddingValues(bottom = 96.dp),

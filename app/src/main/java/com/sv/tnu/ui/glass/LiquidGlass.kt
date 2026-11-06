@@ -287,7 +287,8 @@ fun GlassTabBar(
                                     }
 
                                     val newX = change.position.x
-                                    if (!hasMoved && abs(newX - downX) > touchSlop) {
+                                    val moveThreshold = if (isHolding) 4f else touchSlop.coerceAtMost(16f)
+                                    if (!hasMoved && abs(newX - downX) > moveThreshold) {
                                         hasMoved = true
                                         isDragging = true
                                         isHolding = true
@@ -315,11 +316,10 @@ fun GlassTabBar(
                                 isDragging = false
                                 isHolding = false
 
-                                // Tính tab đích khi thả ngón tay (Tap nhạy ngay lập tức bằng downTab)
+                                // Tính tab đích khi thả ngón tay (đồng bộ chuẩn xác theo tab đang preview)
                                 val finalTab = if (hasMoved) {
-                                    val centreX = lensOffsetAnim.value + widthPx / 2f
-                                    (centreX / widthPx)
-                                        .roundToInt()
+                                    (currentFingerX / widthPx)
+                                        .toInt()
                                         .coerceIn(0, count - 1)
                                 } else {
                                     downTab
