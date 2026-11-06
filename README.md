@@ -24,8 +24,10 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 ## Kỹ thuật
 
 - Kotlin + Jetpack Compose (Material 3), minSdk 24, targetSdk 35
+- Package `com.sv.tnu`, tên hiển thị SvTNU
 - Room (SQLite) cho lịch tuần, EncryptedSharedPreferences cho tài khoản/token
-- Retrofit + kotlinx-serialization gọi API portal:
+- App không cố định một trường: phần chung (UI, Room, đăng nhập) ở `com.sv.tnu`, phần lấy lịch của từng trường nằm trong thư mục riêng — hiện tại chỉ có `com.sv.tnu.tnut` (TNUT). Thêm trường khác = thêm 1 thư mục như `tnut/` rồi đổi điểm gắn trong `MainActivity`.
+- Retrofit + kotlinx-serialization gọi API portal (mã TNUT trong `tnut/`):
   - `POST /api/auth/login` (OAuth2 password grant)
   - `POST /api/sch/w-locdshockytkbuser` (danh sách học kỳ)
   - `POST /api/sch/w-locdstkbtuanusertheohocky` (lịch tuần cả học kỳ)
