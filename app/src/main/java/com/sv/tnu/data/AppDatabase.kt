@@ -109,6 +109,9 @@ interface TkbDao {
     @Query("SELECT COUNT(*) FROM weeks WHERE hocKy = :hocKy")
     suspend fun weekCount(hocKy: Int): Int
 
+    @Query("SELECT COUNT(*) FROM exams WHERE hocKy = :hocKy")
+    suspend fun examCount(hocKy: Int): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPeriods(list: List<PeriodEntity>)
 

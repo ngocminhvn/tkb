@@ -139,18 +139,158 @@ class TnutRepository(
         TimetableWidgetProvider.updateAll(context)
     }
 
-    /** Lần đầu mở app chưa có dữ liệu: seed Room từ file JSON mẫu trong assets. */
+    /** Lần đầu mở app chưa có dữ liệu: seed Room từ file JSON mẫu trong assets và seed lịch thi vào SQL. */
     suspend fun seedFromAssetsIfEmpty(hocKy: Int) {
-        if (dao.weekCount(hocKy) > 0) return
-        try {
-            val text = context.assets.open("sample_tkb_tuan_20261.json")
-                .bufferedReader().use { it.readText() }
-            val wrapper = json.decodeFromString<ApiWrapper<TkbData>>(text)
-            val data = wrapper.data ?: return
-            saveToDb(hocKy, data)
-        } catch (_: Exception) {
-            // Không có file mẫu thì thôi, app vẫn chạy, user đăng nhập để tải lịch thật.
+        if (dao.weekCount(hocKy) == 0) {
+            try {
+                val text = context.assets.open("sample_tkb_tuan_20261.json")
+                    .bufferedReader().use { it.readText() }
+                val wrapper = json.decodeFromString<ApiWrapper<TkbData>>(text)
+                val data = wrapper.data
+                if (data != null) {
+                    saveToDb(hocKy, data)
+                }
+            } catch (_: Exception) {
+                // Không có file mẫu thì thôi, app vẫn chạy, user đăng nhập để tải lịch thật.
+            }
         }
+        // Luôn đảm bảo SQL có dữ liệu lịch thi (không bị rỗng khi mở app offline)
+        seedSampleExamsIfEmpty(hocKy)
+    }
+
+    private fun normalizeDateToYmd(dateStr: String): String {
+        val clean = dateStr.trim().substringBefore(" ").substringBefore("T")
+        val partsSlash = clean.split("/")
+        if (partsSlash.size == 3) {
+            val day = partsSlash[0].padStart(2, '0')
+            val month = partsSlash[1].padStart(2, '0')
+            val year = partsSlash[2]
+            return "$year-$month-$day"
+        }
+        val partsDash = clean.split("-")
+        if (partsDash.size == 3) {
+            return if (partsDash[0].length == 4) {
+                val year = partsDash[0]
+                val month = partsDash[1].padStart(2, '0')
+                val day = partsDash[2].padStart(2, '0')
+                "$year-$month-$day"
+            } else {
+                val day = partsDash[0].padStart(2, '0')
+                val month = partsDash[1].padStart(2, '0')
+                val year = partsDash[2]
+                "$year-$month-$day"
+            }
+        }
+        return clean
+    }
+
+    suspend fun seedSampleExamsIfEmpty(hocKy: Int) {
+        if (dao.examCount(hocKy) > 0) return
+        val defaultExams = listOf(
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 1,
+                maMon = "B103BC1",
+                tenMon = "Bóng chuyền 1",
+                ngayThi = "2026-11-08",
+                gioBatDau = "14:25",
+                soPhut = 90,
+                maPhong = "SVD",
+                diaDiemThi = "Sân thể chất",
+                hinhThucThi = "Thực hành",
+                soBaoDanh = "002",
+                dotThi = "THECHAT",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 2,
+                maMon = "MEC0347",
+                tenMon = "Kỹ thuật cơ khí đại cương",
+                ngayThi = "2026-11-12",
+                gioBatDau = "07:00",
+                soPhut = 90,
+                maPhong = "A10-102",
+                diaDiemThi = "Phòng 102 A10",
+                hinhThucThi = "Tự luận",
+                soBaoDanh = "MEC0347_61TDH8_02",
+                dotThi = "DOT1",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 3,
+                maMon = "BAS203",
+                tenMon = "Kỹ thuật thủy khí",
+                ngayThi = "2026-11-15",
+                gioBatDau = "07:00",
+                soPhut = 90,
+                maPhong = "A16-203",
+                diaDiemThi = "Phòng 203 A16",
+                hinhThucThi = "Vấn đáp",
+                soBaoDanh = "BAS203_61TDH8_01",
+                dotThi = "DOT1",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 4,
+                maMon = "TEE0220",
+                tenMon = "Tin học và trí tuệ nhân tạo ứng dụng",
+                ngayThi = "2026-11-18",
+                gioBatDau = "12:45",
+                soPhut = 60,
+                maPhong = "TVDT-T303",
+                diaDiemThi = "Phòng MT thư viện T1",
+                hinhThucThi = "Trắc nghiệm phòng máy",
+                soBaoDanh = "TEE0220_61TDH8_02",
+                dotThi = "DOT1",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 5,
+                maMon = "ELE309",
+                tenMon = "Vật liệu điện",
+                ngayThi = "2026-11-25",
+                gioBatDau = "10:45",
+                soPhut = 60,
+                maPhong = "TVDT-T303",
+                diaDiemThi = "Phòng MT thư viện T1",
+                hinhThucThi = "Trắc nghiệm phòng máy",
+                soBaoDanh = "ELE309_61TDH8_02",
+                dotThi = "DOT1",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+            ExamEntity(
+                hocKy = hocKy,
+                isGiuaKy = false,
+                soThuTu = 6,
+                maMon = "ELE201",
+                tenMon = "Cơ sở lý thuyết mạch điện 1",
+                ngayThi = "2026-11-30",
+                gioBatDau = "10:45",
+                soPhut = 60,
+                maPhong = "TVDT-T2",
+                diaDiemThi = "Phòng MT thư viện T2",
+                hinhThucThi = "Trắc nghiệm phòng máy",
+                soBaoDanh = "ELE201_61TDH8_02",
+                dotThi = "DOT1",
+                ghiChuSv = "",
+                isHoanThi = false,
+            ),
+        )
+        dao.insertExams(defaultExams)
     }
 
     suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
@@ -171,19 +311,6 @@ class TnutRepository(
             }
         } catch (e: Exception) {
             Result.failure(e)
-        }
-    }
-
-    private fun normalizeDateToYmd(dateStr: String): String {
-        val clean = dateStr.trim()
-        val parts = clean.split("/")
-        return if (parts.size == 3) {
-            val day = parts[0].padStart(2, '0')
-            val month = parts[1].padStart(2, '0')
-            val year = parts[2]
-            "$year-$month-$day"
-        } else {
-            clean
         }
     }
 
@@ -281,8 +408,12 @@ class TnutRepository(
                 Log.e("TnutRepository", "fetch exams giuaky failed", e)
             }
 
-            if (fetchedAny || list.isNotEmpty()) {
+            if (list.isNotEmpty()) {
                 dao.replaceExams(hocKy, list)
+            } else {
+                // Portal chưa có lịch thi học kỳ hoặc trả về danh sách rỗng:
+                // Tuyệt đối không xoá trắng SQLite; nếu DB đang rỗng thì nạp lịch thi mặc định
+                seedSampleExamsIfEmpty(hocKy)
             }
             Result.success(Unit)
         } catch (e: Exception) {

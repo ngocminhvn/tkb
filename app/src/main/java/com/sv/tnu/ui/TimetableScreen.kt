@@ -114,8 +114,25 @@ class TimetableViewModel(
         .map { notes -> notes.associate { it.lessonId to it.note } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val selectedWeek: StateFlow<Int?> = combine(weeks, _selectedWeek) { weekList, selected ->
-        selected ?: currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
+    val currentWeekNumber: StateFlow<Int?> = weeks.map { weekList ->
+        currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Load tối đa 5 tuần: 2 tuần trước + tuần hiện tại + 2 tuần sau. */
+    val visibleWeeks: StateFlow<List<WeekEntity>> = combine(weeks, currentWeekNumber) { weekList, curr ->
+        if (weekList.isEmpty()) emptyList()
+        else {
+            val center = curr ?: weekList.firstOrNull()?.tuanHocKy ?: 1
+            val minWeek = center - 2
+            val maxWeek = center + 2
+            weekList.filter { it.tuanHocKy in minWeek..maxWeek }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val selectedWeek: StateFlow<Int?> = combine(visibleWeeks, _selectedWeek) { weekList, selected ->
+        val current = currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
+        val validSelected = selected?.takeIf { s -> weekList.any { it.tuanHocKy == s } }
+        validSelected ?: current
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val lessons: StateFlow<List<LessonEntity>> = selectedWeek
@@ -151,12 +168,12 @@ class TimetableViewModel(
     }
 
     fun moveWeek(delta: Int) {
-        val list = weeks.value
+        val list = visibleWeeks.value
+        if (list.isEmpty()) return
         val current = selectedWeek.value ?: return
-        val target = (current + delta).coerceIn(
-            list.minOfOrNull { it.tuanHocKy } ?: current,
-            list.maxOfOrNull { it.tuanHocKy } ?: current,
-        )
+        val min = list.minOf { it.tuanHocKy }
+        val max = list.maxOf { it.tuanHocKy }
+        val target = (current + delta).coerceIn(min, max)
         _selectedWeek.value = target
     }
 
@@ -198,6 +215,7 @@ class TimetableViewModel(
 
     /** Tuần chứa ngày hôm nay, theo ngay_bat_dau/ngay_ket_thuc dạng dd/MM/yyyy. */
     private fun currentWeekNumber(weekList: List<WeekEntity>): Int? {
+        if (weekList.isEmpty()) return null
         val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val today = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -206,34 +224,61 @@ class TimetableViewModel(
             set(Calendar.MILLISECOND, 0)
         }.time
         for (week in weekList) {
-            val start = runCatching { fmt.parse(week.ngayBatDau) }.getOrNull() ?: continue
-            val end = runCatching { fmt.parse(week.ngayKetThuc) }.getOrNull() ?: continue
-            if (!today.before(start) && !today.after(end)) return week.tuanHocKy
+            val start = runCatching { fmt.parse(week.ngayBatDau.trim().take(10)) }.getOrNull() ?: continue
+            val end = runCatching { fmt.parse(week.ngayKetThuc.trim().take(10)) }.getOrNull() ?: continue
+            val endCal = Calendar.getInstance().apply {
+                time = end
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+            }
+            if (!today.before(start) && !today.after(endCal.time)) return week.tuanHocKy
         }
-        return null
+        val firstStart = runCatching { fmt.parse(weekList.first().ngayBatDau.trim().take(10)) }.getOrNull()
+        if (firstStart != null && today.before(firstStart)) {
+            return weekList.first().tuanHocKy
+        }
+        val lastEnd = runCatching { fmt.parse(weekList.last().ngayKetThuc.trim().take(10)) }.getOrNull()
+        if (lastEnd != null && today.after(lastEnd)) {
+            return weekList.last().tuanHocKy
+        }
+        return weekList.firstOrNull()?.tuanHocKy
     }
 }
 
 private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 private val dayLabelFormat = SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN"))
 
-private fun dayLabel(ngayHoc: String): String {
-    val datePart = ngayHoc.take(10)
-    val date = runCatching { dayFormat.parse(datePart) }.getOrNull() ?: return datePart
-    return dayLabelFormat.format(date).replaceFirstChar { it.uppercase() }
+private fun normalizeDateToYmd(dateStr: String): String {
+    val clean = dateStr.trim().substringBefore(" ").substringBefore("T")
+    val partsSlash = clean.split("/")
+    if (partsSlash.size == 3) {
+        val day = partsSlash[0].padStart(2, '0')
+        val month = partsSlash[1].padStart(2, '0')
+        val year = partsSlash[2]
+        return "$year-$month-$day"
+    }
+    val partsDash = clean.split("-")
+    if (partsDash.size == 3) {
+        return if (partsDash[0].length == 4) {
+            val year = partsDash[0]
+            val month = partsDash[1].padStart(2, '0')
+            val day = partsDash[2].padStart(2, '0')
+            "$year-$month-$day"
+        } else {
+            val day = partsDash[0].padStart(2, '0')
+            val month = partsDash[1].padStart(2, '0')
+            val year = partsDash[2]
+            "$year-$month-$day"
+        }
+    }
+    return clean
 }
 
-private fun normalizeDateToYmd(dateStr: String): String {
-    val clean = dateStr.trim()
-    val parts = clean.split("/")
-    return if (parts.size == 3) {
-        val day = parts[0].padStart(2, '0')
-        val month = parts[1].padStart(2, '0')
-        val year = parts[2]
-        "$year-$month-$day"
-    } else {
-        clean
-    }
+private fun dayLabel(ngayHoc: String): String {
+    val datePart = normalizeDateToYmd(ngayHoc)
+    val date = runCatching { dayFormat.parse(datePart) }.getOrNull() ?: return datePart
+    return dayLabelFormat.format(date).replaceFirstChar { it.uppercase() }
 }
 
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
@@ -274,7 +319,7 @@ private sealed interface ScheduleItem {
         val exam: ExamEntity,
         val endTime: String,
     ) : ScheduleItem {
-        override val date: String get() = exam.ngayThi
+        override val date: String get() = normalizeDateToYmd(exam.ngayThi)
         override val sortKey: String get() = exam.gioBatDau
     }
 }
@@ -285,7 +330,7 @@ fun TimetableScreen(
     viewModel: TimetableViewModel,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-    val weeks by viewModel.weeks.collectAsState()
+    val weeks by viewModel.visibleWeeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
     val lessons by viewModel.lessons.collectAsState()
     val exams by viewModel.exams.collectAsState()
@@ -329,7 +374,11 @@ fun TimetableScreen(
 
     val examsInWeek = remember(exams, startDayYmd, endDayYmd) {
         if (startDayYmd.isNotBlank() && endDayYmd.isNotBlank()) {
-            exams.filter { !it.isHoanThi && it.ngayThi in startDayYmd..endDayYmd }
+            exams.filter { exam ->
+                if (exam.isHoanThi) return@filter false
+                val examYmd = normalizeDateToYmd(exam.ngayThi)
+                examYmd in startDayYmd..endDayYmd
+            }
         } else {
             emptyList()
         }
@@ -432,13 +481,20 @@ fun TimetableScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val minWeek = weeks.minOfOrNull { it.tuanHocKy }
+                    val maxWeek = weeks.maxOfOrNull { it.tuanHocKy }
+                    val canMovePrev = selectedWeek != null && minWeek != null && selectedWeek!! > minWeek
+                    val canMoveNext = selectedWeek != null && maxWeek != null && selectedWeek!! < maxWeek
+
                     IconButton(
                         onClick = { viewModel.moveWeek(-1) },
+                        enabled = canMovePrev,
                         modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Tuần trước",
+                            tint = if (canMovePrev) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -457,11 +513,13 @@ fun TimetableScreen(
 
                     IconButton(
                         onClick = { viewModel.moveWeek(1) },
+                        enabled = canMoveNext,
                         modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Tuần sau",
+                            tint = if (canMoveNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -536,7 +594,7 @@ fun TimetableScreen(
                         text = if (allGrouped.isNotEmpty() && !showPastDays) {
                             "Các ngày học của tuần này đã qua."
                         } else {
-                            "Tuần này không có buổi học nào."
+                            "Tuần này không có lịch học hoặc lịch thi nào."
                         },
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
