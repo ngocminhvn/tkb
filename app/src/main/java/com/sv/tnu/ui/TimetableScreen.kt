@@ -63,6 +63,7 @@ import com.sv.tnu.ui.glass.Glass
 import com.sv.tnu.ui.glass.glassEffect
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
@@ -99,6 +100,9 @@ class TimetableViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val exams: StateFlow<List<ExamEntity>> = repository.examsFlow(hocKy)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val selectedWeek: StateFlow<Int?> = combine(weeks, _selectedWeek) { weekList, selected ->
@@ -173,11 +177,60 @@ private fun dayLabel(ngayHoc: String): String {
     return dayLabelFormat.format(date).replaceFirstChar { it.uppercase() }
 }
 
+private fun normalizeDateToYmd(dateStr: String): String {
+    val clean = dateStr.trim()
+    val parts = clean.split("/")
+    return if (parts.size == 3) {
+        val day = parts[0].padStart(2, '0')
+        val month = parts[1].padStart(2, '0')
+        val year = parts[2]
+        "$year-$month-$day"
+    } else {
+        clean
+    }
+}
+
+private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
+    if (soPhut <= 0) return ""
+    return try {
+        val parts = gioBatDau.split(":")
+        val hour = parts[0].trim().toInt()
+        val minute = parts[1].trim().toInt()
+        val totalMinutes = hour * 60 + minute + soPhut
+        val endHour = (totalMinutes / 60) % 24
+        val endMinute = totalMinutes % 60
+        String.format(Locale.getDefault(), "%02d:%02d", endHour, endMinute)
+    } catch (_: Exception) {
+        ""
+    }
+}
+
 private fun timeRange(periods: List<PeriodEntity>, tietBatDau: Int, soTiet: Int): String {
     val start = periods.firstOrNull { it.tiet == tietBatDau }?.gioBatDau ?: return "Tiết $tietBatDau"
     val endTiet = tietBatDau + soTiet - 1
     val end = periods.firstOrNull { it.tiet == endTiet }?.gioKetThuc ?: ""
     return if (end.isNotBlank()) "$start – $end" else start
+}
+
+private sealed interface ScheduleItem {
+    val date: String
+    val sortKey: String
+
+    data class Lesson(
+        val lesson: LessonEntity,
+        val timeDisplay: String,
+    ) : ScheduleItem {
+        override val date: String get() = lesson.ngayHoc.take(10)
+        override val sortKey: String get() = lesson.tietBatDau.toString().padStart(2, '0')
+    }
+
+    data class Exam(
+        val exam: ExamEntity,
+        val endTime: String,
+    ) : ScheduleItem {
+        override val date: String get() = exam.ngayThi
+        override val sortKey: String get() = exam.gioBatDau
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -189,6 +242,7 @@ fun TimetableScreen(
     val weeks by viewModel.weeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
     val lessons by viewModel.lessons.collectAsState()
+    val exams by viewModel.exams.collectAsState()
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -218,8 +272,39 @@ fun TimetableScreen(
     }
 
     val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
-    val allGrouped = remember(lessons) {
-        lessons.groupBy { it.ngayHoc.take(10) }.toSortedMap()
+    val startDayYmd = remember(weekInfo) {
+        weekInfo?.let { normalizeDateToYmd(it.ngayBatDau) } ?: ""
+    }
+    val endDayYmd = remember(weekInfo) {
+        weekInfo?.let { normalizeDateToYmd(it.ngayKetThuc) } ?: ""
+    }
+
+    val examsInWeek = remember(exams, startDayYmd, endDayYmd) {
+        if (startDayYmd.isNotBlank() && endDayYmd.isNotBlank()) {
+            exams.filter { !it.isHoanThi && it.ngayThi in startDayYmd..endDayYmd }
+        } else {
+            emptyList()
+        }
+    }
+
+    // Gộp cả tiết học và buổi thi trong tuần, sắp xếp theo giờ
+    val allGrouped: Map<String, List<ScheduleItem>> = remember(lessons, examsInWeek, periods) {
+        val lessonItems = lessons.map { lesson ->
+            ScheduleItem.Lesson(
+                lesson = lesson,
+                timeDisplay = timeRange(periods, lesson.tietBatDau, lesson.soTiet),
+            )
+        }
+        val examItems = examsInWeek.map { exam ->
+            ScheduleItem.Exam(
+                exam = exam,
+                endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut),
+            )
+        }
+        (lessonItems + examItems)
+            .groupBy { it.date }
+            .mapValues { (_, items) -> items.sortedBy { it.sortKey } }
+            .toSortedMap()
     }
 
     // Các ngày đã qua trong tuần
@@ -424,22 +509,34 @@ fun TimetableScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                displayedGrouped.forEach { (date, dayLessons) ->
+                displayedGrouped.forEach { (date, dayItems) ->
                     val isToday = date == todayStr
 
                     item(key = "header-$date") {
                         DayHeader(
-                            date = dayLessons.first().ngayHoc,
+                            date = date,
                             isToday = isToday,
                         )
                     }
 
-                    items(dayLessons, key = { it.idTkb }) { lesson ->
-                        LessonCard(
-                            lesson = lesson,
-                            time = timeRange(periods, lesson.tietBatDau, lesson.soTiet),
-                            isToday = isToday,
-                        )
+                    items(dayItems, key = { item ->
+                        when (item) {
+                            is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
+                            is ScheduleItem.Exam -> "exam-${item.exam.id}"
+                        }
+                    }) { item ->
+                        when (item) {
+                            is ScheduleItem.Lesson -> LessonCard(
+                                lesson = item.lesson,
+                                time = item.timeDisplay,
+                                isToday = isToday,
+                            )
+                            is ScheduleItem.Exam -> ExamCard(
+                                exam = item.exam,
+                                endTime = item.endTime,
+                                isToday = isToday,
+                            )
+                        }
                     }
                 }
             }
@@ -616,6 +713,152 @@ private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
+    val examRed = Color(0xFFE53935)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        border = if (isToday) BorderStroke(1.5.dp, examRed) else null,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Tên môn & Huy hiệu "THI" màu đỏ thay cho phần tín chỉ
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    text = exam.tenMon,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                // Thay phần "1 TC" bằng màu đỏ "THI"
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(examRed.copy(alpha = 0.16f))
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = "THI",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = examRed,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Giờ thi & thời lượng pill
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(examRed.copy(alpha = 0.10f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = null,
+                    tint = examRed,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${exam.gioBatDau}${if (endTime.isNotBlank()) " – $endTime" else ""}",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = examRed,
+                    ),
+                )
+                if (exam.soPhut > 0) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "• ${exam.soPhut} phút",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+                if (exam.isGiuaKy) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "• Giữa kỳ",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Phòng thi & Địa điểm
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MeetingRoom,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Phòng: ${exam.maPhong.ifBlank { "—" }}${if (exam.diaDiemThi.isNotBlank()) " • " + exam.diaDiemThi else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // SBD & Hình thức thi
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "SBD: ${exam.soBaoDanh.ifBlank { "—" }}${if (exam.hinhThucThi.isNotBlank()) " • Hình thức: " + exam.hinhThucThi else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            if (exam.dotThi.isNotBlank() || exam.ghiChuSv.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${exam.maMon}${if (exam.dotThi.isNotBlank()) " • Đợt " + exam.dotThi else ""}${if (exam.ghiChuSv.isNotBlank()) " • " + exam.ghiChuSv else ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    )
+                }
             }
         }
     }

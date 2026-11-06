@@ -39,4 +39,9 @@ interface TnutApi {
         @retrofit2.http.Query("MaSV") maSv: String,
         @retrofit2.http.Body body: Map<String, String> = emptyMap(),
     ): AvatarResponse
+
+    @POST("epm/w-locdslichthisvtheohocky")
+    suspend fun exams(
+        @Body body: ExamRequest,
+    ): ExamResponse
 }

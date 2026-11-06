@@ -3,6 +3,7 @@ package com.sv.tnu.tnut
 import android.content.Context
 import android.util.Base64
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
@@ -39,6 +40,8 @@ class TnutRepository(
 
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
+    fun examsFlow(hocKy: Int): Flow<List<ExamEntity>> = dao.exams(hocKy)
+
     suspend fun loadSemesters(): Result<List<Semester>> {
         return try {
             val res = api.semesters()
@@ -63,6 +66,10 @@ class TnutRepository(
             }
             saveToDb(hocKy, res.data)
             authStore.hocKy = hocKy
+            // Đồng thời tải lịch thi (cả giữa kỳ và cuối kỳ)
+            try {
+                fetchAndSaveExams(hocKy)
+            } catch (_: Exception) {}
             // Đồng thời tải avatar nếu chưa có
             if (authStore.avatarPath.isNullOrBlank() && !authStore.username.isNullOrBlank()) {
                 try {
@@ -142,6 +149,106 @@ class TnutRepository(
             } else {
                 Result.success(null)
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun normalizeDateToYmd(dateStr: String): String {
+        val clean = dateStr.trim()
+        val parts = clean.split("/")
+        return if (parts.size == 3) {
+            val day = parts[0].padStart(2, '0')
+            val month = parts[1].padStart(2, '0')
+            val year = parts[2]
+            "$year-$month-$day"
+        } else {
+            clean
+        }
+    }
+
+    suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
+        return try {
+            val list = mutableListOf<ExamEntity>()
+            // Lịch thi cuối kỳ
+            try {
+                val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
+                resCuoiKy.data?.let { data ->
+                    data.dsLichThi.forEach {
+                        list.add(
+                            ExamEntity(
+                                hocKy = hocKy,
+                                isGiuaKy = false,
+                                soThuTu = it.soThuTu,
+                                maMon = it.maMon,
+                                tenMon = it.tenMon,
+                                ngayThi = normalizeDateToYmd(it.ngayThi),
+                                gioBatDau = it.gioBatDau,
+                                soPhut = it.soPhut,
+                                maPhong = it.maPhong,
+                                diaDiemThi = it.diaDiemThi ?: "",
+                                hinhThucThi = it.hinhThucThi ?: "",
+                                soBaoDanh = it.soBaoDanh ?: "",
+                                dotThi = it.dotThi ?: "",
+                                ghiChuSv = it.ghiChuSv ?: "",
+                                isHoanThi = false,
+                            )
+                        )
+                    }
+                    data.dsLichHoanThi.forEach {
+                        list.add(
+                            ExamEntity(
+                                hocKy = hocKy,
+                                isGiuaKy = false,
+                                soThuTu = it.soThuTu,
+                                maMon = it.maMon,
+                                tenMon = it.tenMon,
+                                ngayThi = normalizeDateToYmd(it.ngayThi),
+                                gioBatDau = it.gioBatDau,
+                                soPhut = it.soPhut,
+                                maPhong = it.maPhong,
+                                diaDiemThi = it.diaDiemThi ?: "",
+                                hinhThucThi = it.hinhThucThi ?: "",
+                                soBaoDanh = it.soBaoDanh ?: "",
+                                dotThi = it.dotThi ?: "",
+                                ghiChuSv = it.ghiChuSv ?: "",
+                                isHoanThi = true,
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // Lịch thi giữa kỳ
+            try {
+                val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
+                resGiuaKy.data?.let { data ->
+                    data.dsLichThi.forEach {
+                        list.add(
+                            ExamEntity(
+                                hocKy = hocKy,
+                                isGiuaKy = true,
+                                soThuTu = it.soThuTu,
+                                maMon = it.maMon,
+                                tenMon = it.tenMon,
+                                ngayThi = normalizeDateToYmd(it.ngayThi),
+                                gioBatDau = it.gioBatDau,
+                                soPhut = it.soPhut,
+                                maPhong = it.maPhong,
+                                diaDiemThi = it.diaDiemThi ?: "",
+                                hinhThucThi = it.hinhThucThi ?: "",
+                                soBaoDanh = it.soBaoDanh ?: "",
+                                dotThi = it.dotThi ?: "",
+                                ghiChuSv = it.ghiChuSv ?: "",
+                                isHoanThi = false,
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+
+            dao.replaceExams(hocKy, list)
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

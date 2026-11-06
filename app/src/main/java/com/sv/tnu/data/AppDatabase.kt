@@ -51,6 +51,29 @@ data class LessonEntity(
     val maNhom: String,
 )
 
+@Entity(
+    tableName = "exams",
+    indices = [Index(value = ["hocKy", "ngayThi"])],
+)
+data class ExamEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val hocKy: Int,
+    val isGiuaKy: Boolean = false,
+    val soThuTu: Int = 0,
+    val maMon: String = "",
+    val tenMon: String = "",
+    val ngayThi: String = "", // yyyy-MM-dd
+    val gioBatDau: String = "", // HH:mm
+    val soPhut: Int = 0,
+    val maPhong: String = "",
+    val diaDiemThi: String = "",
+    val hinhThucThi: String = "",
+    val soBaoDanh: String = "",
+    val dotThi: String = "",
+    val ghiChuSv: String = "",
+    val isHoanThi: Boolean = false,
+)
+
 @Dao
 interface TkbDao {
     @Query("SELECT * FROM periods ORDER BY tiet ASC")
@@ -68,6 +91,9 @@ interface TkbDao {
     @Query("SELECT * FROM lessons WHERE substr(ngayHoc, 1, 10) = :date ORDER BY tietBatDau ASC")
     suspend fun lessonsOn(date: String): List<LessonEntity>
 
+    @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
+    fun exams(hocKy: Int): Flow<List<ExamEntity>>
+
     @Query("SELECT COUNT(*) FROM weeks WHERE hocKy = :hocKy")
     suspend fun weekCount(hocKy: Int): Int
 
@@ -80,8 +106,14 @@ interface TkbDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLessons(list: List<LessonEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExams(list: List<ExamEntity>)
+
     @Query("DELETE FROM lessons WHERE hocKy = :hocKy")
     suspend fun deleteLessons(hocKy: Int)
+
+    @Query("DELETE FROM exams WHERE hocKy = :hocKy")
+    suspend fun deleteExams(hocKy: Int)
 
     @Query("DELETE FROM weeks WHERE hocKy = :hocKy")
     suspend fun deleteWeeks(hocKy: Int)
@@ -103,11 +135,17 @@ interface TkbDao {
         insertWeeks(weeks)
         insertLessons(lessons)
     }
+
+    @Transaction
+    suspend fun replaceExams(hocKy: Int, exams: List<ExamEntity>) {
+        deleteExams(hocKy)
+        insertExams(exams)
+    }
 }
 
 @Database(
-    entities = [PeriodEntity::class, WeekEntity::class, LessonEntity::class],
-    version = 1,
+    entities = [PeriodEntity::class, WeekEntity::class, LessonEntity::class, ExamEntity::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -123,7 +161,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "tkb.db",
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
         }
     }

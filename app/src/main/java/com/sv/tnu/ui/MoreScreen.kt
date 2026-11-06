@@ -24,10 +24,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,12 +38,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +79,8 @@ fun MoreScreen(
     val selectedWeek by timetableViewModel.selectedWeek.collectAsState()
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
+    val exams by timetableViewModel.exams.collectAsState()
+    var showExamDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(authStore.username, avatarPath) {
         val username = authStore.username
@@ -189,6 +197,22 @@ fun MoreScreen(
             )
 
             ActionCard(
+                icon = Icons.Default.DateRange,
+                title = "Lịch thi học kỳ",
+                subtitle = if (exams.isEmpty()) "Chưa có lịch thi (sẽ tự tải khi nhà trường công bố)"
+                else "${exams.count { !it.isHoanThi }} buổi thi${if (exams.any { it.isHoanThi }) " • Có môn hoãn thi" else ""}",
+                trailing = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        contentDescription = "Xem lịch thi",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                },
+                onClick = { showExamDialog = true },
+            )
+
+            ActionCard(
                 icon = Icons.Default.Sync,
                 title = "Đồng bộ lại thời khóa biểu",
                 subtitle = if (refreshing) "Đang tải dữ liệu mới từ portal..." else "Lần cuối: ${formatLastSync(lastSyncTime)}",
@@ -241,6 +265,112 @@ fun MoreScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Hộp thoại hiển thị chi tiết lịch thi học kỳ
+        if (showExamDialog) {
+            AlertDialog(
+                onDismissRequest = { showExamDialog = false },
+                title = {
+                    Text(
+                        text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    )
+                },
+                text = {
+                    if (exams.isEmpty()) {
+                        Text(
+                            text = "Chưa có thông tin lịch thi cho học kỳ này từ nhà trường.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            exams.forEach { exam ->
+                                val isHoan = exam.isHoanThi
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    ),
+                                    border = if (isHoan) BorderStroke(1.dp, Color(0xFFFFA000)) else null,
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Top,
+                                        ) {
+                                            Text(
+                                                text = exam.tenMon,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(50))
+                                                    .background(
+                                                        if (isHoan) Color(0xFFFFA000).copy(alpha = 0.18f)
+                                                        else Color(0xFFE53935).copy(alpha = 0.16f)
+                                                    )
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                            ) {
+                                                Text(
+                                                    text = if (isHoan) "HOÃN THI" else "THI",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = if (isHoan) Color(0xFFFFA000) else Color(0xFFE53935),
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        // Ngày & giờ thi
+                                        val dayDisplay = try {
+                                            val parts = exam.ngayThi.split("-")
+                                            if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else exam.ngayThi
+                                        } catch (_: Exception) { exam.ngayThi }
+
+                                        Text(
+                                            text = "Ngày: $dayDisplay • Giờ: ${exam.gioBatDau}${if (exam.soPhut > 0) " (${exam.soPhut}p)" else ""}${if (exam.isGiuaKy) " • Giữa kỳ" else ""}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                            color = if (isHoan) Color(0xFFFFA000) else Color(0xFFE53935),
+                                        )
+
+                                        Spacer(modifier = Modifier.height(3.dp))
+
+                                        Text(
+                                            text = "Phòng: ${exam.maPhong.ifBlank { "—" }}${if (exam.diaDiemThi.isNotBlank()) " (${exam.diaDiemThi})" else ""}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+
+                                        if (exam.soBaoDanh.isNotBlank() || exam.hinhThucThi.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "SBD: ${exam.soBaoDanh.ifBlank { "—" }}${if (exam.hinhThucThi.isNotBlank()) " • " + exam.hinhThucThi else ""}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showExamDialog = false }) {
+                        Text("Đóng")
+                    }
+                },
+            )
         }
     }
 }

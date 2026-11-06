@@ -121,3 +121,46 @@ data class AvatarResponse(
     val data: AvatarData? = null,
     val message: String? = null,
 )
+
+@Serializable
+data class ExamItemApi(
+    @SerialName("so_thu_tu") val soThuTu: Int = 0,
+    @SerialName("ma_mon") val maMon: String = "",
+    @SerialName("ten_mon") val tenMon: String = "",
+    @SerialName("ten_mon_eg") val tenMonEg: String? = null,
+    @SerialName("ngay_thi") val ngayThi: String = "",
+    @SerialName("gio_bat_dau") val gioBatDau: String = "",
+    @SerialName("so_phut") val soPhut: Int = 0,
+    @SerialName("ma_phong") val maPhong: String = "",
+    @SerialName("dia_diem_thi") val diaDiemThi: String? = null,
+    @SerialName("hinh_thuc_thi") val hinhThucThi: String? = null,
+    @SerialName("so_bao_danh") val soBaoDanh: String? = null,
+    @SerialName("dot_thi") val dotThi: String? = null,
+    @SerialName("ghi_chu_sv") val ghiChuSv: String? = null,
+)
+
+@Serializable
+data class ExamDataApi(
+    @SerialName("ds_lich_thi") val dsLichThi: List<ExamItemApi> = emptyList(),
+    @SerialName("ds_lich_hoan_thi") val dsLichHoanThi: List<ExamItemApi> = emptyList(),
+    @SerialName("thong_bao_ghi_chu") val thongBaoGhiChu: String? = null,
+)
+
+@Serializable
+data class ExamResponse(
+    val code: Int = 0,
+    val data: ExamDataApi? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class ExamFilter(
+    @SerialName("hoc_ky") val hocKy: Int,
+    @SerialName("is_giua_ky") val isGiuaKy: Boolean = false,
+)
+
+@Serializable
+data class ExamRequest(
+    val filter: ExamFilter,
+    val additional: WeeklyAdditional = WeeklyAdditional(),
+)
