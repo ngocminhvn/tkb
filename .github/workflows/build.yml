@@ -95,6 +95,15 @@ jobs:
           touch .nojekyll
           ls -lh SvTNU.apk SvTNU.apk.xz update.json
 
+      - name: Upload test APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvTNU-APK-${{ github.run_number }}
+          path: SvTNU.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
       - name: Stage Pages files
         run: |
           mkdir -p pages
