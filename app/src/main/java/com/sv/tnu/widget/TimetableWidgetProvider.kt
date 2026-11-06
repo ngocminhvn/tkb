@@ -18,7 +18,6 @@ import com.sv.tnu.tnut.TnutApiClient
 import com.sv.tnu.tnut.TnutRepository
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,13 +43,21 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH) {
-            refreshFromPortal(context)
-        } else if (intent.action == Intent.ACTION_DATE_CHANGED ||
-            intent.action == Intent.ACTION_TIMEZONE_CHANGED
-        ) {
-            updateAll(context)
+        when (intent.action) {
+            ACTION_REFRESH -> refreshFromPortal(context)
+            ACTION_PREVIOUS_DAY -> changeDay(context, intent, -1)
+            ACTION_NEXT_DAY -> changeDay(context, intent, 1)
+            ACTION_TODAY -> changeDay(context, intent, 0, reset = true)
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            -> updateAll(context)
         }
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        val editor = widgetPreferences(context).edit()
+        appWidgetIds.forEach { editor.remove(offsetKey(it)) }
+        editor.apply()
     }
 
     private fun update(
@@ -62,15 +69,34 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val dao = AppDatabase.get(context).tkbDao()
-                val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                val todayCalendar = Calendar.getInstance()
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val date = dateFormat.format(todayCalendar.time)
                 val periods = dao.periodsOnce()
-                val schedule = selectSchedule(
-                    today = date,
-                    lessons = dao.lessonsFrom(date),
-                    periods = periods,
+                val todayLessons = dao.lessonsOn(date)
+                val preferences = widgetPreferences(context)
+                val storedOffset = preferences.let {
+                    val key = offsetKey(appWidgetId)
+                    if (it.contains(key)) it.getInt(key, 0) else null
+                }
+                val offset = (storedOffset ?: if (
+                    todayLessons.isEmpty() || isDayFinished(todayLessons, periods)
+                ) 1 else 0).coerceIn(MIN_OFFSET, MAX_OFFSET)
+                val selectedDay = (todayCalendar.clone() as Calendar).apply {
+                    add(Calendar.DAY_OF_YEAR, offset)
+                }
+                val selectedDate = dateFormat.format(selectedDay.time)
+                val schedule = WidgetSchedule(
+                    title = scheduleTitle(selectedDay, offset),
+                    lessons = if (offset == 0) todayLessons else dao.lessonsOn(selectedDate),
+                    offset = offset,
                 )
-                val minHeight = manager.getAppWidgetOptions(appWidgetId)
-                    .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+                if (storedOffset == null) {
+                    preferences.edit().putInt(offsetKey(appWidgetId), schedule.offset).apply()
+                }
+                val options = manager.getAppWidgetOptions(appWidgetId)
+                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+                val isCompact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) < 240
                 val rowLimit = when {
                     minHeight >= 250 -> 3
                     minHeight >= 180 -> 2
@@ -78,7 +104,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
                 manager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, schedule, periods, rowLimit),
+                    buildViews(context, appWidgetId, schedule, periods, rowLimit, isCompact),
                 )
             } finally {
                 pendingResult.finish()
@@ -88,9 +114,11 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     private fun buildViews(
         context: Context,
+        appWidgetId: Int,
         schedule: WidgetSchedule,
         periods: List<PeriodEntity>,
         rowLimit: Int,
+        isCompact: Boolean,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_timetable)
         val openApp = PendingIntent.getActivity(
@@ -101,14 +129,33 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         )
         val refresh = PendingIntent.getBroadcast(
             context,
-            1,
+            appWidgetId * 10 + 1,
             Intent(context, TimetableWidgetProvider::class.java).setAction(ACTION_REFRESH),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val previousDay = navigationPendingIntent(context, appWidgetId, ACTION_PREVIOUS_DAY, 2)
+        val today = navigationPendingIntent(context, appWidgetId, ACTION_TODAY, 3)
+        val nextDay = navigationPendingIntent(context, appWidgetId, ACTION_NEXT_DAY, 4)
         views.setOnClickPendingIntent(R.id.widget_root, openApp)
         views.setOnClickPendingIntent(R.id.widget_refresh, refresh)
+        views.setOnClickPendingIntent(R.id.widget_previous_day, previousDay)
+        views.setOnClickPendingIntent(R.id.widget_title, today)
+        views.setOnClickPendingIntent(R.id.widget_next_day, nextDay)
         views.setTextViewText(R.id.widget_title, schedule.title)
         views.setTextViewText(R.id.widget_refresh, "↻")
+        val horizontalPadding = dp(context, if (isCompact) 10 else 16)
+        val verticalPadding = dp(context, if (isCompact) 10 else 12)
+        views.setViewPadding(
+            R.id.widget_root,
+            horizontalPadding,
+            verticalPadding,
+            horizontalPadding,
+            verticalPadding,
+        )
+        views.setViewVisibility(
+            R.id.widget_refresh,
+            if (isCompact) android.view.View.GONE else android.view.View.VISIBLE,
+        )
 
         val rows = listOf(
             Triple(R.id.lesson_1, R.id.lesson_1_title, R.id.lesson_1_detail),
@@ -122,7 +169,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             } else {
                 views.setViewVisibility(containerId, android.view.View.VISIBLE)
                 views.setTextViewText(titleId, lesson.tenMon)
-                views.setTextViewText(detailId, lessonDetail(lesson, periods))
+                views.setTextViewText(detailId, lessonTime(lesson, periods))
             }
         }
         views.setViewVisibility(
@@ -130,32 +177,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             if (schedule.lessons.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE,
         )
         return views
-    }
-
-    private fun selectSchedule(
-        today: String,
-        lessons: List<LessonEntity>,
-        periods: List<PeriodEntity>,
-    ): WidgetSchedule {
-        val grouped = lessons.groupBy { it.ngayHoc.take(10) }.toSortedMap()
-        val todayLessons = grouped[today].orEmpty()
-        val todayFinished = todayLessons.isEmpty() || isDayFinished(todayLessons, periods)
-        val selectedDate = if (!todayFinished) {
-            today
-        } else {
-            grouped.keys.firstOrNull { it > today }
-        }
-        return if (selectedDate == null) {
-            WidgetSchedule(
-                title = "Sắp tới",
-                lessons = emptyList(),
-            )
-        } else {
-            WidgetSchedule(
-                title = scheduleTitle(selectedDate, today),
-                lessons = grouped[selectedDate].orEmpty(),
-            )
-        }
     }
 
     private fun isDayFinished(
@@ -174,18 +195,60 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         return nowMinutes >= lastEndMinutes
     }
 
-    private fun scheduleTitle(date: String, today: String): String {
-        if (date == today) return "Hôm nay"
-        val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
-        val tomorrowString = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(tomorrow.time)
-        if (date == tomorrowString) return "Ngày mai"
-        val parsed = runCatching {
-            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
-        }.getOrNull() ?: return date
-        return SimpleDateFormat("EEEE, dd/MM", Locale("vi", "VN"))
-            .format(parsed)
-            .replaceFirstChar { it.uppercase() }
+    private fun scheduleTitle(day: Calendar, offset: Int): String {
+        val date = SimpleDateFormat("dd/MM", Locale("vi", "VN")).format(day.time)
+        return when (offset) {
+            0 -> "Hôm nay • $date"
+            1 -> "Ngày mai • $date"
+            else -> SimpleDateFormat("EEEE, dd/MM", Locale("vi", "VN"))
+                .format(day.time)
+                .replaceFirstChar { it.uppercase() }
+        }
     }
+
+    private fun navigationPendingIntent(
+        context: Context,
+        appWidgetId: Int,
+        action: String,
+        requestSuffix: Int,
+    ): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        appWidgetId * 10 + requestSuffix,
+        Intent(context, TimetableWidgetProvider::class.java).apply {
+            this.action = action
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun changeDay(
+        context: Context,
+        intent: Intent,
+        delta: Int,
+        reset: Boolean = false,
+    ) {
+        val appWidgetId = intent.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID,
+        )
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+        val preferences = widgetPreferences(context)
+        val key = offsetKey(appWidgetId)
+        val nextOffset = if (reset) {
+            0
+        } else {
+            (preferences.getInt(key, 0) + delta).coerceIn(MIN_OFFSET, MAX_OFFSET)
+        }
+        preferences.edit().putInt(key, nextOffset).apply()
+        update(context, AppWidgetManager.getInstance(context), appWidgetId)
+    }
+
+    private fun widgetPreferences(context: Context) = context.getSharedPreferences(
+        WIDGET_PREFERENCES,
+        Context.MODE_PRIVATE,
+    )
+
+    private fun offsetKey(appWidgetId: Int) = "day_offset_$appWidgetId"
 
     private fun String?.toMinutesOrNull(): Int? {
         val parts = this?.trim()?.split(":") ?: return null
@@ -229,17 +292,25 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun lessonDetail(lesson: LessonEntity, periods: List<PeriodEntity>): String {
+    private fun lessonTime(lesson: LessonEntity, periods: List<PeriodEntity>): String {
         val start = periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau
             ?: "Tiết ${lesson.tietBatDau}"
         val lastPeriod = lesson.tietBatDau + lesson.soTiet - 1
         val end = periods.firstOrNull { it.tiet == lastPeriod }?.gioKetThuc
-        val time = if (end.isNullOrBlank()) start else "$start–$end"
-        return if (lesson.maPhong.isBlank()) time else "$time  •  ${lesson.maPhong}"
+        return if (end.isNullOrBlank()) start else "$start–$end"
     }
+
+    private fun dp(context: Context, value: Int): Int =
+        (value * context.resources.displayMetrics.density).toInt()
 
     companion object {
         private const val ACTION_REFRESH = "com.sv.tnu.widget.REFRESH"
+        private const val ACTION_PREVIOUS_DAY = "com.sv.tnu.widget.PREVIOUS_DAY"
+        private const val ACTION_NEXT_DAY = "com.sv.tnu.widget.NEXT_DAY"
+        private const val ACTION_TODAY = "com.sv.tnu.widget.TODAY"
+        private const val WIDGET_PREFERENCES = "timetable_widget_state"
+        private const val MIN_OFFSET = -365
+        private const val MAX_OFFSET = 365
 
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -258,5 +329,6 @@ class TimetableWidgetProvider : AppWidgetProvider() {
     private data class WidgetSchedule(
         val title: String,
         val lessons: List<LessonEntity>,
+        val offset: Int,
     )
 }

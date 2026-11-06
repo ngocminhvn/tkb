@@ -4,7 +4,7 @@
     <string name="widget_name">Lịch học hôm nay</string>
     <string name="widget_description">Xem nhanh lịch học hôm nay ngay trên màn hình chính.</string>
     <string name="widget_today">Hôm nay</string>
-    <string name="widget_no_lessons">Không có lịch học sắp tới</string>
+    <string name="widget_no_lessons">Không có lịch học ngày này</string>
     <string name="widget_open_app">Mở SvTNU</string>
     <string name="widget_refresh">Cập nhật tiện ích</string>
 </resources>
