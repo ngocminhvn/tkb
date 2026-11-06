@@ -1,0 +1,11 @@
+# Gradle
+.gradle/
+build/
+local.properties
+# Android Studio
+.idea/
+*.iml
+# Keystore (only the base64 copy is committed; the raw keystore is generated from it in CI)
+*.keystore
+# OS
+.DS_Store
