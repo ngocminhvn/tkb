@@ -48,10 +48,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberUpdatedState
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
@@ -179,7 +181,12 @@ fun GlassTabBar(
     item: @Composable (index: Int, isSelected: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
+    val viewConfig = LocalViewConfiguration.current
+    val touchSlop = viewConfig.touchSlop
     val coroutineScope = rememberCoroutineScope()
+
+    val currentItemCount by rememberUpdatedState(itemCount)
+    val currentOnSelected by rememberUpdatedState(onSelected)
 
     BoxWithConstraints(
         modifier = modifier
@@ -207,6 +214,7 @@ fun GlassTabBar(
         val totalWidth = maxWidth
         val tabWidth = totalWidth / itemCount
         val tabWidthPx = with(density) { tabWidth.toPx() }
+        val currentTabWidthPx by rememberUpdatedState(tabWidthPx)
 
         // Vị trí lens trượt theo tab
         val lensOffsetAnim = remember { Animatable(selectedIndex * tabWidthPx) }
@@ -250,17 +258,23 @@ fun GlassTabBar(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(itemCount, tabWidthPx) {
+                .pointerInput(Unit) {
                     coroutineScope {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
+                            val widthPx = currentTabWidthPx.takeIf { it > 0f } ?: return@awaitEachGesture
+                            val count = currentItemCount
                             val downX = down.position.x
                             var currentFingerX = downX
                             var hasMoved = false
 
-                            // Bấm giữ (hold threshold) làm phình to viên lens
+                            val downTab = (downX / widthPx).toInt().coerceIn(0, count - 1)
+                            // Phản hồi thị giác đổi màu tab ngay khi chạm xuống
+                            activePreviewIndex = downTab
+
+                            // Bấm giữ (hold threshold) làm phình to viên lens sau 200ms
                             val holdJob = launch {
-                                delay(110)
+                                delay(200)
                                 isHolding = true
                             }
 
@@ -273,26 +287,26 @@ fun GlassTabBar(
                                     }
 
                                     val newX = change.position.x
-                                    if (!hasMoved && abs(newX - downX) > 8f) {
+                                    if (!hasMoved && abs(newX - downX) > touchSlop) {
                                         hasMoved = true
                                         isDragging = true
                                         isHolding = true
                                         holdJob.cancel()
                                     }
 
-                                    if (hasMoved || isHolding) {
+                                    if (hasMoved) {
                                         change.consume()
                                         currentFingerX = newX
-                                        val maxOffset = ((itemCount - 1) * tabWidthPx).coerceAtLeast(0f)
-                                        val targetLensX = (currentFingerX - tabWidthPx / 2f).coerceIn(0f, maxOffset)
+                                        val maxOffset = ((count - 1) * widthPx).coerceAtLeast(0f)
+                                        val targetLensX = (currentFingerX - widthPx / 2f).coerceIn(0f, maxOffset)
 
                                         launch {
                                             lensOffsetAnim.snapTo(targetLensX)
                                         }
 
-                                        val currentTab = (currentFingerX / tabWidthPx)
+                                        val currentTab = (currentFingerX / widthPx)
                                             .toInt()
-                                            .coerceIn(0, itemCount - 1)
+                                            .coerceIn(0, count - 1)
                                         activePreviewIndex = currentTab
                                     }
                                 }
@@ -301,24 +315,22 @@ fun GlassTabBar(
                                 isDragging = false
                                 isHolding = false
 
-                                // Tính tab đích khi thả ngón tay
+                                // Tính tab đích khi thả ngón tay (Tap nhạy ngay lập tức bằng downTab)
                                 val finalTab = if (hasMoved) {
-                                    val centreX = lensOffsetAnim.value + tabWidthPx / 2f
-                                    (centreX / tabWidthPx)
+                                    val centreX = lensOffsetAnim.value + widthPx / 2f
+                                    (centreX / widthPx)
                                         .roundToInt()
-                                        .coerceIn(0, itemCount - 1)
+                                        .coerceIn(0, count - 1)
                                 } else {
-                                    (downX / tabWidthPx)
-                                        .toInt()
-                                        .coerceIn(0, itemCount - 1)
+                                    downTab
                                 }
 
                                 activePreviewIndex = finalTab
-                                onSelected(finalTab)
+                                currentOnSelected(finalTab)
 
                                 launch {
                                     lensOffsetAnim.animateTo(
-                                        targetValue = finalTab * tabWidthPx,
+                                        targetValue = finalTab * widthPx,
                                         animationSpec = spring(
                                             dampingRatio = 0.65f,
                                             stiffness = 420f,

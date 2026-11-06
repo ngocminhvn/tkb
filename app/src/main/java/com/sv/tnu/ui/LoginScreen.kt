@@ -50,6 +50,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutApi
+import com.sv.tnu.tnut.TnutRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +67,7 @@ sealed interface LoginUiState {
 class LoginViewModel(
     private val api: TnutApi,
     private val authStore: AuthStore,
+    private val repository: TnutRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
@@ -90,6 +92,10 @@ class LoginViewModel(
                     _state.value = LoginUiState.Error("Đăng nhập thất bại: không nhận được phiên làm việc.")
                 } else {
                     authStore.saveLogin(portalUsername, password, res)
+                    // Tải ảnh đại diện portal ngầm
+                    try {
+                        repository.fetchAndSaveAvatar(portalUsername)
+                    } catch (_: Exception) {}
                     _state.value = LoginUiState.Success
                 }
             } catch (e: HttpException) {

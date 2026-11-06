@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,6 +72,14 @@ fun MoreScreen(
     val lessons by timetableViewModel.lessons.collectAsState()
     val selectedWeek by timetableViewModel.selectedWeek.collectAsState()
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
+    val avatarPath by repository.avatarPath.collectAsState()
+
+    LaunchedEffect(authStore.username, avatarPath) {
+        val username = authStore.username
+        if (!username.isNullOrBlank() && avatarPath.isNullOrBlank()) {
+            repository.fetchAndSaveAvatar(username)
+        }
+    }
 
     val totalSubjects = lessons.map { it.maMon }.distinct().size
     val totalCredits = lessons.distinctBy { it.maMon }.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
@@ -113,20 +123,13 @@ fun MoreScreen(
                         .padding(18.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.School,
-                                contentDescription = "School",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp),
-                            )
-                        }
+                        UserAvatar(
+                            avatarPath = avatarPath,
+                            defaultIcon = Icons.Default.School,
+                            modifier = Modifier.size(48.dp),
+                            iconSize = 28.dp,
+                            contentDescription = "Ảnh đại diện sinh viên",
+                        )
                         Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(

@@ -54,6 +54,10 @@ class AuthStore(context: Context) {
         get() = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_SYNC_TIME, value).apply()
 
+    var avatarPath: String?
+        get() = prefs.getString(KEY_AVATAR_PATH, null)
+        set(value) = prefs.edit().putString(KEY_AVATAR_PATH, value).apply()
+
     val hasCredentials: Boolean
         get() = !username.isNullOrBlank() && !password.isNullOrBlank()
 
@@ -78,6 +82,12 @@ class AuthStore(context: Context) {
     }
 
     fun clear() {
+        avatarPath?.let { path ->
+            try {
+                val file = java.io.File(path)
+                if (file.exists()) file.delete()
+            } catch (_: Exception) {}
+        }
         prefs.edit().clear().apply()
     }
 
@@ -89,5 +99,6 @@ class AuthStore(context: Context) {
         private const val KEY_IDPC = "idpc"
         private const val KEY_HOC_KY = "hoc_ky"
         private const val KEY_LAST_SYNC_TIME = "last_sync_time"
+        private const val KEY_AVATAR_PATH = "avatar_path"
     }
 }

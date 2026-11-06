@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = startDestination) {
                     composable("login") {
                         val vm: LoginViewModel = viewModel(
-                            factory = vmFactory { LoginViewModel(api, authStore) },
+                            factory = vmFactory { LoginViewModel(api, authStore, repository) },
                         )
                         val state by vm.state.collectAsState()
                         LoginScreen(
@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                             repository = repository,
                             timetableViewModel = timetableVm,
                             onLogout = {
+                                repository.clearAvatar()
                                 authStore.clear()
                                 navController.navigate("login") {
                                     popUpTo("main") { inclusive = true }

@@ -1,13 +1,18 @@
 package com.sv.tnu.tnut
 
 import android.content.Context
+import android.util.Base64
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import java.io.File
 
 /**
  * Nguồn dữ liệu thời khóa biểu: API portal -> Room, UI đọc Flow từ Room nên
@@ -23,6 +28,9 @@ class TnutRepository(
     val defaultHocKy: Int = 20261
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
+
+    private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
+    val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
 
     fun periodsFlow(): Flow<List<PeriodEntity>> = dao.periods()
 
@@ -54,6 +62,12 @@ class TnutRepository(
             }
             saveToDb(hocKy, res.data)
             authStore.hocKy = hocKy
+            // Đồng thời tải avatar nếu chưa có
+            if (authStore.avatarPath.isNullOrBlank() && !authStore.username.isNullOrBlank()) {
+                try {
+                    fetchAndSaveAvatar(authStore.username!!)
+                } catch (_: Exception) {}
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -108,5 +122,30 @@ class TnutRepository(
         } catch (_: Exception) {
             // Không có file mẫu thì thôi, app vẫn chạy, user đăng nhập để tải lịch thật.
         }
+    }
+
+    suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
+        return try {
+            val res = api.avatar(maSv)
+            val rawImage = res.data?.thongTinSinhVien?.image?.takeIf { it.isNotBlank() }
+            if (rawImage != null) {
+                val base64Str = if (rawImage.contains(",")) rawImage.substringAfter(",") else rawImage
+                val bytes = Base64.decode(base64Str, Base64.DEFAULT)
+                val file = File(context.filesDir, "avatar_${maSv}.jpg")
+                file.writeBytes(bytes)
+                val path = file.absolutePath
+                authStore.avatarPath = path
+                _avatarPath.value = path
+                Result.success(path)
+            } else {
+                Result.success(null)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun clearAvatar() {
+        _avatarPath.value = null
     }
 }

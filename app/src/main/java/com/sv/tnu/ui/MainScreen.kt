@@ -88,6 +88,7 @@ fun MainScreen(
             NavigationTab.SETTINGS -> {
                 SettingsScreen(
                     authStore = authStore,
+                    repository = repository,
                     appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
                     contentPadding = PaddingValues(bottom = 96.dp),

@@ -33,4 +33,10 @@ interface TnutApi {
     suspend fun weeklyTimetable(
         @Body body: WeeklyRequest,
     ): ApiWrapper<TkbData>
+
+    @POST("sms/w-locthongtinimagesinhvien")
+    suspend fun avatar(
+        @retrofit2.http.Query("MaSV") maSv: String,
+        @retrofit2.http.Body body: Map<String, String> = emptyMap(),
+    ): AvatarResponse
 }

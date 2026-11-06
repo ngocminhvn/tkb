@@ -104,3 +104,20 @@ data class WeeklyRequest(
     val filter: WeeklyFilter,
     val additional: WeeklyAdditional = WeeklyAdditional(),
 )
+
+@Serializable
+data class StudentImage(
+    val image: String? = null,
+)
+
+@Serializable
+data class AvatarData(
+    @SerialName("thong_tin_sinh_vien") val thongTinSinhVien: StudentImage? = null,
+)
+
+@Serializable
+data class AvatarResponse(
+    val code: Int = 0,
+    val data: AvatarData? = null,
+    val message: String? = null,
+)

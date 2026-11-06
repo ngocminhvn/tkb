@@ -33,21 +33,36 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.ui.components.UserAvatar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     authStore: AuthStore,
+    repository: TnutRepository,
     appUpdateViewModel: com.sv.tnu.update.AppUpdateViewModel,
     onLogout: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+    val avatarPath by repository.avatarPath.collectAsState()
+
+    LaunchedEffect(authStore.username, avatarPath) {
+        val username = authStore.username
+        if (!username.isNullOrBlank() && avatarPath.isNullOrBlank()) {
+            repository.fetchAndSaveAvatar(username)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -87,20 +102,13 @@ fun SettingsScreen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "User Avatar",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(36.dp),
-                        )
-                    }
+                    UserAvatar(
+                        avatarPath = avatarPath,
+                        defaultIcon = Icons.Default.AccountCircle,
+                        modifier = Modifier.size(52.dp),
+                        iconSize = 36.dp,
+                        contentDescription = "Ảnh đại diện sinh viên",
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
