@@ -5,6 +5,7 @@ import android.util.Base64
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
+import com.sv.tnu.data.LessonNoteEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
@@ -41,6 +42,23 @@ class TnutRepository(
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
     fun examsFlow(hocKy: Int): Flow<List<ExamEntity>> = dao.exams(hocKy)
+
+    fun lessonNotesFlow(): Flow<List<LessonNoteEntity>> = dao.lessonNotes()
+
+    suspend fun saveLessonNote(lessonId: String, note: String) {
+        val normalized = note.trim()
+        if (normalized.isEmpty()) {
+            dao.deleteLessonNote(lessonId)
+        } else {
+            dao.upsertLessonNote(
+                LessonNoteEntity(
+                    lessonId = lessonId,
+                    note = normalized,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
 
     suspend fun loadSemesters(): Result<List<Semester>> {
         return try {

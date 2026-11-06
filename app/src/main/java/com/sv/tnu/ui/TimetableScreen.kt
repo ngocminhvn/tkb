@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MeetingRoom
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,8 +41,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -78,6 +82,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -104,6 +109,10 @@ class TimetableViewModel(
 
     val exams: StateFlow<List<ExamEntity>> = repository.examsFlow(hocKy)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val lessonNotes: StateFlow<Map<String, String>> = repository.lessonNotesFlow()
+        .map { notes -> notes.associate { it.lessonId to it.note } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val selectedWeek: StateFlow<Int?> = combine(weeks, _selectedWeek) { weekList, selected ->
         selected ?: currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
@@ -147,6 +156,12 @@ class TimetableViewModel(
                 }
                 .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
             _refreshing.value = false
+        }
+    }
+
+    fun saveLessonNote(lessonId: String, note: String) {
+        viewModelScope.launch {
+            repository.saveLessonNote(lessonId, note)
         }
     }
 
@@ -246,7 +261,9 @@ fun TimetableScreen(
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
     val error by viewModel.error.collectAsState()
+    val lessonNotes by viewModel.lessonNotes.collectAsState()
     var askedRefresh by remember { mutableStateOf(false) }
+    var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
     val isDark = isSystemInDarkTheme()
 
     // Date logic: Hôm nay và lọc ngày đã qua
@@ -530,6 +547,8 @@ fun TimetableScreen(
                                 lesson = item.lesson,
                                 time = item.timeDisplay,
                                 isToday = isToday,
+                                note = lessonNotes[item.lesson.idTkb].orEmpty(),
+                                onEditNote = { noteLesson = item.lesson },
                             )
                             is ScheduleItem.Exam -> ExamCard(
                                 exam = item.exam,
@@ -542,7 +561,18 @@ fun TimetableScreen(
             }
         }
     }
-}
+
+    noteLesson?.let { lesson ->
+        LessonNoteDialog(
+            lesson = lesson,
+            initialNote = lessonNotes[lesson.idTkb].orEmpty(),
+            onDismiss = { noteLesson = null },
+            onSave = { note ->
+                viewModel.saveLessonNote(lesson.idTkb, note)
+                noteLesson = null
+            },
+        )
+    }
 }
 
 @Composable
@@ -590,7 +620,13 @@ private fun DayHeader(date: String, isToday: Boolean) {
 }
 
 @Composable
-private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
+private fun LessonCard(
+    lesson: LessonEntity,
+    time: String,
+    isToday: Boolean,
+    note: String,
+    onEditNote: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -714,8 +750,88 @@ private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                 )
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                    .clickable(onClick = onEditNote)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = note.ifBlank { "Thêm ghi chú" },
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = if (note.isBlank()) FontWeight.Medium else FontWeight.Normal,
+                    ),
+                    color = if (note.isBlank()) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 3,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun LessonNoteDialog(
+    lesson: LessonEntity,
+    initialNote: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var note by remember(lesson.idTkb, initialNote) { mutableStateOf(initialNote) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ghi chú buổi học") },
+        text = {
+            Column {
+                Text(
+                    text = lesson.tenMon,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { value ->
+                        if (value.length <= 500) note = value
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nội dung") },
+                    placeholder = { Text("Ví dụ: Mang laptop, nộp bài tập…") },
+                    minLines = 3,
+                    maxLines = 6,
+                    supportingText = {
+                        Text(if (note.isBlank()) "Để trống để xoá ghi chú" else "${note.length}/500")
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(note) }) {
+                Text("Lưu")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Huỷ")
+            }
+        },
+    )
 }
 
 @Composable

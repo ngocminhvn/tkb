@@ -12,6 +12,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "periods")
@@ -49,6 +51,13 @@ data class LessonEntity(
     val tenGiangVien: String,
     val tenLop: String,
     val maNhom: String,
+)
+
+@Entity(tableName = "lesson_notes")
+data class LessonNoteEntity(
+    @PrimaryKey val lessonId: String,
+    val note: String,
+    val updatedAt: Long,
 )
 
 @Entity(
@@ -97,6 +106,9 @@ interface TkbDao {
     @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
     fun exams(hocKy: Int): Flow<List<ExamEntity>>
 
+    @Query("SELECT * FROM lesson_notes ORDER BY updatedAt DESC")
+    fun lessonNotes(): Flow<List<LessonNoteEntity>>
+
     @Query("SELECT COUNT(*) FROM weeks WHERE hocKy = :hocKy")
     suspend fun weekCount(hocKy: Int): Int
 
@@ -111,6 +123,12 @@ interface TkbDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExams(list: List<ExamEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLessonNote(note: LessonNoteEntity)
+
+    @Query("DELETE FROM lesson_notes WHERE lessonId = :lessonId")
+    suspend fun deleteLessonNote(lessonId: String)
 
     @Query("DELETE FROM lessons WHERE hocKy = :hocKy")
     suspend fun deleteLessons(hocKy: Int)
@@ -147,14 +165,33 @@ interface TkbDao {
 }
 
 @Database(
-    entities = [PeriodEntity::class, WeekEntity::class, LessonEntity::class, ExamEntity::class],
-    version = 2,
+    entities = [
+        PeriodEntity::class,
+        WeekEntity::class,
+        LessonEntity::class,
+        LessonNoteEntity::class,
+        ExamEntity::class,
+    ],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tkbDao(): TkbDao
 
     companion object {
+        private val migration2To3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `lesson_notes` (
+                        `lessonId` TEXT NOT NULL,
+                        `note` TEXT NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`lessonId`)
+                    )""".trimIndent(),
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -164,7 +201,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "tkb.db",
-                ).fallbackToDestructiveMigration().build().also { instance = it }
+                )
+                    .addMigrations(migration2To3)
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { instance = it }
             }
         }
     }
