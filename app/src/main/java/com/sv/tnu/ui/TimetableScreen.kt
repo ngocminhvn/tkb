@@ -1,6 +1,12 @@
 package com.sv.tnu.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,14 +15,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MeetingRoom
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,9 +52,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.LessonEntity
+import com.sv.tnu.data.PeriodEntity
+import com.sv.tnu.data.WeekEntity
+import com.sv.tnu.tnut.TnutRepository
+import com.wexpa.liquidglass.CapsuleShape
+import com.wexpa.liquidglass.glassEffect
+import com.wexpa.liquidglass.material3.GlassMaterialDefaults
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -49,11 +79,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.sv.tnu.data.AuthStore
-import com.sv.tnu.data.LessonEntity
-import com.sv.tnu.data.PeriodEntity
-import com.sv.tnu.tnut.TnutRepository
-import com.sv.tnu.data.WeekEntity
 
 class TimetableViewModel(
     private val repository: TnutRepository,
@@ -151,7 +176,7 @@ private fun timeRange(periods: List<PeriodEntity>, tietBatDau: Int, soTiet: Int)
 @Composable
 fun TimetableScreen(
     viewModel: TimetableViewModel,
-    onLogout: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val weeks by viewModel.weeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
@@ -161,6 +186,21 @@ fun TimetableScreen(
     val error by viewModel.error.collectAsState()
     var askedRefresh by remember { mutableStateOf(false) }
 
+    // Date logic: Hôm nay và lọc ngày đã qua
+    val todayCalendar = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
+    val todayDate = remember(todayCalendar) { todayCalendar.time }
+    val todayStr = remember(todayDate) { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(todayDate) }
+
+    // Mặc định: ngày qua rồi thì không hiện nữa (showPastDays = false)
+    var showPastDays by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         if (!askedRefresh) {
             askedRefresh = true
@@ -169,24 +209,67 @@ fun TimetableScreen(
     }
 
     val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
-    val grouped = remember(lessons) {
+    val allGrouped = remember(lessons) {
         lessons.groupBy { it.ngayHoc.take(10) }.toSortedMap()
+    }
+
+    // Các ngày đã qua trong tuần
+    val hasPastDaysInWeek = remember(allGrouped, todayStr) {
+        allGrouped.keys.any { it < todayStr }
+    }
+    val pastDaysCount = remember(allGrouped, todayStr) {
+        allGrouped.keys.count { it < todayStr }
+    }
+
+    // Danh sách hiển thị theo logic: ngày qua rồi thì không hiện nữa
+    val displayedGrouped = remember(allGrouped, showPastDays, todayStr) {
+        if (showPastDays) {
+            allGrouped
+        } else {
+            allGrouped.filterKeys { date -> date >= todayStr }
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Thời khóa biểu") },
-                actions = {
-                    IconButton(onClick = { viewModel.refresh() }, enabled = !refreshing) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Tải lại")
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Đăng xuất")
+                title = {
+                    Column {
+                        Text(
+                            text = "Thời khóa biểu",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        )
+                        Text(
+                            text = "Học kỳ ${viewModel.hocKy}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = { viewModel.refresh() },
+                        enabled = !refreshing,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                    ) {
+                        if (refreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Tải lại")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                ),
             )
         },
+        containerColor = Color.Transparent,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -194,71 +277,181 @@ fun TimetableScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            Text(
-                text = "Học kỳ ${viewModel.hocKy}",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            // Week Selector Card (Glass capsule container)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(22.dp)),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
             ) {
-                IconButton(onClick = { viewModel.moveWeek(-1) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Tuần trước")
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (selectedWeek != null) "Tuần $selectedWeek" else "—",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        text = weekInfo?.let { "${it.ngayBatDau} – ${it.ngayKetThuc}" } ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                IconButton(onClick = { viewModel.moveWeek(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Tuần sau")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = { viewModel.moveWeek(-1) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Tuần trước",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (selectedWeek != null) "Tuần $selectedWeek" else "—",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        )
+                        Text(
+                            text = weekInfo?.let { "${it.ngayBatDau} – ${it.ngayKetThuc}" } ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.moveWeek(1) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Tuần sau",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
-            if (refreshing) {
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Toggle / Notice filter chip for past days
+            if (hasPastDaysInWeek) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    CircularProgressIndicator()
+                    Box(
+                        modifier = Modifier
+                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CapsuleShape)
+                            .clip(CapsuleShape)
+                            .clickable { showPastDays = !showPastDays }
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (showPastDays) Icons.Default.FilterList else Icons.Default.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (showPastDays) "Đang hiện cả các ngày đã qua • Ẩn đi"
+                                else "Đã ẩn $pastDaysCount ngày đã qua • Chạm để xem",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            error?.let {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(14.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(12.dp),
+                    )
                 }
             }
-            error?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            if (grouped.isEmpty() && !refreshing) {
-                Text(
-                    text = "Tuần này không có buổi học nào.",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-            LazyColumn(
-                contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                grouped.forEach { (date, dayLessons) ->
-                    item(key = "day-$date") {
+
+            // Empty state
+            if (displayedGrouped.isEmpty() && !refreshing) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (allGrouped.isNotEmpty() && !showPastDays) {
                         Text(
-                            text = dayLabel(dayLessons.first().ngayHoc),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(top = 8.dp),
+                            text = "Các ngày học trong tuần này đã qua.",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .glassEffect(GlassMaterialDefaults.regular.interactive(), CapsuleShape)
+                                .clip(CapsuleShape)
+                                .clickable { showPastDays = true }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = "Xem lại lịch đã qua của tuần này",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Tuần này không có buổi học nào.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                         )
                     }
+                }
+            }
+
+            // Timetable List
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = 4.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                displayedGrouped.forEach { (date, dayLessons) ->
+                    val isToday = date == todayStr
+
+                    item(key = "header-$date") {
+                        DayHeader(
+                            date = dayLessons.first().ngayHoc,
+                            isToday = isToday,
+                        )
+                    }
+
                     items(dayLessons, key = { it.idTkb }) { lesson ->
                         LessonCard(
                             lesson = lesson,
                             time = timeRange(periods, lesson.tietBatDau, lesson.soTiet),
+                            isToday = isToday,
                         )
                     }
                 }
@@ -268,29 +461,182 @@ fun TimetableScreen(
 }
 
 @Composable
-private fun LessonCard(lesson: LessonEntity, time: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = lesson.tenMon,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = "$time • Tiết ${lesson.tietBatDau} (${lesson.soTiet} tiết)",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "${lesson.maMon} • ${lesson.soTinChi} tín chỉ • Nhóm ${lesson.maNhom}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "Phòng ${lesson.maPhong.ifBlank { "—" }} • ${lesson.tenGiangVien}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (lesson.tenLop.isNotBlank()) {
+private fun DayHeader(date: String, isToday: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = dayLabel(date),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
+            ),
+            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        )
+
+        if (isToday) {
+            Box(
+                modifier = Modifier
+                    .clip(CapsuleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondary),
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Hôm nay",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isToday) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            },
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.14f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Subject title & credits badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
                 Text(
-                    text = "Lớp ${lesson.tenLop}",
+                    text = lesson.tenMon,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(CapsuleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = "${lesson.soTinChi} TC",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Time & Period pill
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "• Tiết ${lesson.tietBatDau} (${lesson.soTiet} tiết)",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Details info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MeetingRoom,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Phòng: ${lesson.maPhong.ifBlank { "—" }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "GV: ${lesson.tenGiangVien.ifBlank { "—" }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.School,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${lesson.maMon} • Nhóm ${lesson.maNhom}${if (lesson.tenLop.isNotBlank()) " • Lớp " + lesson.tenLop else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                 )
             }
         }

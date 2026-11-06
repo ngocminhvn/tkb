@@ -11,21 +11,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.sv.tnu.tnut.TnutApiClient
 import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.tnut.TnutApiClient
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.LoginScreen
 import com.sv.tnu.ui.LoginViewModel
-import com.sv.tnu.ui.TimetableScreen
+import com.sv.tnu.ui.MainScreen
 import com.sv.tnu.ui.TimetableViewModel
 import com.sv.tnu.ui.theme.TkbTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Điểm gắn trường đang dùng: hiện tại chỉ có TNUT (thư mục tnut/).
-        // Thêm trường khác = thêm 1 thư mục như tnut/ rồi đổi chỗ này.
         val authStore = AuthStore(this)
         val api = TnutApiClient.create(authStore)
         val db = AppDatabase.get(this)
@@ -34,7 +32,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TkbTheme {
                 val navController = rememberNavController()
-                val startDestination = if (authStore.isLoggedIn) "timetable" else "login"
+                val startDestination = if (authStore.isLoggedIn) "main" else "login"
                 NavHost(navController = navController, startDestination = startDestination) {
                     composable("login") {
                         val vm: LoginViewModel = viewModel(
@@ -46,22 +44,24 @@ class MainActivity : ComponentActivity() {
                             state = state,
                             schoolName = "TNUT",
                             onLoggedIn = {
-                                navController.navigate("timetable") {
+                                navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }
                                 }
                             },
                         )
                     }
-                    composable("timetable") {
-                        val vm: TimetableViewModel = viewModel(
+                    composable("main") {
+                        val timetableVm: TimetableViewModel = viewModel(
                             factory = vmFactory { TimetableViewModel(repository, authStore) },
                         )
-                        TimetableScreen(
-                            viewModel = vm,
+                        MainScreen(
+                            authStore = authStore,
+                            repository = repository,
+                            timetableViewModel = timetableVm,
                             onLogout = {
                                 authStore.clear()
                                 navController.navigate("login") {
-                                    popUpTo("timetable") { inclusive = true }
+                                    popUpTo("main") { inclusive = true }
                                 }
                             },
                         )

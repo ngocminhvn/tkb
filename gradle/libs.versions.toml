@@ -13,8 +13,11 @@ retrofit = "2.11.0"
 okhttp = "4.12.0"
 datastore = "1.1.1"
 security-crypto = "1.1.0-alpha06"
+liquidglass = "1.0.0"
 
 [libraries]
+liquidglass = { group = "dev.shayxo.liquidglass", name = "liquidglass", version.ref = "liquidglass" }
+liquidglass-material3 = { group = "dev.shayxo.liquidglass", name = "liquidglass-material3", version.ref = "liquidglass" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
