@@ -2,6 +2,10 @@ package com.sv.tnu.tnut
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
 @Serializable
 data class LoginResponse(
@@ -124,25 +128,49 @@ data class AvatarResponse(
 
 @Serializable
 data class ExamItemApi(
-    @SerialName("so_thu_tu") val soThuTu: Int = 0,
-    @SerialName("ma_mon") val maMon: String = "",
-    @SerialName("ten_mon") val tenMon: String = "",
+    @SerialName("so_thu_tu") val soThuTu: JsonElement? = null,
+    @SerialName("ma_mon") val maMon: String? = null,
+    @SerialName("ten_mon") val tenMon: String? = null,
     @SerialName("ten_mon_eg") val tenMonEg: String? = null,
-    @SerialName("ngay_thi") val ngayThi: String = "",
-    @SerialName("gio_bat_dau") val gioBatDau: String = "",
-    @SerialName("so_phut") val soPhut: Int = 0,
-    @SerialName("ma_phong") val maPhong: String = "",
+    @SerialName("ngay_thi") val ngayThi: String? = null,
+    @SerialName("gio_bat_dau") val gioBatDau: String? = null,
+    @SerialName("so_phut") val soPhut: JsonElement? = null,
+    @SerialName("tiet_bat_dau") val tietBatDau: JsonElement? = null,
+    @SerialName("so_tiet") val soTiet: JsonElement? = null,
+    @SerialName("ma_phong") val maPhong: String? = null,
     @SerialName("dia_diem_thi") val diaDiemThi: String? = null,
     @SerialName("hinh_thuc_thi") val hinhThucThi: String? = null,
     @SerialName("so_bao_danh") val soBaoDanh: String? = null,
     @SerialName("dot_thi") val dotThi: String? = null,
     @SerialName("ghi_chu_sv") val ghiChuSv: String? = null,
-)
+    @SerialName("ghi_chu_htt") val ghiChuHtt: String? = null,
+    @SerialName("to_thi") val toThi: String? = null,
+    @SerialName("nhom_thi") val nhomThi: String? = null,
+    @SerialName("ghep_thi") val ghepThi: String? = null,
+) {
+    val soPhutInt: Int
+        get() = when (val el = soPhut) {
+            is JsonPrimitive -> el.intOrNull ?: el.contentOrNull?.toIntOrNull() ?: 0
+            else -> 0
+        }
+
+    val soThuTuInt: Int
+        get() = when (val el = soThuTu) {
+            is JsonPrimitive -> el.intOrNull ?: el.contentOrNull?.toIntOrNull() ?: 0
+            else -> 0
+        }
+}
 
 @Serializable
 data class ExamDataApi(
+    @SerialName("total_items") val totalItems: Int? = null,
+    @SerialName("total_pages") val totalPages: Int? = null,
+    @SerialName("is_DHMO") val isDhmo: Boolean? = null,
     @SerialName("ds_lich_thi") val dsLichThi: List<ExamItemApi> = emptyList(),
     @SerialName("ds_lich_hoan_thi") val dsLichHoanThi: List<ExamItemApi> = emptyList(),
+    @SerialName("title_lich_hoan_thi") val titleLichHoanThi: String? = null,
+    @SerialName("thong_bao_no_hoc_phi") val thongBaoNoHocPhi: String? = null,
+    @SerialName("is_show_in_sv_du_thi") val isShowInSvDuThi: Boolean? = null,
     @SerialName("thong_bao_ghi_chu") val thongBaoGhiChu: String? = null,
 )
 
@@ -151,6 +179,7 @@ data class ExamResponse(
     val code: Int = 0,
     val data: ExamDataApi? = null,
     val message: String? = null,
+    val result: Boolean = false,
 )
 
 @Serializable

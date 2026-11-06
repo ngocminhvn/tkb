@@ -198,7 +198,12 @@ fun SettingsScreen(
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
                 },
-                onClick = { showExamDialog = true },
+                onClick = {
+                    showExamDialog = true
+                    if (exams.isEmpty()) {
+                        timetableViewModel.fetchExamsOnly()
+                    }
+                },
             )
 
             ActionCard(

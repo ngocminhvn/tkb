@@ -127,6 +127,17 @@ class TimetableViewModel(
     init {
         viewModelScope.launch {
             repository.seedFromAssetsIfEmpty(hocKy)
+            try {
+                repository.fetchAndSaveExams(hocKy)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun fetchExamsOnly() {
+        viewModelScope.launch {
+            try {
+                repository.fetchAndSaveExams(hocKy)
+            } catch (_: Exception) {}
         }
     }
 

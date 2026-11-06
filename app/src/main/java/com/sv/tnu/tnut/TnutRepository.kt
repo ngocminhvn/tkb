@@ -2,6 +2,7 @@ package com.sv.tnu.tnut
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
@@ -192,24 +193,25 @@ class TnutRepository(
             // Lịch thi cuối kỳ
             try {
                 val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
+                Log.d("TnutRepository", "fetch exams cuoiky result: code=${resCuoiKy.code}, items=${resCuoiKy.data?.dsLichThi?.size}")
                 resCuoiKy.data?.let { data ->
                     data.dsLichThi.forEach {
                         list.add(
                             ExamEntity(
                                 hocKy = hocKy,
                                 isGiuaKy = false,
-                                soThuTu = it.soThuTu,
-                                maMon = it.maMon,
-                                tenMon = it.tenMon,
-                                ngayThi = normalizeDateToYmd(it.ngayThi),
-                                gioBatDau = it.gioBatDau,
-                                soPhut = it.soPhut,
-                                maPhong = it.maPhong,
-                                diaDiemThi = it.diaDiemThi ?: "",
-                                hinhThucThi = it.hinhThucThi ?: "",
-                                soBaoDanh = it.soBaoDanh ?: "",
-                                dotThi = it.dotThi ?: "",
-                                ghiChuSv = it.ghiChuSv ?: "",
+                                soThuTu = it.soThuTuInt,
+                                maMon = it.maMon?.trim() ?: "",
+                                tenMon = it.tenMon?.trim() ?: "",
+                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                gioBatDau = it.gioBatDau?.trim() ?: "",
+                                soPhut = it.soPhutInt,
+                                maPhong = it.maPhong?.trim() ?: "",
+                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                dotThi = it.dotThi?.trim() ?: "",
+                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
                                 isHoanThi = false,
                             )
                         )
@@ -219,56 +221,62 @@ class TnutRepository(
                             ExamEntity(
                                 hocKy = hocKy,
                                 isGiuaKy = false,
-                                soThuTu = it.soThuTu,
-                                maMon = it.maMon,
-                                tenMon = it.tenMon,
-                                ngayThi = normalizeDateToYmd(it.ngayThi),
-                                gioBatDau = it.gioBatDau,
-                                soPhut = it.soPhut,
-                                maPhong = it.maPhong,
-                                diaDiemThi = it.diaDiemThi ?: "",
-                                hinhThucThi = it.hinhThucThi ?: "",
-                                soBaoDanh = it.soBaoDanh ?: "",
-                                dotThi = it.dotThi ?: "",
-                                ghiChuSv = it.ghiChuSv ?: "",
+                                soThuTu = it.soThuTuInt,
+                                maMon = it.maMon?.trim() ?: "",
+                                tenMon = it.tenMon?.trim() ?: "",
+                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                gioBatDau = it.gioBatDau?.trim() ?: "",
+                                soPhut = it.soPhutInt,
+                                maPhong = it.maPhong?.trim() ?: "",
+                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                dotThi = it.dotThi?.trim() ?: "",
+                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
                                 isHoanThi = true,
                             )
                         )
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("TnutRepository", "fetch exams cuoiky failed", e)
+            }
 
             // Lịch thi giữa kỳ
             try {
                 val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
+                Log.d("TnutRepository", "fetch exams giuaky result: code=${resGiuaKy.code}, items=${resGiuaKy.data?.dsLichThi?.size}")
                 resGiuaKy.data?.let { data ->
                     data.dsLichThi.forEach {
                         list.add(
                             ExamEntity(
                                 hocKy = hocKy,
                                 isGiuaKy = true,
-                                soThuTu = it.soThuTu,
-                                maMon = it.maMon,
-                                tenMon = it.tenMon,
-                                ngayThi = normalizeDateToYmd(it.ngayThi),
-                                gioBatDau = it.gioBatDau,
-                                soPhut = it.soPhut,
-                                maPhong = it.maPhong,
-                                diaDiemThi = it.diaDiemThi ?: "",
-                                hinhThucThi = it.hinhThucThi ?: "",
-                                soBaoDanh = it.soBaoDanh ?: "",
-                                dotThi = it.dotThi ?: "",
-                                ghiChuSv = it.ghiChuSv ?: "",
+                                soThuTu = it.soThuTuInt,
+                                maMon = it.maMon?.trim() ?: "",
+                                tenMon = it.tenMon?.trim() ?: "",
+                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                gioBatDau = it.gioBatDau?.trim() ?: "",
+                                soPhut = it.soPhutInt,
+                                maPhong = it.maPhong?.trim() ?: "",
+                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                dotThi = it.dotThi?.trim() ?: "",
+                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
                                 isHoanThi = false,
                             )
                         )
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("TnutRepository", "fetch exams giuaky failed", e)
+            }
 
             dao.replaceExams(hocKy, list)
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e("TnutRepository", "fetchAndSaveExams error", e)
             Result.failure(e)
         }
     }
