@@ -37,7 +37,22 @@ object TnutApiClient {
                 }
                 builder.addHeader("idpc", authStore.idpc ?: "0")
             }
-            chain.proceed(builder.build())
+            val response = chain.proceed(builder.build())
+            // Portal TNUT trả về HTTP 200 nhưng body chứa "code":401 hoặc "notallowed" khi token hết hạn
+            if (response.isSuccessful && !isLogin) {
+                val peek = try {
+                    response.peekBody(1024).string()
+                } catch (_: Exception) {
+                    ""
+                }
+                if (peek.contains("\"code\":401") || peek.contains("notallowed")) {
+                    return@Interceptor response.newBuilder()
+                        .code(401)
+                        .message("Unauthorized (expired portal token)")
+                        .build()
+                }
+            }
+            response
         }
 
         val authenticator = object : Authenticator {

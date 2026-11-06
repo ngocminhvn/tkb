@@ -78,6 +78,7 @@ fun SettingsScreen(
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.exams.collectAsState()
+    val isFetchingExams by timetableViewModel.isFetchingExams.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -155,8 +156,8 @@ fun SettingsScreen(
                     ) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Môn tuần này",
-                            value = "$totalSubjects",
+                            label = "Tuần này",
+                            value = "$totalSubjects môn",
                         )
                         StatItem(
                             modifier = Modifier.weight(1f),
@@ -182,21 +183,24 @@ fun SettingsScreen(
             ActionCard(
                 icon = Icons.Default.DateRange,
                 title = "Lịch thi học kỳ",
-                subtitle = if (exams.isEmpty()) "Chưa có lịch thi (sẽ tự tải khi nhà trường công bố)"
+                subtitle = if (isFetchingExams && exams.isEmpty()) "Đang tải lịch thi từ portal..."
+                else if (exams.isEmpty()) "Chưa có lịch thi (sẽ tự tải khi nhà trường công bố)"
                 else "${exams.count { !it.isHoanThi }} buổi thi${if (exams.any { it.isHoanThi }) " • Có môn hoãn thi" else ""}",
                 trailing = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                        contentDescription = "Xem lịch thi",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    )
+                    if (isFetchingExams) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = "Xem lịch thi",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                    }
                 },
                 onClick = {
                     showExamDialog = true
-                    if (exams.isEmpty()) {
-                        timetableViewModel.fetchExamsOnly()
-                    }
+                    timetableViewModel.fetchExamsOnly()
                 },
             )
 
@@ -259,10 +263,10 @@ fun SettingsScreen(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(50.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626),
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
                 shape = RoundedCornerShape(16.dp),
             ) {
@@ -270,13 +274,13 @@ fun SettingsScreen(
                     imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = "Logout",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Đăng xuất tài khoản",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
 
@@ -309,7 +313,7 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = "Đăng xuất",
-                            color = Color(0xFFDC2626),
+                            color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                         )
                     }
@@ -333,7 +337,22 @@ fun SettingsScreen(
                     )
                 },
                 text = {
-                    if (exams.isEmpty()) {
+                    if (isFetchingExams && exams.isEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Đang tải lịch thi từ nhà trường...",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    } else if (exams.isEmpty()) {
                         Text(
                             text = "Chưa có thông tin lịch thi cho học kỳ này từ nhà trường.",
                             style = MaterialTheme.typography.bodyMedium,

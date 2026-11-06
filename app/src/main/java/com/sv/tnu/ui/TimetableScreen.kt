@@ -124,20 +124,25 @@ class TimetableViewModel(
             else repository.lessonsFlow(hocKy, week)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _isFetchingExams = MutableStateFlow(false)
+    val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
+
     init {
         viewModelScope.launch {
             repository.seedFromAssetsIfEmpty(hocKy)
-            try {
-                repository.fetchAndSaveExams(hocKy)
-            } catch (_: Exception) {}
+            fetchExamsOnly()
         }
     }
 
     fun fetchExamsOnly() {
         viewModelScope.launch {
+            _isFetchingExams.value = true
             try {
                 repository.fetchAndSaveExams(hocKy)
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            } finally {
+                _isFetchingExams.value = false
+            }
         }
     }
 

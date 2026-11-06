@@ -190,52 +190,57 @@ class TnutRepository(
     suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
         return try {
             val list = mutableListOf<ExamEntity>()
+            var fetchedAny = false
+
             // Lịch thi cuối kỳ
             try {
                 val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
                 Log.d("TnutRepository", "fetch exams cuoiky result: code=${resCuoiKy.code}, items=${resCuoiKy.data?.dsLichThi?.size}")
-                resCuoiKy.data?.let { data ->
-                    data.dsLichThi.forEach {
-                        list.add(
-                            ExamEntity(
-                                hocKy = hocKy,
-                                isGiuaKy = false,
-                                soThuTu = it.soThuTuInt,
-                                maMon = it.maMon?.trim() ?: "",
-                                tenMon = it.tenMon?.trim() ?: "",
-                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                gioBatDau = it.gioBatDau?.trim() ?: "",
-                                soPhut = it.soPhutInt,
-                                maPhong = it.maPhong?.trim() ?: "",
-                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                dotThi = it.dotThi?.trim() ?: "",
-                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                isHoanThi = false,
+                if (resCuoiKy.code == 200 || resCuoiKy.result) {
+                    fetchedAny = true
+                    resCuoiKy.data?.let { data ->
+                        data.dsLichThi?.forEach {
+                            list.add(
+                                ExamEntity(
+                                    hocKy = hocKy,
+                                    isGiuaKy = false,
+                                    soThuTu = it.soThuTuInt,
+                                    maMon = it.maMon?.trim() ?: "",
+                                    tenMon = it.tenMon?.trim() ?: "",
+                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                    gioBatDau = it.gioBatDau?.trim() ?: "",
+                                    soPhut = it.soPhutInt,
+                                    maPhong = it.maPhong?.trim() ?: "",
+                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                    dotThi = it.dotThi?.trim() ?: "",
+                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
+                                    isHoanThi = false,
+                                )
                             )
-                        )
-                    }
-                    data.dsLichHoanThi.forEach {
-                        list.add(
-                            ExamEntity(
-                                hocKy = hocKy,
-                                isGiuaKy = false,
-                                soThuTu = it.soThuTuInt,
-                                maMon = it.maMon?.trim() ?: "",
-                                tenMon = it.tenMon?.trim() ?: "",
-                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                gioBatDau = it.gioBatDau?.trim() ?: "",
-                                soPhut = it.soPhutInt,
-                                maPhong = it.maPhong?.trim() ?: "",
-                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                dotThi = it.dotThi?.trim() ?: "",
-                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                isHoanThi = true,
+                        }
+                        data.dsLichHoanThi?.forEach {
+                            list.add(
+                                ExamEntity(
+                                    hocKy = hocKy,
+                                    isGiuaKy = false,
+                                    soThuTu = it.soThuTuInt,
+                                    maMon = it.maMon?.trim() ?: "",
+                                    tenMon = it.tenMon?.trim() ?: "",
+                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                    gioBatDau = it.gioBatDau?.trim() ?: "",
+                                    soPhut = it.soPhutInt,
+                                    maPhong = it.maPhong?.trim() ?: "",
+                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                    dotThi = it.dotThi?.trim() ?: "",
+                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
+                                    isHoanThi = true,
+                                )
                             )
-                        )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -246,34 +251,39 @@ class TnutRepository(
             try {
                 val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
                 Log.d("TnutRepository", "fetch exams giuaky result: code=${resGiuaKy.code}, items=${resGiuaKy.data?.dsLichThi?.size}")
-                resGiuaKy.data?.let { data ->
-                    data.dsLichThi.forEach {
-                        list.add(
-                            ExamEntity(
-                                hocKy = hocKy,
-                                isGiuaKy = true,
-                                soThuTu = it.soThuTuInt,
-                                maMon = it.maMon?.trim() ?: "",
-                                tenMon = it.tenMon?.trim() ?: "",
-                                ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                gioBatDau = it.gioBatDau?.trim() ?: "",
-                                soPhut = it.soPhutInt,
-                                maPhong = it.maPhong?.trim() ?: "",
-                                diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                dotThi = it.dotThi?.trim() ?: "",
-                                ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                isHoanThi = false,
+                if (resGiuaKy.code == 200 || resGiuaKy.result) {
+                    fetchedAny = true
+                    resGiuaKy.data?.let { data ->
+                        data.dsLichThi?.forEach {
+                            list.add(
+                                ExamEntity(
+                                    hocKy = hocKy,
+                                    isGiuaKy = true,
+                                    soThuTu = it.soThuTuInt,
+                                    maMon = it.maMon?.trim() ?: "",
+                                    tenMon = it.tenMon?.trim() ?: "",
+                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
+                                    gioBatDau = it.gioBatDau?.trim() ?: "",
+                                    soPhut = it.soPhutInt,
+                                    maPhong = it.maPhong?.trim() ?: "",
+                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
+                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
+                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
+                                    dotThi = it.dotThi?.trim() ?: "",
+                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
+                                    isHoanThi = false,
+                                )
                             )
-                        )
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("TnutRepository", "fetch exams giuaky failed", e)
             }
 
-            dao.replaceExams(hocKy, list)
+            if (fetchedAny || list.isNotEmpty()) {
+                dao.replaceExams(hocKy, list)
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TnutRepository", "fetchAndSaveExams error", e)
