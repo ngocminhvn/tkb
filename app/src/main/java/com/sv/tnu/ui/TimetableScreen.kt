@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -389,52 +390,40 @@ fun TimetableScreen(
                 }
             }
 
-            // Empty state
+            // Empty state căn giữa trung tâm
             if (displayedGrouped.isEmpty() && !refreshing) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .weight(1f)
+                        .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    if (allGrouped.isNotEmpty() && !showPastDays) {
-                        Text(
-                            text = "Các ngày học trong tuần này đã qua.",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { showPastDays = true }
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        ) {
-                            Text(
-                                text = "Xem lại lịch đã qua của tuần này",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "Tuần này không có buổi học nào.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                        )
-                    }
+                    Text(
+                        text = if (allGrouped.isNotEmpty() && !showPastDays) {
+                            "Các ngày học của tuần này đã qua."
+                        } else {
+                            "Tuần này không có buổi học nào."
+                        },
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
 
             // Timetable List
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top = 4.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            if (displayedGrouped.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(
+                        top = 4.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 16.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                 displayedGrouped.forEach { (date, dayLessons) ->
                     val isToday = date == todayStr
 
