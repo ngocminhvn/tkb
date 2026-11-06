@@ -192,19 +192,23 @@ fun GlassTabBar(
         modifier = modifier
             .height(height)
             .shadow(
-                elevation = 20.dp,
+                elevation = 16.dp,
                 shape = CapsuleShape,
-                spotColor = if (isDark) Color.Black.copy(alpha = 0.7f) else Color(0x35000000),
-                ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0x20000000),
+                spotColor = if (isDark) Color.Black.copy(alpha = 0.45f) else Color(0x25000000),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x10000000),
             )
             .background(
-                color = if (isDark) Color(0xFF1E222B) else Color(0xFFFFFFFF),
+                color = if (isDark) Color(0xFF161922).copy(alpha = 0.55f) else Color(0xFFFFFFFF).copy(alpha = 0.60f),
                 shape = CapsuleShape,
             )
             .border(
                 BorderStroke(
                     1.dp,
-                    if (isDark) Color(0xFF333A48) else Color(0xFFE2E8F0),
+                    Brush.verticalGradient(
+                        0.0f to if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.90f),
+                        0.5f to if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.45f),
+                        1.0f to if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.20f),
+                    ),
                 ),
                 CapsuleShape,
             )
@@ -363,9 +367,9 @@ fun GlassTabBar(
                     )
                     .background(
                         if (isDark) {
-                            if (isHolding) Color(0xFF384357) else Color(0xFF2E3646)
+                            if (isHolding) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.15f)
                         } else {
-                            if (isHolding) Color(0xFFDCE6F5) else Color(0xFFE8EEF8)
+                            if (isHolding) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.82f)
                         },
                         CapsuleShape,
                     )
@@ -373,9 +377,9 @@ fun GlassTabBar(
                         BorderStroke(
                             1.dp,
                             if (isDark) {
-                                if (isHolding) Color(0xFF5A6987) else Color(0xFF434E64)
+                                if (isHolding) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.20f)
                             } else {
-                                if (isHolding) Color(0xFFBACCE4) else Color(0xFFD0DBEC)
+                                if (isHolding) Color.White.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.70f)
                             },
                         ),
                         CapsuleShape,

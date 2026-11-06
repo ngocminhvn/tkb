@@ -1,18 +1,27 @@
 package com.sv.tnu.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
@@ -32,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +82,11 @@ fun MainScreen(
         appUpdateViewModel.checkForUpdate(manual = false)
     }
 
+    // Khi đang ở các trang phụ (Thêm, Cài đặt), bấm nút back của máy thì quay lại TKB
+    BackHandler(enabled = selectedIndex != 0) {
+        selectedIndex = 0
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Tab content
         when (NavigationTab.entries[selectedIndex]) {
@@ -83,6 +98,7 @@ fun MainScreen(
             }
             NavigationTab.MORE -> {
                 MoreScreen(
+                    onBack = { selectedIndex = 0 },
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
@@ -93,6 +109,7 @@ fun MainScreen(
                     timetableViewModel = timetableViewModel,
                     appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
+                    onBack = { selectedIndex = 0 },
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
@@ -152,26 +169,47 @@ fun MainScreen(
 }
 
 /**
- * Trang "Thêm" nằm giữa TKB và Cài đặt, để trống theo yêu cầu người dùng.
+ * Trang "Thêm" nằm giữa TKB và Cài đặt, có dấu quay lại trang chính và để trống nội dung theo yêu cầu.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MoreScreen(
+    onBack: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Thêm",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                        )
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = "Thêm",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
