@@ -105,21 +105,14 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                     val endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut)
                     val timeStr = if (endTime.isNotBlank()) "${exam.gioBatDau}–$endTime" else exam.gioBatDau.ifBlank { "Thi" }
                     WidgetItem(
-                        title = buildString {
-                            append(exam.tenMon)
-                            if (exam.maPhong.isNotBlank()) append(" • P.${exam.maPhong}")
-                            if (exam.soBaoDanh.isNotBlank()) append(" • SBD ${exam.soBaoDanh}")
-                        },
+                        title = exam.tenMon,
                         time = timeStr,
                         isExam = true,
                     )
                 }
                 val lessonItems = lessons.map { lesson ->
                     WidgetItem(
-                        title = buildString {
-                            append(lesson.tenMon)
-                            if (!lesson.maPhong.isNullOrBlank()) append(" • ${lesson.maPhong}")
-                        },
+                        title = lesson.tenMon,
                         time = lessonTime(lesson, periods),
                         isExam = false,
                     )
