@@ -15,20 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class AuthStore(context: Context) {
     private val appContext: Context = context.applicationContext
-    private val prefs: SharedPreferences
-
-    init {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            "tkb_auth",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val prefs: SharedPreferences = getPrefs(context)
 
     var username: String?
         get() = prefs.getString(KEY_USERNAME, null)
@@ -122,6 +109,26 @@ class AuthStore(context: Context) {
     }
 
     companion object {
+        @Volatile
+        private var sharedPrefs: SharedPreferences? = null
+
+        private fun getPrefs(context: Context): SharedPreferences =
+            sharedPrefs ?: synchronized(this) {
+                sharedPrefs ?: run {
+                    val appContext = context.applicationContext
+                    val masterKey = MasterKey.Builder(appContext)
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build()
+                    EncryptedSharedPreferences.create(
+                        appContext,
+                        "tkb_auth",
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                    ).also { sharedPrefs = it }
+                }
+            }
+
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
         private const val KEY_ACCESS_TOKEN = "access_token"

@@ -134,19 +134,23 @@ fun Modifier.glassEffect(
         label = "glassPressScale",
     )
 
-    val surfaceColor = if (glass.tint != Color.Unspecified) {
-        glass.tint.copy(alpha = glass.alpha)
-    } else if (isDark) {
-        Color(0xFF1B2028).copy(alpha = glass.alpha)
-    } else {
-        Color(0xFFFFFFFF).copy(alpha = glass.alpha)
+    val surfaceColor = remember(glass.tint, glass.alpha, isDark) {
+        if (glass.tint != Color.Unspecified) {
+            glass.tint.copy(alpha = glass.alpha)
+        } else if (isDark) {
+            Color(0xFF1B2028).copy(alpha = glass.alpha)
+        } else {
+            Color(0xFFFFFFFF).copy(alpha = glass.alpha)
+        }
     }
 
-    val rimBrush = Brush.verticalGradient(
-        0.0f to if (isDark) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.80f),
-        0.4f to if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.35f),
-        1.0f to if (isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.15f),
-    )
+    val rimBrush = remember(isDark) {
+        Brush.verticalGradient(
+            0.0f to if (isDark) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.80f),
+            0.4f to if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.35f),
+            1.0f to if (isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.15f),
+        )
+    }
 
     this
         .graphicsLayer {
@@ -188,6 +192,14 @@ fun GlassTabBar(
     val currentItemCount by rememberUpdatedState(itemCount)
     val currentOnSelected by rememberUpdatedState(onSelected)
 
+    val containerBorderBrush = remember(isDark) {
+        Brush.verticalGradient(
+            0.0f to if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.90f),
+            0.5f to if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.45f),
+            1.0f to if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.20f),
+        )
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .height(height)
@@ -202,14 +214,7 @@ fun GlassTabBar(
                 shape = CapsuleShape,
             )
             .border(
-                BorderStroke(
-                    1.dp,
-                    Brush.verticalGradient(
-                        0.0f to if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.90f),
-                        0.5f to if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.45f),
-                        1.0f to if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.20f),
-                    ),
-                ),
+                BorderStroke(1.dp, containerBorderBrush),
                 CapsuleShape,
             )
             .clip(CapsuleShape)

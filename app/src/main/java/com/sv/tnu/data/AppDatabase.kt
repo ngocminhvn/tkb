@@ -34,7 +34,10 @@ data class WeekEntity(
 
 @Entity(
     tableName = "lessons",
-    indices = [Index(value = ["hocKy", "tuanHocKy"])],
+    indices = [
+        Index(value = ["hocKy", "tuanHocKy"]),
+        Index(value = ["ngayHoc"]),
+    ],
 )
 data class LessonEntity(
     @PrimaryKey val idTkb: String,
@@ -62,7 +65,10 @@ data class LessonNoteEntity(
 
 @Entity(
     tableName = "exams",
-    indices = [Index(value = ["hocKy", "ngayThi"])],
+    indices = [
+        Index(value = ["hocKy", "ngayThi"]),
+        Index(value = ["ngayThi"]),
+    ],
 )
 data class ExamEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -97,10 +103,10 @@ interface TkbDao {
     @Query("SELECT * FROM lessons WHERE hocKy = :hocKy AND tuanHocKy = :tuan ORDER BY ngayHoc ASC, tietBatDau ASC")
     fun lessons(hocKy: Int, tuan: Int): Flow<List<LessonEntity>>
 
-    @Query("SELECT * FROM lessons WHERE substr(ngayHoc, 1, 10) = :date ORDER BY tietBatDau ASC")
+    @Query("SELECT * FROM lessons WHERE ngayHoc LIKE :date || '%' ORDER BY tietBatDau ASC")
     suspend fun lessonsOn(date: String): List<LessonEntity>
 
-    @Query("SELECT * FROM exams WHERE substr(ngayThi, 1, 10) = :date AND isHoanThi = 0 ORDER BY gioBatDau ASC")
+    @Query("SELECT * FROM exams WHERE ngayThi LIKE :date || '%' AND isHoanThi = 0 ORDER BY gioBatDau ASC")
     suspend fun examsOn(date: String): List<ExamEntity>
 
     @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
@@ -181,7 +187,7 @@ interface TkbDao {
         LessonNoteEntity::class,
         ExamEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -201,6 +207,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val migration3To4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lessons_ngayHoc` ON `lessons` (`ngayHoc`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exams_ngayThi` ON `exams` (`ngayThi`)")
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -211,7 +224,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tkb.db",
                 )
-                    .addMigrations(migration2To3)
+                    .addMigrations(migration2To3, migration3To4)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

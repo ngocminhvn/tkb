@@ -24,6 +24,19 @@ object TnutApiClient {
         coerceInputValues = true
     }
 
+    private val plainApi: TnutApi by lazy {
+        val plainClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(plainClient)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(TnutApi::class.java)
+    }
+
     fun json(): Json = json
 
     fun create(authStore: AuthStore): TnutApi {
@@ -59,17 +72,6 @@ object TnutApiClient {
             override fun authenticate(route: Route?, response: Response): Request? {
                 if (responseCount(response) >= 2) return null
                 val refreshToken = authStore.refreshToken ?: return null
-                // Gọi refresh bằng client trần (không interceptor/authenticator) để tránh lặp.
-                val plainClient = OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
-                    .build()
-                val plainApi = Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .client(plainClient)
-                    .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-                    .build()
-                    .create(TnutApi::class.java)
                 return try {
                     val refreshed = runBlocking {
                         plainApi.refreshToken(refreshToken = refreshToken)

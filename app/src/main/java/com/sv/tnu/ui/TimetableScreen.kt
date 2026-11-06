@@ -282,8 +282,8 @@ class TimetableViewModel(
     }
 }
 
-private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-private val dayLabelFormat = SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN"))
+private val dayFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+private val dayLabelFormat = ThreadLocal.withInitial { SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN")) }
 
 private fun normalizeDateToYmd(dateStr: String): String {
     val clean = dateStr.trim().substringBefore(" ").substringBefore("T")
@@ -313,8 +313,8 @@ private fun normalizeDateToYmd(dateStr: String): String {
 
 private fun dayLabel(ngayHoc: String): String {
     val datePart = normalizeDateToYmd(ngayHoc)
-    val date = runCatching { dayFormat.parse(datePart) }.getOrNull() ?: return datePart
-    return dayLabelFormat.format(date).replaceFirstChar { it.uppercase() }
+    val date = runCatching { dayFormat.get().parse(datePart) }.getOrNull() ?: return datePart
+    return dayLabelFormat.get().format(date).replaceFirstChar { it.uppercase() }
 }
 
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
@@ -654,19 +654,28 @@ fun TimetableScreen(
                 displayedGrouped.forEach { (date, dayItems) ->
                     val isToday = date == todayStr
 
-                    item(key = "header-$date") {
+                    item(key = "header-$date", contentType = "header") {
                         DayHeader(
                             date = date,
                             isToday = isToday,
                         )
                     }
 
-                    items(dayItems, key = { item ->
-                        when (item) {
-                            is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
-                            is ScheduleItem.Exam -> "exam-${item.exam.id}"
-                        }
-                    }) { item ->
+                    items(
+                        items = dayItems,
+                        key = { item ->
+                            when (item) {
+                                is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
+                                is ScheduleItem.Exam -> "exam-${item.exam.id}"
+                            }
+                        },
+                        contentType = { item ->
+                            when (item) {
+                                is ScheduleItem.Lesson -> 0
+                                is ScheduleItem.Exam -> 1
+                            }
+                        },
+                    ) { item ->
                         when (item) {
                             is ScheduleItem.Lesson -> LessonCard(
                                 lesson = item.lesson,

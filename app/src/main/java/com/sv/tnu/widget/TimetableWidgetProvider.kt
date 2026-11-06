@@ -71,23 +71,42 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 val todayCalendar = Calendar.getInstance()
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                 val date = dateFormat.format(todayCalendar.time)
-                val periods = dao.periodsOnce()
-                val todayLessons = dao.lessonsOn(date)
-                val todayExams = dao.examsOn(date).filter { !it.isHoanThi }
                 val preferences = widgetPreferences(context)
                 val storedOffset = preferences.let {
                     val key = offsetKey(appWidgetId)
                     if (it.contains(key)) it.getInt(key, 0) else null
                 }
-                val offset = (storedOffset ?: if (
-                    (todayLessons.isEmpty() && todayExams.isEmpty()) || isDayFinished(todayLessons, todayExams, periods)
-                ) 1 else 0).coerceIn(MIN_OFFSET, MAX_OFFSET)
-                val selectedDay = (todayCalendar.clone() as Calendar).apply {
-                    add(Calendar.DAY_OF_YEAR, offset)
+                val periods = dao.periodsOnce()
+                val offset: Int
+                val selectedDay: Calendar
+                val lessons: List<LessonEntity>
+                val exams: List<ExamEntity>
+
+                if (storedOffset != null) {
+                    offset = storedOffset.coerceIn(MIN_OFFSET, MAX_OFFSET)
+                    selectedDay = if (offset == 0) todayCalendar else (todayCalendar.clone() as Calendar).apply {
+                        add(Calendar.DAY_OF_YEAR, offset)
+                    }
+                    val targetDate = dateFormat.format(selectedDay.time)
+                    lessons = dao.lessonsOn(targetDate)
+                    exams = dao.examsOn(targetDate)
+                } else {
+                    val todayLessons = dao.lessonsOn(date)
+                    val todayExams = dao.examsOn(date)
+                    val autoOffset = if ((todayLessons.isEmpty() && todayExams.isEmpty()) || isDayFinished(todayLessons, todayExams, periods)) 1 else 0
+                    if (autoOffset == 0) {
+                        offset = 0
+                        selectedDay = todayCalendar
+                        lessons = todayLessons
+                        exams = todayExams
+                    } else {
+                        offset = 1
+                        selectedDay = (todayCalendar.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
+                        val tomorrowDate = dateFormat.format(selectedDay.time)
+                        lessons = dao.lessonsOn(tomorrowDate)
+                        exams = dao.examsOn(tomorrowDate)
+                    }
                 }
-                val selectedDate = dateFormat.format(selectedDay.time)
-                val lessons = if (offset == 0) todayLessons else dao.lessonsOn(selectedDate)
-                val exams = if (offset == 0) todayExams else dao.examsOn(selectedDate).filter { !it.isHoanThi }
 
                 val options = manager.getAppWidgetOptions(appWidgetId)
                 val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)

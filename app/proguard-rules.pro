@@ -1,22 +1,40 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ProGuard / R8 rules for SvTNU
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve line numbers and source file names for crash reporting
+-keepattributes SourceFile,LineNumberTable
+-keepattributes *Annotation*, InnerClasses, Signature, Exceptions
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Room Database
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Kotlinx Serialization
+-dontnote kotlinx.serialization.SerializationKt
+-keepclassmembers class * {
+    *** Companion;
+}
+-keepclasseswithmembers class * {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keepclassmembers class * implements kotlinx.serialization.internal.GeneratedSerializer {
+    <fields>;
+    <methods>;
+}
 
+# Preserve data & network models
+-keep class com.sv.tnu.tnut.** { *; }
+-keep class com.sv.tnu.data.** { *; }
+-keep class com.sv.tnu.update.** { *; }
+
+# Retrofit & OkHttp
+-dontwarn okio.**
+-dontwarn retrofit2.**
+-keepclasseswithmembers interface * {
+    @retrofit2.http.* <methods>;
+}
+
+# Android AppWidget & RemoteViews
+-keep class com.sv.tnu.widget.** { *; }

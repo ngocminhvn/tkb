@@ -37,7 +37,20 @@ fun UserAvatar(
         if (!avatarPath.isNullOrBlank()) {
             val file = File(avatarPath)
             if (file.exists() && file.length() > 0) {
-                BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+                val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, boundsOpts)
+                val targetDim = 256
+                var sampleSize = 1
+                while (boundsOpts.outWidth / (sampleSize * 2) >= targetDim &&
+                    boundsOpts.outHeight / (sampleSize * 2) >= targetDim
+                ) {
+                    sampleSize *= 2
+                }
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeFile(file.absolutePath, opts)?.asImageBitmap()
             } else null
         } else null
     }
