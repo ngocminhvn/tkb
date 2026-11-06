@@ -60,12 +60,14 @@ fun MoreScreen(
     authStore: AuthStore,
     repository: TnutRepository,
     timetableViewModel: TimetableViewModel,
+    appUpdateViewModel: com.sv.tnu.update.AppUpdateViewModel,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val context = LocalContext.current
     val refreshing by timetableViewModel.refreshing.collectAsState()
     val lessons by timetableViewModel.lessons.collectAsState()
     val selectedWeek by timetableViewModel.selectedWeek.collectAsState()
+    val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
 
     val totalSubjects = lessons.map { it.maMon }.distinct().size
     val totalCredits = lessons.distinctBy { it.maMon }.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
@@ -209,8 +211,31 @@ fun MoreScreen(
             ActionCard(
                 icon = Icons.Default.Info,
                 title = "Thông tin ứng dụng",
-                subtitle = "SvTNU • Giao diện Liquid Glass v1.0",
-                onClick = {},
+                subtitle = "SvTNU • Phiên bản ${appUpdateViewModel.currentVersionName} (Build ${appUpdateViewModel.currentVersionCode})",
+                onClick = { appUpdateViewModel.checkForUpdate(manual = true) },
+            )
+
+            ActionCard(
+                icon = Icons.Default.Sync,
+                title = "Kiểm tra cập nhật",
+                subtitle = if (isCheckingUpdate) "Đang kiểm tra phiên bản mới từ server..." else "Nhấn để kiểm tra và tải bản mới nhất",
+                trailing = {
+                    if (isCheckingUpdate) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = "Check",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                    }
+                },
+                onClick = {
+                    if (!isCheckingUpdate) {
+                        appUpdateViewModel.checkForUpdate(manual = true)
+                    }
+                },
             )
 
             Spacer(modifier = Modifier.height(8.dp))

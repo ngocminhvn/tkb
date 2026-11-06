@@ -20,6 +20,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,9 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.glass.GlassTabBar
+import com.sv.tnu.update.AppUpdateViewModel
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -44,10 +48,24 @@ fun MainScreen(
     authStore: AuthStore,
     repository: TnutRepository,
     timetableViewModel: TimetableViewModel,
+    appUpdateViewModel: AppUpdateViewModel = viewModel(),
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
     val isDark = isSystemInDarkTheme()
+
+    val showUpdateDialog by appUpdateViewModel.showDialog.collectAsState()
+    val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
+    val downloading by appUpdateViewModel.downloading.collectAsState()
+    val downloadedBytes by appUpdateViewModel.downloadedBytes.collectAsState()
+    val totalBytes by appUpdateViewModel.totalBytes.collectAsState()
+    val downloadResult by appUpdateViewModel.downloadResult.collectAsState()
+    val updateError by appUpdateViewModel.errorMessage.collectAsState()
+
+    // Tự động kiểm tra bản cập nhật mới ngầm khi mở màn hình chính
+    LaunchedEffect(Unit) {
+        appUpdateViewModel.checkForUpdate(manual = false)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Tab content
@@ -63,12 +81,14 @@ fun MainScreen(
                     authStore = authStore,
                     repository = repository,
                     timetableViewModel = timetableViewModel,
+                    appUpdateViewModel = appUpdateViewModel,
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
             NavigationTab.SETTINGS -> {
                 SettingsScreen(
                     authStore = authStore,
+                    appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
@@ -110,6 +130,20 @@ fun MainScreen(
                     color = tint,
                 )
             }
+        }
+
+        if (showUpdateDialog && updateInfo != null) {
+            UpdateDialog(
+                updateInfo = updateInfo,
+                currentVersionName = appUpdateViewModel.currentVersionName,
+                downloading = downloading,
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes,
+                downloadResult = downloadResult,
+                error = updateError,
+                onDismiss = { appUpdateViewModel.dismissDialog() },
+                onStartDownload = { info -> appUpdateViewModel.startDownload(info) },
+            )
         }
     }
 }

@@ -49,6 +49,7 @@ import com.sv.tnu.ui.glass.glassEffect
 @Composable
 fun SettingsScreen(
     authStore: AuthStore,
+    appUpdateViewModel: com.sv.tnu.update.AppUpdateViewModel,
     onLogout: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -169,6 +170,46 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
+                }
+            }
+
+            // Version & App Info
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text(
+                            text = "Phiên bản ứng dụng",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "v${appUpdateViewModel.currentVersionName} (Build ${appUpdateViewModel.currentVersionCode})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
+                    }
+
+                    Button(
+                        onClick = { appUpdateViewModel.checkForUpdate(manual = true) },
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Cập nhật")
+                    }
                 }
             }
 

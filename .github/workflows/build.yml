@@ -31,7 +31,7 @@ jobs:
       - name: Bump version
         run: |
           sed -i "s/versionCode = [0-9]*/versionCode = $((100000 + GITHUB_RUN_NUMBER))/" app/build.gradle.kts
-          sed -i "s/versionName = \"[^\"]*\"/versionName = \"1.0.${GITHUB_RUN_NUMBER}\"/" app/build.gradle.kts
+          sed -i "s/versionName = \"[^\"]*\"/versionName = \"1.0.0.${GITHUB_RUN_NUMBER}\"/" app/build.gradle.kts
           grep -E "versionCode|versionName" app/build.gradle.kts
 
       - name: Decode keystore
@@ -59,7 +59,7 @@ jobs:
           import hashlib, json, os, subprocess
           from datetime import datetime, timezone
           version_code = 100000 + int(os.environ["GITHUB_RUN_NUMBER"])
-          version_name = f"1.0.{os.environ['GITHUB_RUN_NUMBER']}"
+          version_name = f"1.0.0.{os.environ['GITHUB_RUN_NUMBER']}"
           changelog = subprocess.check_output(
               ["git", "log", "-1", "--pretty=%s"], text=True
           ).strip()

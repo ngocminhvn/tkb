@@ -1,8 +1,5 @@
 package com.sv.tnu.ui.glass
 
-import android.graphics.RenderEffect
-import android.graphics.Shader
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,12 +17,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -35,20 +30,15 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -81,8 +71,7 @@ fun LiquidGlassTheme(
 @Stable
 data class Glass(
     val tint: Color = Color.Unspecified,
-    val alpha: Float = 0.55f,
-    val blurRadius: Dp = 20.dp,
+    val alpha: Float = 0.82f,
     val isInteractive: Boolean = false,
 ) {
     fun tint(color: Color): Glass = copy(tint = color)
@@ -95,8 +84,7 @@ object GlassMaterialDefaults {
         get() {
             val isDark = LocalGlassConfig.current.dark
             return Glass(
-                alpha = if (isDark) 0.55f else 0.70f,
-                blurRadius = 24.dp,
+                alpha = if (isDark) 0.85f else 0.88f,
             )
         }
 
@@ -105,21 +93,18 @@ object GlassMaterialDefaults {
         get() {
             val isDark = LocalGlassConfig.current.dark
             return Glass(
-                alpha = if (isDark) 0.45f else 0.65f,
-                blurRadius = 16.dp,
+                alpha = if (isDark) 0.78f else 0.82f,
             )
         }
 
     @Composable @ReadOnlyComposable
     fun prominent(color: Color = MaterialTheme.colorScheme.primary): Glass =
-        regular.copy(tint = color, alpha = 0.85f)
+        regular.copy(tint = color, alpha = 0.92f)
 }
 
 /**
- * Modifier vẽ hiệu ứng Liquid Glass:
- * - Kính mờ với nền bán trong suốt và blur (RenderEffect trên API 31+)
- * - Đường viền viền sáng (rim lighting / specular border) phản chiếu ánh sáng từ trên xuống
- * - Hiệu ứng nhấn mượt mà khi interactive = true
+ * Modifier vẽ hiệu ứng Liquid Glass với bề mặt kính mờ trong suốt,
+ * viền phản chiếu ánh sáng specular đỉnh cao, không làm mờ nội dung văn bản bên trong.
  */
 fun Modifier.glassEffect(
     glass: Glass = Glass(),
@@ -127,12 +112,11 @@ fun Modifier.glassEffect(
 ): Modifier = composed {
     val config = LocalGlassConfig.current
     val isDark = config.dark
-    val density = LocalDensity.current
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
-        targetValue = if (glass.isInteractive && isPressed) 0.96f else 1f,
+        targetValue = if (glass.isInteractive && isPressed) 0.97f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "glassPressScale",
     )
@@ -140,42 +124,37 @@ fun Modifier.glassEffect(
     val surfaceColor = if (glass.tint != Color.Unspecified) {
         glass.tint.copy(alpha = glass.alpha)
     } else if (isDark) {
-        Color(0xFF1E222A).copy(alpha = glass.alpha)
+        Color(0xFF1B2028).copy(alpha = glass.alpha)
     } else {
         Color(0xFFFFFFFF).copy(alpha = glass.alpha)
     }
 
     val rimBrush = Brush.verticalGradient(
-        0.0f to if (isDark) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.65f),
-        0.5f to if (isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.20f),
-        1.0f to if (isDark) Color.White.copy(alpha = 0.03f) else Color.White.copy(alpha = 0.08f),
+        0.0f to if (isDark) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.80f),
+        0.4f to if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.35f),
+        1.0f to if (isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.15f),
     )
 
     this
         .graphicsLayer {
             scaleX = pressScale
             scaleY = pressScale
-            clip = true
-            this.shape = shape
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && glass.blurRadius > 0.dp) {
-                val blurPx = with(density) { glass.blurRadius.toPx() }
-                renderEffect = RenderEffect.createBlurEffect(
-                    blurPx,
-                    blurPx,
-                    Shader.TileMode.CLAMP,
-                ).asComposeRenderEffect()
-            }
         }
+        .shadow(
+            elevation = if (isDark) 6.dp else 4.dp,
+            shape = shape,
+            clip = false,
+            ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x18000000),
+            spotColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0x25000000),
+        )
         .background(surfaceColor, shape)
         .border(BorderStroke(1.dp, rimBrush), shape)
+        .clip(shape)
 }
 
 /**
  * Thanh điều hướng Liquid Glass dạng viên thuốc lơ lửng (Floating Glass Tab Bar)
- * Tái hiện chuẩn thiết kế iOS Liquid Glass trong ảnh mẫu:
- * - Khối thanh kính lơ lửng với viền specular
- * - Lớp kính lúp "Liquid Lens" di chuyển mềm mại giữa các tab khi bấm
- * - Tự động đổi màu icon và text khi lens lướt qua
+ * Hiệu ứng lăng kính chất lỏng Liquid Lens mượt mà, chữ và icon sắc nét 100%.
  */
 @Composable
 fun GlassTabBar(
@@ -193,18 +172,28 @@ fun GlassTabBar(
         modifier = modifier
             .height(height)
             .shadow(
-                elevation = 18.dp,
+                elevation = 20.dp,
                 shape = CapsuleShape,
-                spotColor = if (isDark) Color.Black.copy(alpha = 0.6f) else Color(0x33000000),
-                ambientColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x22000000),
+                spotColor = if (isDark) Color.Black.copy(alpha = 0.7f) else Color(0x35000000),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0x20000000),
             )
-            .glassEffect(
-                glass = Glass(
-                    alpha = if (isDark) 0.62f else 0.75f,
-                    blurRadius = 24.dp,
+            .background(
+                color = if (isDark) Color(0xE81A1F28) else Color(0xF2F5F8FC),
+                shape = CapsuleShape,
+            )
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.verticalGradient(
+                        listOf(
+                            if (isDark) Color.White.copy(alpha = 0.28f) else Color.White,
+                            if (isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.4f),
+                        ),
+                    ),
                 ),
-                shape = CapsuleShape,
+                CapsuleShape,
             )
+            .clip(CapsuleShape)
             .padding(horizontal = 6.dp, vertical = 5.dp),
     ) {
         val totalWidth = maxWidth
@@ -215,31 +204,35 @@ fun GlassTabBar(
         val lensOffsetAnim = remember { Animatable(selectedIndex * tabWidthPx) }
 
         LaunchedEffect(selectedIndex, tabWidthPx) {
-            lensOffsetAnim.animateTo(
-                targetValue = selectedIndex * tabWidthPx,
-                animationSpec = spring(
-                    dampingRatio = 0.72f,
-                    stiffness = 550f,
-                ),
-            )
+            if (tabWidthPx > 0f) {
+                lensOffsetAnim.animateTo(
+                    targetValue = selectedIndex * tabWidthPx,
+                    animationSpec = spring(
+                        dampingRatio = 0.74f,
+                        stiffness = 500f,
+                    ),
+                )
+            }
         }
 
         // Lớp Liquid Lens (viên ngọc kính trượt nổi bật)
         Box(
             modifier = Modifier
-                .offset { IntOffset(lensOffsetAnim.value.roundToInt(), 0) }
+                .offset {
+                    val x = lensOffsetAnim.value
+                    IntOffset(if (x.isFinite()) x.roundToInt() else 0, 0)
+                }
                 .width(tabWidth)
                 .fillMaxHeight()
                 .padding(horizontal = 2.dp, vertical = 2.dp)
                 .shadow(
-                    elevation = 8.dp,
+                    elevation = 6.dp,
                     shape = CapsuleShape,
-                    spotColor = if (isDark) Color(0x400A84FF) else Color(0x200A84FF),
+                    spotColor = if (isDark) Color(0x400A84FF) else Color(0x250A84FF),
                 )
-                .clip(CapsuleShape)
                 .background(
-                    if (isDark) Color(0xFF2C313C).copy(alpha = 0.75f)
-                    else Color(0xFFE2E7F0).copy(alpha = 0.85f),
+                    if (isDark) Color(0xFF2E3544).copy(alpha = 0.90f)
+                    else Color(0xFFFFFFFF).copy(alpha = 0.95f),
                     CapsuleShape,
                 )
                 .border(
@@ -247,8 +240,8 @@ fun GlassTabBar(
                         1.dp,
                         Brush.verticalGradient(
                             listOf(
-                                Color.White.copy(alpha = if (isDark) 0.35f else 0.7f),
-                                Color.White.copy(alpha = if (isDark) 0.08f else 0.15f),
+                                Color.White.copy(alpha = if (isDark) 0.40f else 0.85f),
+                                Color.White.copy(alpha = if (isDark) 0.10f else 0.25f),
                             ),
                         ),
                     ),
