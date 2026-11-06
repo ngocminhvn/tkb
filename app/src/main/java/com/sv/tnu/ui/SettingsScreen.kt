@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,8 +40,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,6 +79,7 @@ fun SettingsScreen(
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.exams.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(authStore.username, avatarPath) {
         val username = authStore.username
@@ -92,30 +92,24 @@ fun SettingsScreen(
     val totalCredits = lessons.distinctBy { it.maMon }.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Cài đặt",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(contentPadding)
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Cài đặt",
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            )
+
             // Student summary card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -262,13 +256,13 @@ fun SettingsScreen(
 
             // Logout Button
             Button(
-                onClick = onLogout,
+                onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = Color(0xFFDC2626),
+                    contentColor = Color.White,
                 ),
                 shape = RoundedCornerShape(16.dp),
             ) {
@@ -276,15 +270,56 @@ fun SettingsScreen(
                     imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = "Logout",
                     modifier = Modifier.size(20.dp),
+                    tint = Color.White,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Đăng xuất tài khoản",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Khoảng đệm đáy để nội dung cuộn mượt mà trên thanh navigation bar
+            Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding() + 20.dp))
+        }
+
+        // Hộp thoại xác nhận đăng xuất tài khoản
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = {
+                    Text(
+                        text = "Đăng xuất tài khoản",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Bạn có chắc chắn muốn đăng xuất khỏi tài khoản ${authStore.username ?: ""} không?",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showLogoutDialog = false
+                            onLogout()
+                        },
+                    ) {
+                        Text(
+                            text = "Đăng xuất",
+                            color = Color(0xFFDC2626),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLogoutDialog = false }) {
+                        Text("Hủy")
+                    }
+                },
+            )
         }
 
         // Hộp thoại hiển thị chi tiết lịch thi học kỳ
