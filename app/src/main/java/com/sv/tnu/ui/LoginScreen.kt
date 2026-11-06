@@ -54,8 +54,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutApi
-import com.sv.tnu.ui.glass.GlassMaterialDefaults
-import com.sv.tnu.ui.glass.glassEffect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -148,8 +146,7 @@ fun LoginScreen(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                    .glassEffect(GlassMaterialDefaults.regular, CircleShape),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -176,16 +173,13 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Glass Login Card
+            // Login Card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(26.dp)),
-                shape = RoundedCornerShape(26.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)),
             ) {
                 Column(
                     modifier = Modifier
@@ -286,8 +280,7 @@ fun LoginScreen(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
-                            .glassEffect(GlassMaterialDefaults.prominent().interactive(), RoundedCornerShape(16.dp)),
+                            .height(52.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = Color.White,

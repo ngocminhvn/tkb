@@ -1,6 +1,5 @@
 package com.sv.tnu.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,12 +36,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
-import com.sv.tnu.ui.glass.GlassMaterialDefaults
-import com.sv.tnu.ui.glass.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,11 +58,11 @@ fun SettingsScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
             )
         },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -80,14 +75,11 @@ fun SettingsScreen(
         ) {
             // User Card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
             ) {
                 Row(
                     modifier = Modifier
@@ -119,7 +111,7 @@ fun SettingsScreen(
                         Text(
                             text = "Portal TNUT",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )
                     }
                 }
@@ -127,14 +119,11 @@ fun SettingsScreen(
 
             // Placeholder Card: "Cài đặt để trống"
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
             ) {
                 Column(
                     modifier = Modifier
@@ -161,13 +150,13 @@ fun SettingsScreen(
                     Text(
                         text = "Cài đặt",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Mục cài đặt đang để trống theo yêu cầu.\nCác tùy chọn nâng cao sẽ được cập nhật sau.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                 }
@@ -175,14 +164,11 @@ fun SettingsScreen(
 
             // Version & App Info
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
             ) {
                 Row(
                     modifier = Modifier
@@ -200,7 +186,7 @@ fun SettingsScreen(
                         Text(
                             text = "v${appUpdateViewModel.currentVersionName} (Build ${appUpdateViewModel.currentVersionCode})",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )
                     }
 
@@ -218,11 +204,10 @@ fun SettingsScreen(
                 onClick = onLogout,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .glassEffect(GlassMaterialDefaults.regular.interactive(), RoundedCornerShape(16.dp)),
+                    .height(50.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.18f),
-                    contentColor = MaterialTheme.colorScheme.error,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
                 shape = RoundedCornerShape(16.dp),
             ) {

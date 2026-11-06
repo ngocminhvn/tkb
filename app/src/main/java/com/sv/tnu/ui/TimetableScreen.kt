@@ -64,9 +64,6 @@ import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.tnut.TnutRepository
-import com.sv.tnu.ui.glass.CapsuleShape
-import com.sv.tnu.ui.glass.GlassMaterialDefaults
-import com.sv.tnu.ui.glass.glassEffect
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -250,9 +247,7 @@ fun TimetableScreen(
                     IconButton(
                         onClick = { viewModel.refresh() },
                         enabled = !refreshing,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                        modifier = Modifier.padding(end = 8.dp),
                     ) {
                         if (refreshing) {
                             CircularProgressIndicator(
@@ -265,11 +260,11 @@ fun TimetableScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.background,
                 ),
             )
         },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -277,16 +272,13 @@ fun TimetableScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            // Week Selector Card (Glass capsule container)
+            // Week Selector Card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(22.dp)),
-                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
             ) {
                 Row(
                     modifier = Modifier
@@ -297,9 +289,7 @@ fun TimetableScreen(
                 ) {
                     IconButton(
                         onClick = { viewModel.moveWeek(-1) },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                        modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
@@ -322,9 +312,7 @@ fun TimetableScreen(
 
                     IconButton(
                         onClick = { viewModel.moveWeek(1) },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CircleShape),
+                        modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
@@ -345,8 +333,8 @@ fun TimetableScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .glassEffect(GlassMaterialDefaults.regular.interactive(), CapsuleShape)
-                            .clip(CapsuleShape)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { showPastDays = !showPastDays }
                             .padding(horizontal = 14.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
@@ -375,16 +363,15 @@ fun TimetableScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                        .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(14.dp)),
+                        .padding(bottom = 8.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Text(
                         text = it,
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(12.dp),
                     )
@@ -408,8 +395,8 @@ fun TimetableScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Box(
                             modifier = Modifier
-                                .glassEffect(GlassMaterialDefaults.regular.interactive(), CapsuleShape)
-                                .clip(CapsuleShape)
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .clickable { showPastDays = true }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                         ) {
@@ -480,7 +467,7 @@ private fun DayHeader(date: String, isToday: Boolean) {
         if (isToday) {
             Box(
                 modifier = Modifier
-                    .clip(CapsuleShape)
+                    .clip(RoundedCornerShape(50))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                     .padding(horizontal = 10.dp, vertical = 3.dp),
                 contentAlignment = Alignment.Center,
@@ -507,22 +494,12 @@ private fun DayHeader(date: String, isToday: Boolean) {
 @Composable
 private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassEffect(GlassMaterialDefaults.panel, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isToday) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-            },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
-        border = BorderStroke(
-            1.dp,
-            if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-            else MaterialTheme.colorScheme.outline.copy(alpha = 0.14f),
-        ),
+        border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Subject title & credits badge
@@ -539,7 +516,7 @@ private fun LessonCard(lesson: LessonEntity, time: String, isToday: Boolean) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .clip(CapsuleShape)
+                        .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {

@@ -97,7 +97,7 @@ fun MainScreen(
 
         // Floating Liquid Glass Navigation Bar
         val selectedColor = MaterialTheme.colorScheme.primary
-        val unselectedColor = if (isDark) Color(0xFFF9F9F9) else Color(0xFF1D1D1D)
+        val unselectedColor = if (isDark) Color(0xFF9EA7B8) else Color(0xFF5E6573)
 
         GlassTabBar(
             itemCount = NavigationTab.entries.size,

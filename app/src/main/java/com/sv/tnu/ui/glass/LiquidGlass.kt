@@ -178,18 +178,13 @@ fun GlassTabBar(
                 ambientColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color(0x20000000),
             )
             .background(
-                color = if (isDark) Color(0xE81A1F28) else Color(0xF2F5F8FC),
+                color = if (isDark) Color(0xFF1E222B) else Color(0xFFFFFFFF),
                 shape = CapsuleShape,
             )
             .border(
                 BorderStroke(
                     1.dp,
-                    Brush.verticalGradient(
-                        listOf(
-                            if (isDark) Color.White.copy(alpha = 0.28f) else Color.White,
-                            if (isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.4f),
-                        ),
-                    ),
+                    if (isDark) Color(0xFF333A48) else Color(0xFFE2E8F0),
                 ),
                 CapsuleShape,
             )
@@ -226,24 +221,18 @@ fun GlassTabBar(
                 .fillMaxHeight()
                 .padding(horizontal = 2.dp, vertical = 2.dp)
                 .shadow(
-                    elevation = 6.dp,
+                    elevation = 4.dp,
                     shape = CapsuleShape,
-                    spotColor = if (isDark) Color(0x400A84FF) else Color(0x250A84FF),
+                    spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x20000000),
                 )
                 .background(
-                    if (isDark) Color(0xFF2E3544).copy(alpha = 0.90f)
-                    else Color(0xFFFFFFFF).copy(alpha = 0.95f),
+                    if (isDark) Color(0xFF2E3646) else Color(0xFFE8EEF8),
                     CapsuleShape,
                 )
                 .border(
                     BorderStroke(
                         1.dp,
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = if (isDark) 0.40f else 0.85f),
-                                Color.White.copy(alpha = if (isDark) 0.10f else 0.25f),
-                            ),
-                        ),
+                        if (isDark) Color(0xFF434E64) else Color(0xFFD0DBEC),
                     ),
                     CapsuleShape,
                 ),
