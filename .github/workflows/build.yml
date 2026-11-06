@@ -39,7 +39,7 @@ jobs:
 
       - name: Build signed debug APK
         run: |
-          bash gradlew assembleDebug \
+          gradle assembleDebug \
             -Pandroid.injected.signing.store.file="$PWD/tkb-release.keystore" \
             -Pandroid.injected.signing.store.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias=tkb \
