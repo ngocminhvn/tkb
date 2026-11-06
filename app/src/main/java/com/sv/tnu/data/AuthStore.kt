@@ -50,6 +50,10 @@ class AuthStore(context: Context) {
         get() = prefs.getInt(KEY_HOC_KY, 0)
         set(value) = prefs.edit().putInt(KEY_HOC_KY, value).apply()
 
+    var lastSyncTime: Long
+        get() = prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_SYNC_TIME, value).apply()
+
     val hasCredentials: Boolean
         get() = !username.isNullOrBlank() && !password.isNullOrBlank()
 
@@ -84,5 +88,6 @@ class AuthStore(context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_IDPC = "idpc"
         private const val KEY_HOC_KY = "hoc_ky"
+        private const val KEY_LAST_SYNC_TIME = "last_sync_time"
     }
 }

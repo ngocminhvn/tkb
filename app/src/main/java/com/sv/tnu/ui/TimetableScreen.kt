@@ -89,6 +89,9 @@ class TimetableViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
+    val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
+
     val weeks: StateFlow<List<WeekEntity>> = repository.weeksFlow(hocKy)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -130,6 +133,11 @@ class TimetableViewModel(
             _refreshing.value = true
             _error.value = null
             repository.refresh(hocKy)
+                .onSuccess {
+                    val now = System.currentTimeMillis()
+                    authStore.lastSyncTime = now
+                    _lastSyncTime.value = now
+                }
                 .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
             _refreshing.value = false
         }

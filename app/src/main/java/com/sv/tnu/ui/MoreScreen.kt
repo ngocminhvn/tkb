@@ -51,6 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +66,7 @@ fun MoreScreen(
 ) {
     val context = LocalContext.current
     val refreshing by timetableViewModel.refreshing.collectAsState()
+    val lastSyncTime by timetableViewModel.lastSyncTime.collectAsState()
     val lessons by timetableViewModel.lessons.collectAsState()
     val selectedWeek by timetableViewModel.selectedWeek.collectAsState()
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
@@ -184,7 +188,7 @@ fun MoreScreen(
             ActionCard(
                 icon = Icons.Default.Sync,
                 title = "Đồng bộ lại thời khóa biểu",
-                subtitle = if (refreshing) "Đang tải dữ liệu mới từ portal..." else "Lấy lịch học mới nhất từ trường",
+                subtitle = if (refreshing) "Đang tải dữ liệu mới từ portal..." else "Lần cuối: ${formatLastSync(lastSyncTime)}",
                 trailing = {
                     if (refreshing) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -206,7 +210,7 @@ fun MoreScreen(
             ActionCard(
                 icon = Icons.Default.Info,
                 title = "Thông tin ứng dụng",
-                subtitle = "SvTNU • Phiên bản ${appUpdateViewModel.currentVersionName} (Build ${appUpdateViewModel.currentVersionCode})",
+                subtitle = "SvTNU • Phiên bản ${appUpdateViewModel.currentVersionName}",
                 onClick = { appUpdateViewModel.checkForUpdate(manual = true) },
             )
 
@@ -329,4 +333,10 @@ private fun ActionCard(
             }
         }
     }
+}
+
+private fun formatLastSync(timeMillis: Long): String {
+    if (timeMillis <= 0L) return "Chưa đồng bộ"
+    val sdf = SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
+    return sdf.format(Date(timeMillis))
 }

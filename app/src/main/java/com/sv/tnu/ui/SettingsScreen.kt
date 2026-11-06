@@ -184,7 +184,7 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "v${appUpdateViewModel.currentVersionName} (Build ${appUpdateViewModel.currentVersionCode})",
+                            text = "v${appUpdateViewModel.currentVersionName}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )
