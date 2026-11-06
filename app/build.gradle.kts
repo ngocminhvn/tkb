@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "vn.tnut.tkb"
+    namespace = "com.sv.tnu"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "vn.tnut.tkb"
+        applicationId = "com.sv.tnu"
         minSdk = 24
         targetSdk = 35
         // CI overwrites both with sed (versionCode = 100000 + run number, versionName = 1.0.<run number>)
