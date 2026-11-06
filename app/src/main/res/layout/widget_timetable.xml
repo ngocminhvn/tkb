@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_today"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_refresh"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@string/widget_refresh"
+            android:gravity="center"
+            android:text="↻"
+            android:textColor="@color/widget_primary"
+            android:textSize="22sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:text="@string/widget_no_lessons"
+        android:textColor="@color/widget_on_surface_variant"
+        android:textSize="14sp" />
+
+    <include
+        android:id="@+id/lesson_1"
+        layout="@layout/widget_lesson_row" />
+
+    <include
+        android:id="@+id/lesson_2"
+        layout="@layout/widget_lesson_row_2" />
+
+    <include
+        android:id="@+id/lesson_3"
+        layout="@layout/widget_lesson_row_3" />
+
+</LinearLayout>
