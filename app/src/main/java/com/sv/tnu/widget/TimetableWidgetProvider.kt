@@ -89,18 +89,28 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 val lessons = if (offset == 0) todayLessons else dao.lessonsOn(selectedDate)
                 val exams = if (offset == 0) todayExams else dao.examsOn(selectedDate).filter { !it.isHoanThi }
 
+                val options = manager.getAppWidgetOptions(appWidgetId)
+                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+                val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
+                val availableHeight = maxOf(minHeight, maxHeight)
+                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
+                val layoutMode = when {
+                    minWidth <= 220 || minWidth <= minHeight + 32 -> LayoutMode.SQUARE
+                    minWidth < 320 -> LayoutMode.MEDIUM
+                    else -> LayoutMode.WIDE
+                }
+                val isSquare = layoutMode == LayoutMode.SQUARE
+
                 val examItems = exams.map { exam ->
+                    val endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut)
+                    val timeStr = if (endTime.isNotBlank()) "${exam.gioBatDau}–$endTime" else exam.gioBatDau.ifBlank { "Thi" }
                     WidgetItem(
                         title = buildString {
                             append(exam.tenMon)
                             if (exam.maPhong.isNotBlank()) append(" • P.${exam.maPhong}")
                             if (exam.soBaoDanh.isNotBlank()) append(" • SBD ${exam.soBaoDanh}")
                         },
-                        time = if (exam.gioBatDau.isNotBlank()) {
-                            if (exam.soPhut > 0) "Thi: ${exam.gioBatDau} (${exam.soPhut}p)" else "Thi: ${exam.gioBatDau}"
-                        } else {
-                            "Lịch thi"
-                        },
+                        time = timeStr,
                         isExam = true,
                     )
                 }
@@ -116,22 +126,12 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
 
                 val schedule = WidgetSchedule(
-                    title = scheduleTitle(selectedDay, offset),
+                    title = scheduleTitle(selectedDay, offset, isSquare),
                     items = examItems + lessonItems,
                     offset = offset,
                 )
                 if (storedOffset == null) {
                     preferences.edit().putInt(offsetKey(appWidgetId), schedule.offset).apply()
-                }
-                val options = manager.getAppWidgetOptions(appWidgetId)
-                val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
-                val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
-                val availableHeight = maxOf(minHeight, maxHeight)
-                val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
-                val layoutMode = when {
-                    minWidth <= 220 || minWidth <= minHeight + 32 -> LayoutMode.SQUARE
-                    minWidth < 320 -> LayoutMode.MEDIUM
-                    else -> LayoutMode.WIDE
                 }
                 manager.updateAppWidget(
                     appWidgetId,
@@ -350,14 +350,28 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         return nowMinutes >= latestEnd
     }
 
-    private fun scheduleTitle(day: Calendar, offset: Int): String {
+    private fun scheduleTitle(day: Calendar, offset: Int, isSquare: Boolean): String {
         val date = SimpleDateFormat("dd/MM", Locale("vi", "VN")).format(day.time)
         return when (offset) {
-            0 -> "Hôm nay • $date"
-            1 -> "Ngày mai • $date"
-            else -> SimpleDateFormat("EEEE, dd/MM", Locale("vi", "VN"))
-                .format(day.time)
-                .replaceFirstChar { it.uppercase() }
+            -1 -> if (isSquare) "Hôm qua" else "Hôm qua • $date"
+            0 -> if (isSquare) "Hôm nay" else "Hôm nay • $date"
+            1 -> if (isSquare) "Ngày mai" else "Ngày mai • $date"
+            else -> date
+        }
+    }
+
+    private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
+        if (soPhut <= 0) return ""
+        return try {
+            val parts = gioBatDau.split(":")
+            val hour = parts[0].trim().toInt()
+            val minute = parts[1].trim().toInt()
+            val totalMinutes = hour * 60 + minute + soPhut
+            val endHour = (totalMinutes / 60) % 24
+            val endMinute = totalMinutes % 60
+            String.format(Locale.getDefault(), "%02d:%02d", endHour, endMinute)
+        } catch (_: Exception) {
+            ""
         }
     }
 

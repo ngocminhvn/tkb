@@ -77,6 +77,24 @@ class TnutRepository(
     /** Tải lịch tuần của học kỳ từ API rồi ghi đè vào Room trong 1 transaction. */
     suspend fun refresh(hocKy: Int): Result<Unit> {
         return try {
+            val now = System.currentTimeMillis()
+            val twoDaysMs = 2L * 24 * 60 * 60 * 1000L
+            val isOverTwoDays = (now - authStore.lastSyncTime) >= twoDaysMs
+
+            // Logic: qua 2 ngày load lại thì xóa note cũ và data cũ để giải phóng nhường chỗ cho load mới
+            if (isOverTwoDays && authStore.lastSyncTime > 0L) {
+                try {
+                    dao.clearAllLessonNotes()
+                    dao.deleteLessons(hocKy)
+                    dao.deleteWeeks(hocKy)
+                    dao.deleteExams(hocKy)
+                } catch (_: Exception) {}
+            } else {
+                try {
+                    dao.clearOldLessonNotes(now - twoDaysMs)
+                } catch (_: Exception) {}
+            }
+
             val res = api.weeklyTimetable(WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy)))
             if (res.code != 200 || res.data == null) {
                 return Result.failure(

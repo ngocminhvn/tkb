@@ -133,6 +133,12 @@ interface TkbDao {
     @Query("DELETE FROM lesson_notes WHERE lessonId = :lessonId")
     suspend fun deleteLessonNote(lessonId: String)
 
+    @Query("DELETE FROM lesson_notes")
+    suspend fun clearAllLessonNotes()
+
+    @Query("DELETE FROM lesson_notes WHERE updatedAt < :cutoffTimestamp")
+    suspend fun clearOldLessonNotes(cutoffTimestamp: Long)
+
     @Query("DELETE FROM lessons WHERE hocKy = :hocKy")
     suspend fun deleteLessons(hocKy: Int)
 
