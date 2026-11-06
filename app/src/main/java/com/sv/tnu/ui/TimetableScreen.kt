@@ -575,6 +575,8 @@ fun TimetableScreen(
     }
 }
 
+}
+
 @Composable
 private fun DayHeader(date: String, isToday: Boolean) {
     Row(
