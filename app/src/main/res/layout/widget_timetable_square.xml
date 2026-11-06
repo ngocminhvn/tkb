@@ -51,26 +51,34 @@
             android:textSize="22sp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_empty"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="center"
-        android:text="@string/widget_no_lessons"
-        android:textAlignment="center"
-        android:textColor="@color/widget_on_surface_variant"
-        android:textSize="12sp" />
+        android:orientation="vertical">
 
-    <include
-        android:id="@+id/lesson_1"
-        layout="@layout/widget_lesson_row_square" />
+        <TextView
+            android:id="@+id/widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/widget_no_lessons"
+            android:textAlignment="center"
+            android:textColor="@color/widget_on_surface_variant"
+            android:textSize="12sp" />
 
-    <include
-        android:id="@+id/lesson_2"
-        layout="@layout/widget_lesson_row_square_2" />
+        <include
+            android:id="@+id/lesson_1"
+            layout="@layout/widget_lesson_row_square" />
 
-    <include
-        android:id="@+id/lesson_3"
-        layout="@layout/widget_lesson_row_square_3" />
+        <include
+            android:id="@+id/lesson_2"
+            layout="@layout/widget_lesson_row_square_2" />
+
+        <include
+            android:id="@+id/lesson_3"
+            layout="@layout/widget_lesson_row_square_3" />
+    </LinearLayout>
+
 </LinearLayout>

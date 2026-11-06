@@ -93,6 +93,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
                 val options = manager.getAppWidgetOptions(appWidgetId)
                 val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+                val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
+                val availableHeight = maxOf(minHeight, maxHeight)
                 val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
                 val layoutMode = when {
                     minWidth <= 220 || minWidth <= minHeight + 32 -> LayoutMode.SQUARE
@@ -100,15 +102,19 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                     else -> LayoutMode.WIDE
                 }
                 val rowLimit = when (layoutMode) {
-                    LayoutMode.SQUARE -> if (minHeight >= 230) 2 else 1
+                    LayoutMode.SQUARE -> when {
+                        availableHeight >= 230 -> 3
+                        availableHeight >= 120 -> 2
+                        else -> 1
+                    }
                     LayoutMode.MEDIUM -> when {
-                        minHeight >= 240 -> 3
-                        minHeight >= 170 -> 2
+                        availableHeight >= 200 -> 3
+                        availableHeight >= 110 -> 2
                         else -> 1
                     }
                     LayoutMode.WIDE -> when {
-                        minHeight >= 250 -> 3
-                        minHeight >= 180 -> 2
+                        availableHeight >= 220 -> 3
+                        availableHeight >= 120 -> 2
                         else -> 1
                     }
                 }
