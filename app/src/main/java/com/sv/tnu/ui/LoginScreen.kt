@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutApi
+import retrofit2.HttpException
 
 sealed interface LoginUiState {
     data object Idle : LoginUiState
@@ -57,19 +58,34 @@ class LoginViewModel(
             _state.value = LoginUiState.Error("Nhập tài khoản và mật khẩu portal TNUT.")
             return
         }
+        val portalUsername = username.trim().let { value ->
+            if (value.endsWith("@tnut.edu.vn", ignoreCase = true)) {
+                value.substringBefore('@')
+            } else {
+                value
+            }
+        }
         viewModelScope.launch {
             _state.value = LoginUiState.Loading
             try {
-                val res = api.login(username = username.trim(), password = password)
+                val res = api.login(username = portalUsername, password = password)
                 if (res.accessToken.isBlank()) {
                     _state.value = LoginUiState.Error("Đăng nhập thất bại: không nhận được token.")
                 } else {
-                    authStore.saveLogin(username.trim(), password, res)
+                    authStore.saveLogin(portalUsername, password, res)
                     _state.value = LoginUiState.Success
                 }
+            } catch (e: HttpException) {
+                _state.value = LoginUiState.Error(
+                    if (e.code() == 400) {
+                        "Tên đăng nhập hoặc mật khẩu không đúng. Hãy dùng mã sinh viên, không gồm @tnut.edu.vn."
+                    } else {
+                        "Portal TNUT trả về lỗi HTTP ${e.code()}. Vui lòng thử lại sau."
+                    },
+                )
             } catch (e: Exception) {
                 _state.value = LoginUiState.Error(
-                    "Đăng nhập thất bại: ${e.message ?: "lỗi mạng"}. Kiểm tra lại tài khoản/mật khẩu.",
+                    "Không kết nối được portal TNUT: ${e.message ?: "lỗi mạng"}.",
                 )
             }
         }
@@ -111,7 +127,8 @@ fun LoginScreen(
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
-            label = { Text("Tài khoản") },
+            label = { Text("Mã sinh viên") },
+            placeholder = { Text("Không gồm @tnut.edu.vn") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             modifier = Modifier.fillMaxWidth(),
