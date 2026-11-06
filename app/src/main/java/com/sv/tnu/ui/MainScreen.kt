@@ -14,10 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,6 +43,7 @@ import com.sv.tnu.update.AppUpdateViewModel
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
+    MORE("Thêm", Icons.Default.GridView),
     SETTINGS("Cài đặt", Icons.Default.Settings),
 }
 
@@ -71,6 +77,11 @@ fun MainScreen(
             NavigationTab.TIMETABLE -> {
                 TimetableScreen(
                     viewModel = timetableViewModel,
+                    contentPadding = PaddingValues(bottom = 96.dp),
+                )
+            }
+            NavigationTab.MORE -> {
+                MoreScreen(
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
@@ -136,5 +147,38 @@ fun MainScreen(
                 onStartDownload = { info -> appUpdateViewModel.startDownload(info) },
             )
         }
+    }
+}
+
+/**
+ * Trang "Thêm" nằm giữa TKB và Cài đặt, để trống theo yêu cầu người dùng.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MoreScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Thêm",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(contentPadding),
+        )
     }
 }

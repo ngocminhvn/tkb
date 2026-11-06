@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,11 +24,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,9 +39,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,7 +83,9 @@ fun SettingsScreen(
     val lessons by timetableViewModel.lessons.collectAsState()
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
-    val exams by timetableViewModel.exams.collectAsState()
+    val exams by timetableViewModel.allExams.collectAsState()
+    val showExamsOnHome by timetableViewModel.showExamsOnHome.collectAsState()
+    val visibleWeekCount by timetableViewModel.visibleWeekCount.collectAsState()
     val isFetchingExams by timetableViewModel.isFetchingExams.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -180,29 +188,146 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
             )
 
-            ActionCard(
-                icon = Icons.Default.DateRange,
-                title = "Lịch thi học kỳ",
-                subtitle = if (isFetchingExams && exams.isEmpty()) "Đang tải lịch thi từ portal..."
-                else if (exams.isEmpty()) "Chưa có lịch thi (sẽ tự tải khi nhà trường công bố)"
-                else "${exams.count { !it.isHoanThi }} buổi thi${if (exams.any { it.isHoanThi }) " • Có môn hoãn thi" else ""}",
-                trailing = {
-                    if (isFetchingExams) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
+            // Switch Hiện lịch thi học kỳ trên TKB trang chủ
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showExamDialog = true
+                            timetableViewModel.fetchExamsOnly(force = true)
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE53935).copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                            contentDescription = "Xem lịch thi",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
-                },
-                onClick = {
-                    showExamDialog = true
-                    timetableViewModel.fetchExamsOnly()
-                },
-            )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Hiện lịch thi học kỳ",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (!showExamsOnHome) "Đang tắt trên trang chủ • Chạm để xem chi tiết"
+                            else if (exams.isEmpty()) "Chưa có lịch thi trong SQL"
+                            else "${exams.count { !it.isHoanThi }} buổi thi • Hiện cùng TKB • Chạm xem",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = showExamsOnHome,
+                        onCheckedChange = { timetableViewModel.setShowExamsOnHome(it) },
+                    )
+                }
+            }
+
+            // Tùy chọn hiển thị số tuần (với nút - và +)
+            val weeksBefore = (visibleWeekCount - 1) / 2
+            val weeksAfter = visibleWeekCount - 1 - weeksBefore
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Tùy chọn hiển thị",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$visibleWeekCount tuần ($weeksBefore trước, 1 hiện tại, $weeksAfter sau)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        FilledTonalIconButton(
+                            onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount - 1) },
+                            enabled = visibleWeekCount > 1,
+                            modifier = Modifier.size(34.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Giảm",
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.widthIn(min = 28.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "$visibleWeekCount",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount + 1) },
+                            enabled = visibleWeekCount < 15,
+                            modifier = Modifier.size(34.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Tăng",
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
+            }
 
             ActionCard(
                 icon = Icons.Default.Sync,

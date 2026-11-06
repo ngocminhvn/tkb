@@ -62,6 +62,14 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_AVATAR_PATH, null)
         set(value) = prefs.edit().putString(KEY_AVATAR_PATH, value).apply()
 
+    var showExamsOnHome: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_EXAMS_ON_HOME, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_EXAMS_ON_HOME, value).apply()
+
+    var visibleWeekCount: Int
+        get() = prefs.getInt(KEY_VISIBLE_WEEK_COUNT, 5).coerceIn(1, 20)
+        set(value) = prefs.edit().putInt(KEY_VISIBLE_WEEK_COUNT, value.coerceIn(1, 20)).apply()
+
     val hasCredentials: Boolean
         get() = !username.isNullOrBlank() && !password.isNullOrBlank()
 
@@ -105,5 +113,7 @@ class AuthStore(context: Context) {
         private const val KEY_LAST_SYNC_TIME = "last_sync_time"
         private const val KEY_LAST_AUTO_SYNC_ATTEMPT = "last_auto_sync_attempt"
         private const val KEY_AVATAR_PATH = "avatar_path"
+        private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
+        private const val KEY_VISIBLE_WEEK_COUNT = "visible_week_count"
     }
 }

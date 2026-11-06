@@ -107,7 +107,21 @@ class TimetableViewModel(
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val exams: StateFlow<List<ExamEntity>> = repository.examsFlow(hocKy)
+    private val _showExamsOnHome = MutableStateFlow(authStore.showExamsOnHome)
+    val showExamsOnHome: StateFlow<Boolean> = _showExamsOnHome.asStateFlow()
+
+    private val _visibleWeekCount = MutableStateFlow(authStore.visibleWeekCount)
+    val visibleWeekCount: StateFlow<Int> = _visibleWeekCount.asStateFlow()
+
+    /** Lịch thi hiển thị ở trang chủ: nếu tắt thì không load để tối ưu bộ nhớ & truy vấn. */
+    val exams: StateFlow<List<ExamEntity>> = _showExamsOnHome
+        .flatMapLatest { show ->
+            if (!show) kotlinx.coroutines.flow.flowOf(emptyList())
+            else repository.examsFlow(hocKy)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Dùng riêng cho dialog xem toàn bộ lịch thi ở Settings. */
+    val allExams: StateFlow<List<ExamEntity>> = repository.examsFlow(hocKy)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val lessonNotes: StateFlow<Map<String, String>> = repository.lessonNotesFlow()
@@ -118,13 +132,20 @@ class TimetableViewModel(
         currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    /** Load tối đa 5 tuần: 2 tuần trước + tuần hiện tại + 2 tuần sau. */
-    val visibleWeeks: StateFlow<List<WeekEntity>> = combine(weeks, currentWeekNumber) { weekList, curr ->
+    /**
+     * Tùy chọn hiển thị số tuần:
+     * Ví dụ 4 tuần: (4-1)/2 = 1 tuần trước, 1 tuần hiện tại, 2 tuần sau.
+     * Ví dụ 5 tuần: (5-1)/2 = 2 tuần trước, 1 tuần hiện tại, 2 tuần sau.
+     */
+    val visibleWeeks: StateFlow<List<WeekEntity>> = combine(weeks, currentWeekNumber, _visibleWeekCount) { weekList, curr, count ->
         if (weekList.isEmpty()) emptyList()
         else {
             val center = curr ?: weekList.firstOrNull()?.tuanHocKy ?: 1
-            val minWeek = center - 2
-            val maxWeek = center + 2
+            val n = count.coerceIn(1, 20)
+            val weeksBefore = (n - 1) / 2
+            val weeksAfter = n - 1 - weeksBefore
+            val minWeek = center - weeksBefore
+            val maxWeek = center + weeksAfter
             weekList.filter { it.tuanHocKy in minWeek..maxWeek }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -151,7 +172,22 @@ class TimetableViewModel(
         }
     }
 
-    fun fetchExamsOnly() {
+    fun setShowExamsOnHome(enable: Boolean) {
+        authStore.showExamsOnHome = enable
+        _showExamsOnHome.value = enable
+        if (enable) {
+            fetchExamsOnly(force = true)
+        }
+    }
+
+    fun setVisibleWeekCount(count: Int) {
+        val clamped = count.coerceIn(1, 20)
+        authStore.visibleWeekCount = clamped
+        _visibleWeekCount.value = clamped
+    }
+
+    fun fetchExamsOnly(force: Boolean = false) {
+        if (!authStore.showExamsOnHome && !force) return
         viewModelScope.launch {
             _isFetchingExams.value = true
             try {
