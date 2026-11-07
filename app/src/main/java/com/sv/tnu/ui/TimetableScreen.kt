@@ -93,8 +93,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Room emission paired with its week so Compose never paints another week's lessons. */
-data class LoadedWeekLessons(val weekNumber: Int, val items: List<LessonEntity>)
+/** One coherent offline screen state; never expose a partly loaded week/lesson pair. */
+data class TimetableSnapshot(
+    val weeks: List<WeekEntity>,
+    val semesterLessons: List<LessonEntity>,
+    val selectedWeek: Int?,
+    val lessons: List<LessonEntity>,
+)
 
 class TimetableViewModel(
     private val repository: TnutRepository,
@@ -115,16 +120,32 @@ class TimetableViewModel(
     private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
-    // Null means Room has not delivered its FIRST cache snapshot. An empty list
-    // means Room really has no saved weeks. Do not confuse the two at startup.
-    val cachedWeeks: StateFlow<List<WeekEntity>?> = repository.weeksFlow(hocKy)
-        .map<List<WeekEntity>, List<WeekEntity>?> { it }
+    // A SINGLE observable snapshot is the source of truth for first render.
+    // The old independent cachedWeeks -> selectedWeek -> weekLessons collectors
+    // could leave Compose waiting for a delayed emission until switching tabs.
+    // Room loads both cached tables offline, then we atomically choose a week
+    // and its lessons. Null is reserved solely for the initial disk read.
+    val timetable: StateFlow<TimetableSnapshot?> = combine(
+        repository.weeksFlow(hocKy),
+        repository.semesterLessonsFlow(hocKy),
+        _selectedWeek,
+        _todayYmd,
+    ) { weekList, lessonList, manual, today ->
+        val selected = manual?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
+            ?: currentWeekNumber(weekList, today)
+        TimetableSnapshot(
+            weeks = weekList,
+            semesterLessons = lessonList,
+            selectedWeek = selected,
+            lessons = if (selected == null) emptyList()
+                else lessonList.filter { it.tuanHocKy == selected },
+        )
+    }.map<TimetableSnapshot, TimetableSnapshot?> { it }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    // Keep the offline timetable hot across tab changes, rather than opening a
-    // new Room collector every time the TKB screen is mounted.
-    val weeks: StateFlow<List<WeekEntity>> = cachedWeeks
-        .map { it.orEmpty() }
+    // The existing settings and navigation APIs reuse that same Room snapshot.
+    val weeks: StateFlow<List<WeekEntity>> = timetable
+        .map { it?.weeks.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
@@ -177,25 +198,13 @@ class TimetableViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Derive directly from Room weeks so the first cache emission cannot
-    // momentarily select the semester's first (outdated) week.
-    val selectedWeek: StateFlow<Int?> = combine(weeks, _selectedWeek, _todayYmd) { weekList, selected, today ->
-        val current = currentWeekNumber(weekList, today)
-        val validSelected = selected?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
-        validSelected ?: current
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    // The first real Room emission (including a genuinely empty week) marks
-    // cached lessons as ready. A stale prior week's emission is never painted.
-    val weekLessons: StateFlow<LoadedWeekLessons?> = selectedWeek
-        .flatMapLatest { week ->
-            if (week == null) kotlinx.coroutines.flow.flowOf<LoadedWeekLessons?>(null)
-            else repository.lessonsFlow(hocKy, week)
-                .map<List<LessonEntity>, LoadedWeekLessons?> { LoadedWeekLessons(week, it) }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val selectedWeek: StateFlow<Int?> = timetable
+        .map { it?.selectedWeek }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Settings counts the whole semester, not just whichever week is selected.
-    val semesterLessons: StateFlow<List<LessonEntity>> = repository.semesterLessonsFlow(hocKy)
+    val semesterLessons: StateFlow<List<LessonEntity>> = timetable
+        .map { it?.semesterLessons.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isFetchingExams = MutableStateFlow(false)
@@ -438,16 +447,13 @@ fun TimetableScreen(
     viewModel: TimetableViewModel,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-    val weeks by viewModel.weeks.collectAsState()
-    val cachedWeeks by viewModel.cachedWeeks.collectAsState()
-    val selectedWeek by viewModel.selectedWeek.collectAsState()
-    val loadedWeekLessons by viewModel.weekLessons.collectAsState()
-    val lessons = loadedWeekLessons?.takeIf { it.weekNumber == selectedWeek }?.items.orEmpty()
-    val cachedWeekReady = cachedWeeks != null &&
-        (cachedWeeks!!.isEmpty() || (selectedWeek != null && loadedWeekLessons?.weekNumber == selectedWeek))
+    val timetable by viewModel.timetable.collectAsState()
+    val weeks = timetable?.weeks.orEmpty()
+    val selectedWeek = timetable?.selectedWeek
+    val lessons = timetable?.lessons.orEmpty()
     val avatarPath by viewModel.avatarPath.collectAsState()
     val studentName by viewModel.studentName.collectAsState()
-    val semesterLessons by viewModel.semesterLessons.collectAsState()
+    val semesterLessons = timetable?.semesterLessons.orEmpty()
     val exams by viewModel.exams.collectAsState()
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
@@ -705,7 +711,7 @@ fun TimetableScreen(
                 }
             }
 
-            if (!cachedWeekReady || (displayedGrouped.isEmpty() && refreshing)) {
+            if (timetable == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

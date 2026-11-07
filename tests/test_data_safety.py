@@ -140,22 +140,29 @@ assert "currentWeekNumber(weekList, today)" in ui
 assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
 assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
-assert "val weeks by viewModel.weeks.collectAsState()" in ui
-# An unloaded Room cache must not be mistaken for a genuinely missing timetable.
-assert "val cachedWeeks: StateFlow<List<WeekEntity>?>" in ui
-assert "SharingStarted.Eagerly, null)" in ui
-assert "val weekLessons: StateFlow<LoadedWeekLessons?>" in ui
-assert "loadedWeekLessons?.weekNumber == selectedWeek" in ui
-assert "if (!cachedWeekReady || (displayedGrouped.isEmpty() && refreshing))" in ui
+# One Room-backed timetable snapshot selects the week and its cached lessons
+# atomically. No perpetual spinner waiting for independent StateFlows.
+assert "val timetable: StateFlow<TimetableSnapshot?>" in ui
+assert "repository.weeksFlow(hocKy)," in ui
+assert "repository.semesterLessonsFlow(hocKy)," in ui
+assert "TimetableSnapshot(" in ui
+assert "lessonList.filter { it.tuanHocKy == selected }" in ui
+assert "val timetable by viewModel.timetable.collectAsState()" in ui
+assert "val weeks = timetable?.weeks.orEmpty()" in ui
+assert "val selectedWeek = timetable?.selectedWeek" in ui
+assert "val lessons = timetable?.lessons.orEmpty()" in ui
+assert "if (timetable == null)" in ui
 assert "else if (displayedGrouped.isEmpty())" in ui
+assert "cachedWeekReady" not in ui
+assert "LoadedWeekLessons" not in ui
 assert "val lessons by viewModel.lessons.collectAsState()" not in ui
 assert "combine(weeks, _todayYmd, _visibleWeekCount, _selectedWeek)" in ui
-assert "combine(weeks, _selectedWeek, _todayYmd)" in ui
+assert "val selectedWeek: StateFlow<Int?> = timetable" in ui
 assert "combine(visibleWeeks, _selectedWeek, _todayYmd)" not in ui
 assert "combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek)" not in ui
 assert "val list = weeks.value" in ui
 assert "list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy" in ui
-assert "val semesterLessons by viewModel.semesterLessons.collectAsState()" in ui
+assert "val semesterLessons = timetable?.semesterLessons.orEmpty()" in ui
 assert "if (note.isNotBlank()) {" in ui
 assert 'text = if (showPastDays)' not in ui
 assert 'text = if (selectedWeek != null) "Tuần $selectedWeek"' not in ui
