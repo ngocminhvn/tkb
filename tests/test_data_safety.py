@@ -195,7 +195,7 @@ assert '"Sinh viên TNUT"' in ui
 assert ".background(MaterialTheme.colorScheme.background)" in ui
 assert "modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)" in ui
 assert '"• T${lesson.tietBatDau} · ${lesson.soTiet} tiết"' in ui
-assert '"Thời khóa biểu • Học kỳ' in ui
+assert 'text = "Học kỳ ${viewModel.hocKy}"' in ui
 assert "studentName: StateFlow<String?> = repository.studentName" in ui
 assert "val studentName: StateFlow<String?>" in repo
 assert "authStore.studentName = name" in repo
