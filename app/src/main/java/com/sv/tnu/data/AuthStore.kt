@@ -53,6 +53,15 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_AVATAR_PATH, null)
         set(value) = prefs.edit().putString(KEY_AVATAR_PATH, value).apply()
 
+    var studentName: String?
+        get() = prefs.getString(KEY_STUDENT_NAME, null)
+        set(value) = prefs.edit().putString(KEY_STUDENT_NAME, value).apply()
+
+    // Throttle optional student-name retrieval (the portal may return image only).
+    var lastProfileCheck: Long
+        get() = prefs.getLong(KEY_LAST_PROFILE_CHECK, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_PROFILE_CHECK, value).apply()
+
     var showExamsOnHome: Boolean
         get() = prefs.getBoolean(KEY_SHOW_EXAMS_ON_HOME, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_EXAMS_ON_HOME, value).apply()
@@ -99,6 +108,13 @@ class AuthStore(context: Context) {
         get() = !accessToken.isNullOrBlank()
 
     fun saveLogin(username: String, password: String, response: LoginResponse) {
+        if (this.username != null && this.username != username) {
+            // A newly signed-in account must never inherit another
+            // student's name/avatar from encrypted preferences.
+            studentName = null
+            avatarPath = null
+            lastProfileCheck = 0L
+        }
         prefs.edit()
             .putString(KEY_USERNAME, username)
             .putString(KEY_PASSWORD, password)
@@ -165,6 +181,8 @@ class AuthStore(context: Context) {
         private const val KEY_LAST_SYNC_TIME = "last_sync_time"
         private const val KEY_LAST_AUTO_SYNC_ATTEMPT = "last_auto_sync_attempt"
         private const val KEY_AVATAR_PATH = "avatar_path"
+        private const val KEY_STUDENT_NAME = "student_name"
+        private const val KEY_LAST_PROFILE_CHECK = "last_profile_check"
         private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
         private const val KEY_VISIBLE_WEEK_COUNT = "visible_week_count"
         private const val KEY_REMIND_TODAY = "remind_today"
