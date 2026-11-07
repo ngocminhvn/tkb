@@ -79,6 +79,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -439,6 +440,27 @@ fun TimetableScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Re-select the real local date at midnight while the screen stays open.
+    // One suspended delay until the next midnight, not repeated CPU polling.
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        while (true) {
+            val nextMidnight = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            delay((nextMidnight - System.currentTimeMillis() + 100L).coerceAtLeast(1000L))
+            val actualToday = localTodayYmd()
+            if (todayStr != actualToday) {
+                todayStr = actualToday
+                selectedDay = actualToday
+                viewModel.updateToday()
+            }
+        }
     }
 
     val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
