@@ -251,7 +251,9 @@ assert "onMoveDay(if (dx < 0f) 1 else -1)" in calendar
 assert "onMoveWeek(" not in calendar
 assert "changeSelectedDay(if (totalDrag < 0f) 1 else -1)" in ui
 assert "val next = adjacentTimetableDay(selectedDay, direction, weeks)" in ui
-assert "if (selectedWeek != next.second) viewModel.selectWeek(next.second)" in ui
+assert "if (selectedWeek != next.second) {" in ui
+assert "pendingWeek = next.second" in ui
+assert "viewModel.selectWeek(next.second)" in ui
 assert "UserAvatar(" in ui
 assert "val avatarPath by viewModel.avatarPath.collectAsState()" in ui
 assert "val studentName by viewModel.studentName.collectAsState()" in ui
