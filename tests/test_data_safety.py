@@ -413,6 +413,7 @@ assert "app-release.apk TKB-SV.apk" in workflow
 proguard = Path("app/proguard-rules.pro").read_text(encoding="utf-8")
 assert "-keep class com.sv.tnu.rust.RustScheduleCore { *; }" in proguard
 assert "-keep class com.sv.tnu.rust.RustPortalCore { *; }" in proguard
+assert "-dontwarn com.google.errorprone.annotations.**" in proguard
 assert (Path("app/src/test/java/com/sv/tnu/rust/RustScheduleCoreTest.kt")).exists()
 
 print("OK: timetable/notes survive sync, demo exams are excluded, past exams hide, v1-v4 migration preserves data; Rust JNI bridge and Android ABIs configured")
