@@ -172,6 +172,8 @@ class TimetableViewModel(
 
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
+    private val _examSyncError = MutableStateFlow<String?>(null)
+    val examSyncError: StateFlow<String?> = _examSyncError.asStateFlow()
 
     // Clean up ONLY the exact known legacy demo-exam fixture before syncing.
     // This does not modify real portal cache, offline lessons or personal notes.
@@ -197,13 +199,21 @@ class TimetableViewModel(
         if (!authStore.showExamsOnHome && !force) return
         if (_isFetchingExams.value) return
         _isFetchingExams.value = true
+        _examSyncError.value = null
         viewModelScope.launch {
             try {
                 cacheReadyJob.join()
+                // Avoid two simultaneous queries when the timetable is also
+                // refreshing; an explicit retry remains available in Settings.
                 if (!_refreshing.value) {
-                    repository.fetchAndSaveExams(hocKy)
+                    repository.fetchAndSaveExams(hocKy).onFailure { cause ->
+                        _examSyncError.value = cause.message ?: "Không đọc được lịch thi từ portal."
+                    }
                 }
-            } catch (_: Exception) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _examSyncError.value = e.message ?: "Không đọc được lịch thi từ portal."
             } finally {
                 _isFetchingExams.value = false
             }
