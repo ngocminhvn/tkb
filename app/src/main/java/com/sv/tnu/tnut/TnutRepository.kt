@@ -107,6 +107,8 @@ class TnutRepository(
 
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
+    fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>> = dao.semesterLessons(hocKy)
+
     fun examsFlow(hocKy: Int): Flow<List<ExamEntity>> = dao.exams(hocKy)
 
     fun lessonNotesFlow(): Flow<List<LessonNoteEntity>> = dao.lessonNotes()
