@@ -75,6 +75,7 @@ import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.components.UserAvatar
+import com.sv.tnu.rust.RustScheduleCore
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -340,31 +341,8 @@ class TimetableViewModel(
 private val dayFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 private val dayLabelFormat = ThreadLocal.withInitial { SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN")) }
 
-private fun normalizeDateToYmd(dateStr: String): String {
-    val clean = dateStr.trim().substringBefore(" ").substringBefore("T")
-    val partsSlash = clean.split("/")
-    if (partsSlash.size == 3) {
-        val day = partsSlash[0].padStart(2, '0')
-        val month = partsSlash[1].padStart(2, '0')
-        val year = partsSlash[2]
-        return "$year-$month-$day"
-    }
-    val partsDash = clean.split("-")
-    if (partsDash.size == 3) {
-        return if (partsDash[0].length == 4) {
-            val year = partsDash[0]
-            val month = partsDash[1].padStart(2, '0')
-            val day = partsDash[2].padStart(2, '0')
-            "$year-$month-$day"
-        } else {
-            val day = partsDash[0].padStart(2, '0')
-            val month = partsDash[1].padStart(2, '0')
-            val year = partsDash[2]
-            "$year-$month-$day"
-        }
-    }
-    return clean
-}
+private fun normalizeDateToYmd(dateStr: String): String =
+    RustScheduleCore.normalizeDate(dateStr)
 
 private fun localTodayYmd(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -390,13 +368,7 @@ internal fun adjacentTimetableDay(
     weeks: List<WeekEntity>,
 ): Pair<String, Int>? {
     if (direction == 0 || weeks.isEmpty()) return null
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-    val date = runCatching { format.parse(selectedYmd) }.getOrNull() ?: return null
-    val day = Calendar.getInstance().apply {
-        time = date
-        add(Calendar.DAY_OF_MONTH, if (direction > 0) 1 else -1)
-    }
-    val next = format.format(day.time)
+    val next = RustScheduleCore.moveCalendarDay(selectedYmd, direction) ?: return null
     val week = weeks.firstOrNull { next in
         normalizeDateToYmd(it.ngayBatDau)..normalizeDateToYmd(it.ngayKetThuc)
     } ?: return null
@@ -409,20 +381,8 @@ private fun dayLabel(ngayHoc: String): String {
     return dayLabelFormat.get().format(date).replaceFirstChar { it.uppercase() }
 }
 
-private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
-    if (soPhut <= 0) return ""
-    return try {
-        val parts = gioBatDau.split(":")
-        val hour = parts[0].trim().toInt()
-        val minute = parts[1].trim().toInt()
-        val totalMinutes = hour * 60 + minute + soPhut
-        val endHour = (totalMinutes / 60) % 24
-        val endMinute = totalMinutes % 60
-        String.format(Locale.getDefault(), "%02d:%02d", endHour, endMinute)
-    } catch (_: Exception) {
-        ""
-    }
-}
+private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
+    RustScheduleCore.examEndTime(gioBatDau, soPhut)
 
 private fun timeRange(periods: List<PeriodEntity>, tietBatDau: Int, soTiet: Int): String {
     val start = periods.firstOrNull { it.tiet == tietBatDau }?.gioBatDau ?: return "Tiết $tietBatDau"
