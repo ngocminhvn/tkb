@@ -17,9 +17,13 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 - Tài khoản + token chỉ lưu trên máy, mã hóa bằng EncryptedSharedPreferences. App không gửi tài khoản của bạn đi đâu ngoài `portal.tnut.edu.vn`.
 - Dữ liệu thời khóa biểu lưu trong Room trên máy, không đồng bộ lên đâu.
 
-## Dữ liệu mẫu
+## Dữ liệu thời khóa biểu và lịch thi
 
-`app/src/main/assets/sample_tkb_tuan_20261.json` là thời khóa biểu thật của học kỳ 20261 (HK1 2026–2027, 15 tuần, 98 buổi) dùng để seed Room lần đầu mở app khi chưa có dữ liệu. Sau khi đăng nhập, app tải lịch thật của bạn và ghi đè dữ liệu mẫu.
+- Ứng dụng **không tạo sẵn lịch học hoặc lịch thi của người khác**. Khi đăng nhập, lịch thực tế được lấy từ portal TNUT theo tài khoản và lưu bằng Room để xem offline.
+- Khi đồng bộ lỗi (mạng, HTTP 401), giữ nguyên dữ liệu thật đã tải trước đó; không tạo ra lịch thi giả. Nếu phiên hết hạn, thử đăng nhập lại trong app.
+- Những bản cũ đã từng chèn 6 lịch thi mẫu: bản mới chỉ tự dọn nếu cả 6 dòng trong cache khớp chính xác bộ mẫu; các lịch thi thật và ghi chú không bị xóa.
+- Các ngày đã qua (cả lịch học và lịch thi) được ẩn mặc định. Có thể chạm để hiện lại; bộ lọc ngày được cập nhật khi app quay lại foreground.
+- Nếu chưa từng đồng bộ thành công, ứng dụng không thể biết lịch thi chính xác từ một ảnh bảng lịch dùng chung; cần đăng nhập để tải dữ liệu riêng từ portal.
 
 ## Kỹ thuật
 
