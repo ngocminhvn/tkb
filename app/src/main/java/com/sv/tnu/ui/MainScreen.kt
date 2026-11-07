@@ -79,6 +79,14 @@ fun MainScreen(
     val downloadResult by appUpdateViewModel.downloadResult.collectAsState()
     val updateError by appUpdateViewModel.errorMessage.collectAsState()
 
+    // Trigger the real TNUT timetable + exam sync when the authenticated
+    // main screen opens, regardless of which tab is currently selected.
+    // The ViewModel rate-limits automatic checks to once per local day;
+    // AuthStore.saveLogin resets the marker for a fresh login.
+    LaunchedEffect(timetableViewModel) {
+        timetableViewModel.refreshIfNeeded()
+    }
+
     // Tự động kiểm tra bản cập nhật mới ngầm khi mở màn hình chính
     LaunchedEffect(Unit) {
         appUpdateViewModel.checkForUpdate(manual = false)
