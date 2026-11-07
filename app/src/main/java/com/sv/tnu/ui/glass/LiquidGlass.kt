@@ -192,14 +192,6 @@ fun GlassTabBar(
     val currentItemCount by rememberUpdatedState(itemCount)
     val currentOnSelected by rememberUpdatedState(onSelected)
 
-    val containerBorderBrush = remember(isDark) {
-        Brush.verticalGradient(
-            0.0f to if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.90f),
-            0.5f to if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.45f),
-            1.0f to if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.20f),
-        )
-    }
-
     BoxWithConstraints(
         modifier = modifier
             .height(height)
@@ -213,10 +205,7 @@ fun GlassTabBar(
                 color = if (isDark) Color(0xFF161922).copy(alpha = 0.55f) else Color(0xFFFFFFFF).copy(alpha = 0.60f),
                 shape = CapsuleShape,
             )
-            .border(
-                BorderStroke(1.dp, containerBorderBrush),
-                CapsuleShape,
-            )
+            // Soft capsule without a bright white outline.
             .clip(CapsuleShape)
             .padding(horizontal = 6.dp, vertical = 5.dp),
     ) {
@@ -378,17 +367,7 @@ fun GlassTabBar(
                         },
                         CapsuleShape,
                     )
-                    .border(
-                        BorderStroke(
-                            1.dp,
-                            if (isDark) {
-                                if (isHolding) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.20f)
-                            } else {
-                                if (isHolding) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.75f)
-                            },
-                        ),
-                        CapsuleShape,
-                    ),
+
             )
 
             // Các nút tab phân bổ đều
