@@ -178,6 +178,30 @@ assert "ScheduleReminders.cancelAll(this@MainActivity)" in main_activity
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
 assert "if (note.isNotBlank()) {" in ui
+# Earlier dates use a short, bounded list animation after an immediate nearby
+# jump, avoiding a costly animation through every item in the prior days.
+assert "kotlin.math.abs(target - firstVisible) > 5" in ui
+assert "listState.scrollToItem(nearTarget)" in ui
+assert "listState.animateScrollToItem(target)" in ui
+assert "color = MaterialTheme.colorScheme.onSurface," in ui
+assert "if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface" not in ui
+assert "MaterialTheme.colorScheme.primary" in calendar
+assert "Color(0xFF009F9C)" not in calendar
+assert "Color(0xFF22A74C)" not in calendar
+assert "val selectedDayColor = MaterialTheme.colorScheme.primary" in calendar
+
+# Compact reminder cards: switch retains its own action; tapping the rest of
+# the card opens the time picker. Duplicate update-check card is removed.
+assert 'title = "Thông báo lịch hôm nay"' in settings
+assert 'title = "Thông báo lịch ngày mai"' in settings
+assert "private fun ReminderSettingCard(" in settings
+assert ".clickable(onClick = onPickTime)" in settings
+assert "onCheckedChange = onToggle" in settings
+assert '"Giờ nhắc: %02d:%02d".format(' in settings
+assert 'title = "Kiểm tra cập nhật"' not in settings
+assert 'title = "Thông tin ứng dụng"' in settings
+assert "appUpdateViewModel.checkForUpdate(manual = true)" in settings
+assert "Giờ nhắc theo giờ điện thoại;" not in settings
 # One-line titles must shrink to their actual available width instead of
 # wrapping beside the note pencil or the THI badge.
 assert "private fun AutoFitSubjectTitle(" in ui
