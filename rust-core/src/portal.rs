@@ -427,7 +427,7 @@ mod tests {
     use super::*;
     #[test]
     fn binary_wire_reads_portal_envelope_without_json_roundtrip() {
-        let timetable = br#"{"code":200,"data":{"ds_tiet_trong_ngay":[],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":3,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}}"#;
+        let timetable = r#"{"code":200,"data":{"ds_tiet_trong_ngay":[],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":3,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}}"#.as_bytes();
         let packed = map_timetable_wire(20261, timetable).unwrap();
         assert_eq!(&packed[..5], b"TKB1T");
         assert!(packed.windows("Toán".len()).any(|v| v == "Toán".as_bytes()));
