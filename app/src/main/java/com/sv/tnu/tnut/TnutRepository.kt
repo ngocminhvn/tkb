@@ -45,12 +45,16 @@ class TnutRepository(
         val stream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalArgumentException("Không đọc được tệp đã chọn.")
         return stream.bufferedReader(Charsets.UTF_8).use { reader ->
-            val result = CharArray(2_000_001)
-            val count = reader.read(result)
-            require(count in 1..2_000_000) { "Tệp trống hoặc vượt giới hạn 2 MB." }
-            val tail = reader.read()
-            require(tail == -1) { "Tệp vượt giới hạn 2 MB." }
-            String(result, 0, count)
+            val out = StringBuilder()
+            val buf = CharArray(8192)
+            while (true) {
+                val count = reader.read(buf)
+                if (count == -1) break
+                out.append(buf, 0, count)
+                require(out.length <= 2_000_000) { "Tệp vượt giới hạn 2 MB." }
+            }
+            require(out.isNotEmpty()) { "Tệp đã chọn trống." }
+            out.toString()
         }
     }
 
