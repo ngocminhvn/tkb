@@ -178,6 +178,18 @@ assert "ScheduleReminders.cancelAll(this@MainActivity)" in main_activity
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
 assert "if (note.isNotBlank()) {" in ui
+# One-line titles must shrink to their actual available width instead of
+# wrapping beside the note pencil or the THI badge.
+assert "private fun AutoFitSubjectTitle(" in ui
+assert "measurer.measure(" in ui
+assert "maxWidth.roundToPx()" in ui
+assert "softWrap = false" in ui
+assert "maxLines = 1" in ui
+assert "overflow = TextOverflow.Ellipsis" in ui
+assert "title = lesson.tenMon" in ui
+assert "title = exam.tenMon" in ui
+assert "fontSize = if (weekend) 17.sp else 19.sp" in calendar
+assert "fontSize = if (weekend) 10.sp else 11.sp" in calendar
 assert "IconButton(" in ui
 assert 'contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú"' in ui
 assert 'text = note.ifBlank { "Thêm ghi chú" }' not in ui
