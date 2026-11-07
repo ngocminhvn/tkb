@@ -85,6 +85,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -203,12 +204,12 @@ class TimetableViewModel(
         viewModelScope.launch {
             try {
                 cacheReadyJob.join()
-                // Avoid two simultaneous queries when the timetable is also
-                // refreshing; an explicit retry remains available in Settings.
-                if (!_refreshing.value) {
-                    repository.fetchAndSaveExams(hocKy).onFailure { cause ->
-                        _examSyncError.value = cause.message ?: "Không đọc được lịch thi từ portal."
-                    }
+                // An explicit exam refresh must never be silently skipped.
+                // If timetable sync is already fetching exams, wait until it
+                // finishes, then fetch once with a visible success/error state.
+                _refreshing.first { isRefreshing -> !isRefreshing }
+                repository.fetchAndSaveExams(hocKy).onFailure { cause ->
+                    _examSyncError.value = cause.message ?: "Không đọc được lịch thi từ portal."
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
