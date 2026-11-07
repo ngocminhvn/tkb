@@ -191,7 +191,9 @@ assert "UserAvatar(" in ui
 assert "val avatarPath by viewModel.avatarPath.collectAsState()" in ui
 assert "val studentName by viewModel.studentName.collectAsState()" in ui
 assert "viewModel.studentId.ifBlank" in ui
-assert '"Sinh viên TNUT"' in ui
+assert '"Sinh viên TNUT"' not in ui
+assert 'if (!studentName.isNullOrBlank()) {' in ui
+assert '.height(64.dp)' in ui
 assert ".background(MaterialTheme.colorScheme.background)" in ui
 assert "modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)" in ui
 assert '"• T${lesson.tietBatDau} · ${lesson.soTiet} tiết"' in ui
