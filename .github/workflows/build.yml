@@ -67,8 +67,8 @@ jobs:
 
       - name: Prepare release files
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk SvTNU.apk
-          xz -9 -k SvTNU.apk
+          cp app/build/outputs/apk/debug/app-debug.apk TKB-SV.apk
+          xz -9 -k TKB-SV.apk
           python3 - <<'PY'
           import hashlib, json, os, subprocess
           from datetime import datetime, timezone
@@ -87,13 +87,13 @@ jobs:
           update = {
               "versionCode": version_code,
               "versionName": version_name,
-              "apkUrl": "https://ngocminhvn.github.io/tkb/SvTNU.apk",
-              "packageUrl": "https://ngocminhvn.github.io/tkb/SvTNU.apk.xz",
+              "apkUrl": "https://ngocminhvn.github.io/tkb/TKB-SV.apk",
+              "packageUrl": "https://ngocminhvn.github.io/tkb/TKB-SV.apk.xz",
               "compression": "xz",
-              "sha256": sha256("SvTNU.apk"),
-              "packageSha256": sha256("SvTNU.apk.xz"),
-              "sizeBytes": os.path.getsize("SvTNU.apk"),
-              "packageSizeBytes": os.path.getsize("SvTNU.apk.xz"),
+              "sha256": sha256("TKB-SV.apk"),
+              "packageSha256": sha256("TKB-SV.apk.xz"),
+              "sizeBytes": os.path.getsize("TKB-SV.apk"),
+              "packageSizeBytes": os.path.getsize("TKB-SV.apk.xz"),
               "changelog": changelog,
               "commit": commit,
               "publishedAt": datetime.now(timezone.utc).isoformat(),
@@ -103,13 +103,13 @@ jobs:
           print(json.dumps(update, indent=2, ensure_ascii=False))
           PY
           touch .nojekyll
-          ls -lh SvTNU.apk SvTNU.apk.xz update.json
+          ls -lh TKB-SV.apk TKB-SV.apk.xz update.json
 
       - name: Upload test APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SvTNU-APK-${{ github.run_number }}
-          path: SvTNU.apk
+          name: TKB-SV-APK-${{ github.run_number }}
+          path: TKB-SV.apk
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
@@ -117,7 +117,7 @@ jobs:
       - name: Stage Pages files
         run: |
           mkdir -p pages
-          cp SvTNU.apk SvTNU.apk.xz update.json .nojekyll pages/
+          cp TKB-SV.apk TKB-SV.apk.xz update.json .nojekyll pages/
           ls -lh pages/
 
       - name: Upload GitHub Pages artifact
