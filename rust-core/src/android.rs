@@ -1,6 +1,6 @@
 //! JNI entry points for the TKB SV Android app. Data never leaves the process.
-use jni::objects::{JObject, JString};
-use jni::sys::{jint, jstring};
+use jni::objects::{JByteArray, JObject, JString};
+use jni::sys::{jbyteArray, jint, jstring};
 use jni::JNIEnv;
 
 fn from_java(env: &mut JNIEnv<'_>, input: &JString<'_>) -> String {
@@ -140,4 +140,47 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_normalizeUsernameNati
 ) -> jstring {
     let source = from_java(&mut env, &input);
     into_java(&mut env, crate::portal::normalize_username(&source))
+}
+
+fn into_byte_array(env: &mut JNIEnv<'_>, result: Result<Vec<u8>, String>) -> jbyteArray {
+    match result {
+        Ok(bytes) => env.byte_array_from_slice(&bytes)
+            .map(JByteArray::into_raw)
+            .unwrap_or(std::ptr::null_mut()),
+        Err(message) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", message);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Exactly one JNI call per full TNUT timetable response; pass original
+/// network bytes and receive binary DTOs, not a JSON round-trip.
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapTimetableBytesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    semester: jint,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let bytes = match env.convert_byte_array(&source) {
+        Ok(bytes) => bytes,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    into_byte_array(&mut env, crate::portal::map_timetable_wire(semester, &bytes))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamBytesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    semester: jint,
+    is_midterm: jni::sys::jboolean,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let bytes = match env.convert_byte_array(&source) {
+        Ok(bytes) => bytes,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    into_byte_array(&mut env, crate::portal::map_exam_wire(semester, is_midterm != 0, &bytes))
 }
