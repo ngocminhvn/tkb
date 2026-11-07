@@ -61,6 +61,23 @@ class AuthStore(context: Context) {
         get() = prefs.getInt(KEY_VISIBLE_WEEK_COUNT, 5).coerceIn(1, 20)
         set(value) = prefs.edit().putInt(KEY_VISIBLE_WEEK_COUNT, value.coerceIn(1, 20)).apply()
 
+    // Both reminders are opt-in. Times are local minutes after midnight.
+    var remindToday: Boolean
+        get() = prefs.getBoolean(KEY_REMIND_TODAY, false)
+        set(value) = prefs.edit().putBoolean(KEY_REMIND_TODAY, value).apply()
+
+    var remindTomorrow: Boolean
+        get() = prefs.getBoolean(KEY_REMIND_TOMORROW, false)
+        set(value) = prefs.edit().putBoolean(KEY_REMIND_TOMORROW, value).apply()
+
+    var todayReminderMinutes: Int
+        get() = prefs.getInt(KEY_TODAY_REMINDER_MINUTES, 6 * 60 + 30).coerceIn(0, 1439)
+        set(value) = prefs.edit().putInt(KEY_TODAY_REMINDER_MINUTES, value.coerceIn(0, 1439)).apply()
+
+    var tomorrowReminderMinutes: Int
+        get() = prefs.getInt(KEY_TOMORROW_REMINDER_MINUTES, 20 * 60).coerceIn(0, 1439)
+        set(value) = prefs.edit().putInt(KEY_TOMORROW_REMINDER_MINUTES, value.coerceIn(0, 1439)).apply()
+
     private val _isDarkMode = MutableStateFlow(prefs.getBoolean(KEY_IS_DARK_MODE, false))
     val isDarkModeFlow: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
@@ -150,6 +167,10 @@ class AuthStore(context: Context) {
         private const val KEY_AVATAR_PATH = "avatar_path"
         private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
         private const val KEY_VISIBLE_WEEK_COUNT = "visible_week_count"
+        private const val KEY_REMIND_TODAY = "remind_today"
+        private const val KEY_REMIND_TOMORROW = "remind_tomorrow"
+        private const val KEY_TODAY_REMINDER_MINUTES = "today_reminder_minutes"
+        private const val KEY_TOMORROW_REMINDER_MINUTES = "tomorrow_reminder_minutes"
         private const val KEY_IS_DARK_MODE = "is_dark_mode"
     }
 }
