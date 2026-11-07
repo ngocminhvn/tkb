@@ -51,6 +51,8 @@ assert 'SerialName("is_giua_ky")' in models
 assert "val additional: ExamAdditional," in models
 
 # No missing/partial page is allowed to wipe genuine cached or imported exams.
+native_portal = Path("rust-core/src/portal.rs").read_text(encoding="utf-8")
+native_bridge = (root / "rust/RustPortalCore.kt").read_text(encoding="utf-8")
 assert "private suspend fun loadPortalExams(" in repo
 assert "RustPortalCore.hasNextExamPage(page, mapped.totalPages, mapped.rowCount)" in repo
 assert "RustPortalCore.dedupeExams(all)" in repo
@@ -62,8 +64,6 @@ assert "RustPortalCore.mapExamPage(hocKy, isGiuaKy, response.data)" in repo
 assert "RustPortalCore.mapTimetable(hocKy, data)" in repo
 assert "dao.replaceTimetable(hocKy, mapped.periods, mapped.weeks, mapped.lessons)" in repo
 assert "@Serializable" in db_source
-native_portal = Path("rust-core/src/portal.rs").read_text(encoding="utf-8")
-native_bridge = (root / "rust/RustPortalCore.kt").read_text(encoding="utf-8")
 assert "pub fn map_timetable(" in native_portal
 assert "pub fn map_exam_page(" in native_portal
 assert "System.loadLibrary(\"tkb_core\")" in native_bridge
