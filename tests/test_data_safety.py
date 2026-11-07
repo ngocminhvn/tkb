@@ -17,18 +17,46 @@ for destructive in ("dao.clearAllLessonNotes(", "dao.clearOldLessonNotes(",
 assert refresh.index("api.weeklyTimetable(") < refresh.index("saveToDb(hocKy, res.data)")
 assert refresh.index("saveToDb(hocKy, res.data)") < refresh.index("authStore.lastSyncTime =")
 
-# Download and asset-seed must not race; one initial fetch of exams is enough.
-assert "private val seedJob = viewModelScope.launch" in ui
-assert ui.count("seedJob.join()") >= 2
-initializer = ui.split("private val seedJob =", 1)[1].split("fun setShowExamsOnHome", 1)[0]
+# Offline cache cleanup is serialized before refresh and cannot repopulate
+# legacy demo exams/timetable belonging to a different student.
+assert "private val cacheReadyJob = viewModelScope.launch" in ui
+assert ui.count("cacheReadyJob.join()") >= 2
+initializer = ui.split("private val cacheReadyJob =", 1)[1].split("fun setShowExamsOnHome", 1)[0]
 assert "fetchExamsOnly()" not in initializer
 assert "if (_refreshing.value) return" in ui
 assert "if (_isFetchingExams.value) return" in ui
 assert "withContext(Dispatchers.IO)" in repo
+assert "prepareOfflineCache(hocKy)" in ui
+assert "suspend fun prepareOfflineCache(hocKy: Int)" in repo
+assert "seedSampleExamsIfEmpty" not in repo
+assert "sample_tkb_tuan_20261.json" not in repo
+assert "dao.removeLegacySampleExamsIfExact(hocKy)" in repo
+assert "suspend fun removeLegacySampleExamsIfExact(hocKy: Int)" in db_source
+
+# The two exam APIs update independently; an empty successful portal response
+# must clear obsolete cache for its type, but a failed response must keep it.
+assert "if (fetchedCuoiKy)" in repo
+assert "if (fetchedGiuaKy)" in repo
 assert "dao.replaceExamsByType(hocKy, false, finalExams)" in repo
 assert "dao.replaceExamsByType(hocKy, true, midtermExams)" in repo
 assert "suspend fun deleteExamsByType(" in db_source
 assert "suspend fun replaceExamsByType(" in db_source
+assert "resCuoiKy.data != null" in repo
+assert "resGiuaKy.data != null" in repo
+
+# Past days are filtered uniformly across lessons AND exam cards, including
+# when app resumes from the background after a local calendar-day change.
+assert "(lessonItems + examItems)" in ui
+assert "allGrouped.filterKeys { date -> date >= todayStr }" in ui
+assert "if (showPastDays)" in ui
+assert "event == Lifecycle.Event.ON_RESUME" in ui
+assert "todayStr = localTodayYmd()" in ui
+
+# Guard exact legacy demo fingerprint: never delete arbitrary valid exams.
+assert "exams.size != fixture.size" in db_source
+assert "exams.any { exam ->" in db_source
+assert "B103BC1|2026-11-08|14:25|THECHAT|002" in db_source
+assert "deleteExams(hocKy)" in db_source
 
 # Every historical on-disk database must have a non-destructive migration.
 assert "fallbackToDestructiveMigration" not in db_source
@@ -75,4 +103,4 @@ assert conn.execute("SELECT COUNT(*) FROM weeks").fetchone()[0] == 1
 for index in ("index_exams_hocKy_ngayThi", "index_exams_ngayThi", "index_lessons_ngayHoc"):
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index,)).fetchone(), index
 conn.close()
-print("OK: sync retains cache/notes, exam fetch is deduplicated, v1-v4 migration preserves data")
+print("OK: timetable/notes survive sync, demo exams are excluded, past exams hide, v1-v4 migration preserves data")
