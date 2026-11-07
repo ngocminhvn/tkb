@@ -52,7 +52,12 @@ assert "val additional: ExamAdditional," in models
 
 # No missing/partial page is allowed to wipe genuine cached or imported exams.
 assert "private suspend fun loadPortalExams(" in repo
-assert "mapped.totalPages?.takeIf { it > 0 }" in repo
+assert "RustPortalCore.hasNextExamPage(page, mapped.totalPages, mapped.rowCount)" in repo
+assert "RustPortalCore.dedupeExams(all)" in repo
+assert "RustPortalCore.normalizeNote(note)" in repo
+assert "pub fn exam_has_next(" in native_portal
+assert "pub fn dedupe_exam_rows(" in native_portal
+assert "pub fn normalize_note(" in native_portal
 assert "RustPortalCore.mapExamPage(hocKy, isGiuaKy, response.data)" in repo
 assert "RustPortalCore.mapTimetable(hocKy, data)" in repo
 assert "dao.replaceTimetable(hocKy, mapped.periods, mapped.weeks, mapped.lessons)" in repo
