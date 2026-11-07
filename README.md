@@ -31,7 +31,7 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 
 ## Kỹ thuật
 
-- Kotlin + Jetpack Compose (Material 3), minSdk 24, targetSdk 35
+- Android (không iOS): Kotlin + Jetpack Compose (Material 3) cho giao diện/hệ thống; Rust qua JNI cho xử lý ngày, tuần và thời gian thi; minSdk 24, targetSdk 35
 - Android application ID `com.tkb.sv`, tên hiển thị **TKB SV**. Namespace Kotlin nội bộ vẫn là `com.sv.tnu` để giữ nguyên các lớp hiện có.
 - **Lưu ý nâng cấp:** Android xem `com.tkb.sv` là ứng dụng khác `com.sv.tnu`; không thể cài đè trực tiếp hoặc tự chuyển dữ liệu Room/đăng nhập/ghi chú từ bản cũ.
 - Room (SQLite) cho lịch tuần, EncryptedSharedPreferences cho tài khoản/token
@@ -45,10 +45,14 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 ## Build
 
 ```bash
-./gradlew assembleDebug
+# Cài Rust, Android NDK và cargo-ndk trước.
+cargo install cargo-ndk --locked
+cargo test --manifest-path rust-core/Cargo.toml
+bash scripts/build-rust-android.sh
+gradle testDebugUnitTest assembleDebug
 ```
 
-Bản release ký được build tự động bằng GitHub Actions trên mỗi push lên `main`, xem `.github/workflows/build.yml`.
+Phần Rust JNI phải được biên dịch trước khi tạo APK. Gradle sẽ báo lỗi nếu thiếu `libtkb_core.so` cho một trong bốn ABI. GitHub Actions tự build Rust và kiểm tra các thư viện trong APK. Xem `rust-core/README.md` để biết phạm vi Rust đã chuyển và phần Kotlin còn lại (API, Room, thông báo, giao diện). Bản phát hành được build tự động khi push lên `main`.
 
 ## Tải APK
 
