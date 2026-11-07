@@ -35,7 +35,7 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 - Android application ID `com.tkb.sv`, tên hiển thị **TKB SV**. Namespace Kotlin nội bộ vẫn là `com.sv.tnu` để giữ nguyên các lớp hiện có.
 - **Lưu ý nâng cấp:** Android xem `com.tkb.sv` là ứng dụng khác `com.sv.tnu`; không thể cài đè trực tiếp hoặc tự chuyển dữ liệu Room/đăng nhập/ghi chú từ bản cũ.
 - Room (SQLite) cho lịch tuần, EncryptedSharedPreferences cho tài khoản/token
-- App không cố định một trường: phần chung (UI, Room, đăng nhập) ở `com.sv.tnu`, phần lấy lịch của từng trường nằm trong thư mục riêng — hiện tại chỉ có `com.sv.tnu.tnut` (TNUT). Thêm trường khác = thêm 1 thư mục như `tnut/` rồi đổi điểm gắn trong `MainActivity`.
+- App không cố định một trường: phần chung (UI, Room, đăng nhập) ở `com.sv.tnu`, phần lấy lịch của từng trường nằm trong thư mục riêng — hiện tại chỉ có `com.sv.tnu.schools.tnut` (TNUT). Thêm trường khác = thêm 1 thư mục như `tnut/` rồi đổi điểm gắn trong `MainActivity`.
 - Retrofit + kotlinx-serialization gọi API portal (mã TNUT trong `tnut/`):
   - `POST /api/auth/login` (OAuth2 password grant)
   - `POST /api/sch/w-locdshockytkbuser` (danh sách học kỳ)
@@ -59,3 +59,12 @@ Phần Rust JNI phải được biên dịch trước khi tạo APK. Gradle sẽ
 ## Tải APK
 
 https://ngocminhvn.github.io/tkb/TKB-SV.apk
+
+
+## Cấu trúc đa trường
+
+`schools/SchoolProvider.kt` là interface chung, `schools/tnut/` chứa API và
+repository riêng TNUT. Xem `docs/ADDING_SCHOOL.md`.
+
+Hiện chỉ hỗ trợ **TNUT**. Chưa bật chuyển trường vì cache SQLite cần được tách
+theo trường và tài khoản trước để tránh ghi đè lịch/ghi chú hiện có.

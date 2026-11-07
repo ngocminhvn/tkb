@@ -1,4 +1,4 @@
-package com.sv.tnu.tnut
+package com.sv.tnu.schools.tnut
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement

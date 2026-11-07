@@ -1,12 +1,12 @@
-package com.sv.tnu.tnut
+package com.sv.tnu.schools.tnut
 
 import android.content.Context
 import android.util.Base64
 import android.util.Log
-import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.CachedTimetable
+import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.LessonNoteEntity
@@ -34,31 +34,32 @@ class TnutRepository(
     private val api: TnutApi,
     private val dao: TkbDao,
     private val authStore: AuthStore,
-) {
+) : SchoolRepository {
+    override val schoolName: String = TnutSchoolProvider.info.displayName
     /** Học kỳ hiện tại của TNUT, dùng khi chưa lưu học kỳ nào. */
-    val defaultHocKy: Int = 20261
+    override val defaultHocKy: Int = 20261
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
-    val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
+    override val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
     private val _studentName = MutableStateFlow<String?>(authStore.studentName)
-    val studentName: StateFlow<String?> = _studentName.asStateFlow()
+    override val studentName: StateFlow<String?> = _studentName.asStateFlow()
 
-    fun periodsFlow(): Flow<List<PeriodEntity>> = dao.periods()
+    override fun periodsFlow(): Flow<List<PeriodEntity>> = dao.periods()
 
-    fun weeksFlow(hocKy: Int): Flow<List<WeekEntity>> = dao.weeks(hocKy)
+    override fun weeksFlow(hocKy: Int): Flow<List<WeekEntity>> = dao.weeks(hocKy)
 
     /** One-shot, transactionally consistent cache read for the first frame. */
-    suspend fun cachedTimetable(hocKy: Int): CachedTimetable = dao.cachedTimetable(hocKy)
+    override suspend fun cachedTimetable(hocKy: Int): CachedTimetable = dao.cachedTimetable(hocKy)
 
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
-    fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>> = dao.semesterLessons(hocKy)
+    override fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>> = dao.semesterLessons(hocKy)
 
-    fun examsFlow(hocKy: Int): Flow<List<ExamEntity>> = dao.exams(hocKy)
+    override fun examsFlow(hocKy: Int): Flow<List<ExamEntity>> = dao.exams(hocKy)
 
-    fun lessonNotesFlow(): Flow<List<LessonNoteEntity>> = dao.lessonNotes()
+    override fun lessonNotesFlow(): Flow<List<LessonNoteEntity>> = dao.lessonNotes()
 
-    suspend fun saveLessonNote(lessonId: String, note: String) {
+    override suspend fun saveLessonNote(lessonId: String, note: String) {
         val normalized = RustPortalCore.normalizeNote(note)
         if (normalized.isEmpty()) {
             dao.deleteLessonNote(lessonId)
@@ -92,7 +93,7 @@ class TnutRepository(
      * never suppress the exam request, and neither may wipe the other's Room
      * cache. Both run concurrently, but each uses its own transactional write.
      */
-    suspend fun refresh(hocKy: Int): Result<Unit> = coroutineScope {
+    override suspend fun refresh(hocKy: Int): Result<Unit> = coroutineScope {
         val examSync = async {
             try {
                 fetchAndSaveExams(hocKy)
@@ -154,16 +155,13 @@ class TnutRepository(
      * user's demo exam list into all accounts; remove only the exact known
      * legacy fixture. Never replace genuine saved lessons, exams or notes.
      */
-    suspend fun prepareOfflineCache(hocKy: Int) = withContext(Dispatchers.IO) {
+    override suspend fun prepareOfflineCache(hocKy: Int) = withContext(Dispatchers.IO) {
         if (dao.removeLegacySampleExamsIfExact(hocKy)) {
             TimetableWidgetProvider.updateAll(context)
         }
     }
 
-    private fun normalizeDateToYmd(dateStr: String): String =
-        RustScheduleCore.normalizeDate(dateStr)
-
-    suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
+    override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
         return try {
             val res = api.avatar(maSv)
             val profile = res.data?.thongTinSinhVien
@@ -224,7 +222,7 @@ class TnutRepository(
      * fetch succeeds with actual rows. A valid empty result must not delete
      * manually imported exams or genuine offline cache.
      */
-    suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
+    override suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
         var updated = false
         val failures = mutableListOf<String>()
         for (isGiuaKy in listOf(false, true)) {
@@ -263,7 +261,7 @@ class TnutRepository(
         )
     }
 
-    fun clearAvatar() {
+    override fun clearAvatar() {
         _avatarPath.value = null
     }
 }

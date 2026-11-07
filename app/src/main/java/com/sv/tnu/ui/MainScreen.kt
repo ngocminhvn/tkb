@@ -50,7 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sv.tnu.data.AuthStore
-import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 
@@ -63,7 +63,7 @@ enum class NavigationTab(val title: String, val icon: ImageVector) {
 @Composable
 fun MainScreen(
     authStore: AuthStore,
-    repository: TnutRepository,
+    repository: SchoolRepository,
     timetableViewModel: TimetableViewModel,
     appUpdateViewModel: AppUpdateViewModel = viewModel(),
     onLogout: () -> Unit,

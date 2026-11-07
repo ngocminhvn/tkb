@@ -14,8 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.notifications.ScheduleReminders
-import com.sv.tnu.tnut.TnutApiClient
-import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.schools.SchoolRegistry
 import com.sv.tnu.ui.LoginScreen
 import com.sv.tnu.ui.LoginViewModel
 import com.sv.tnu.ui.MainScreen
@@ -28,9 +27,9 @@ class MainActivity : ComponentActivity() {
         val authStore = AuthStore(this)
         // Restore user-approved alarms after upgrade or normal app start.
         ScheduleReminders.syncAll(this)
-        val api = TnutApiClient.create(authStore)
         val db = AppDatabase.get(this)
-        val repository = TnutRepository(this, api, db.tkbDao(), authStore)
+        val schoolSession = SchoolRegistry.forId(authStore.schoolId).open(this, authStore, db.tkbDao())
+        val repository = schoolSession.repository
 
         setContent {
             val isDarkMode by authStore.isDarkModeFlow.collectAsState()
@@ -40,7 +39,7 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = startDestination) {
                     composable("login") {
                         val vm: LoginViewModel = viewModel(
-                            factory = vmFactory { LoginViewModel(api, authStore, repository) },
+                            factory = vmFactory { LoginViewModel(schoolSession) },
                         )
                         val state by vm.state.collectAsState()
                         LoginScreen(

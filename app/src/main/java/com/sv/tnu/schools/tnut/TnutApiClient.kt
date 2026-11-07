@@ -1,6 +1,7 @@
-package com.sv.tnu.tnut
+package com.sv.tnu.schools.tnut
 
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.schools.SchoolSessionTokens
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.Authenticator
@@ -102,7 +103,9 @@ object TnutApiClient {
 
             val validSession = session?.takeIf { it.accessToken.isNotBlank() }
                 ?: return@synchronized null
-            authStore.saveTokens(validSession)
+            authStore.saveTokens(SchoolSessionTokens(
+                validSession.accessToken, validSession.refreshToken, validSession.idpc,
+            ))
             validSession.accessToken
         }
 

@@ -77,7 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.notifications.ScheduleReminders
-import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -87,7 +87,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     authStore: AuthStore,
-    repository: TnutRepository,
+    repository: SchoolRepository,
     timetableViewModel: TimetableViewModel,
     appUpdateViewModel: com.sv.tnu.update.AppUpdateViewModel,
     onLogout: () -> Unit,

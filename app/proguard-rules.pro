@@ -25,7 +25,7 @@
 }
 
 # Preserve data & network models
--keep class com.sv.tnu.tnut.** { *; }
+-keep class com.sv.tnu.schools.tnut.** { *; }
 -keep class com.sv.tnu.data.** { *; }
 -keep class com.sv.tnu.update.** { *; }
 

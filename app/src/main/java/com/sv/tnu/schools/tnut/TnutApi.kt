@@ -1,4 +1,4 @@
-package com.sv.tnu.tnut
+package com.sv.tnu.schools.tnut
 
 import okhttp3.ResponseBody
 import retrofit2.http.Body

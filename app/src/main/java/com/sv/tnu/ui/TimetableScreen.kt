@@ -74,7 +74,7 @@ import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
-import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.components.UserAvatar
 import com.sv.tnu.rust.RustScheduleCore
 import java.text.SimpleDateFormat
@@ -107,7 +107,7 @@ data class TimetableSnapshot(
 )
 
 class TimetableViewModel(
-    private val repository: TnutRepository,
+    private val repository: SchoolRepository,
     private val authStore: AuthStore,
 ) : ViewModel() {
     val hocKy: Int = authStore.hocKy.takeIf { it != 0 } ?: repository.defaultHocKy
@@ -362,7 +362,7 @@ class TimetableViewModel(
                     }
                     .onFailure { cause ->
                         _error.value = if (cause is retrofit2.HttpException && cause.code() == 401) {
-                            "Phiên đăng nhập TNUT đã hết hạn. Vào Cài đặt → Đăng xuất và đăng nhập lại để đồng bộ. Lịch đã lưu vẫn được giữ."
+                            "Phiên đăng nhập ${repository.schoolName} đã hết hạn. Vào Cài đặt → Đăng xuất và đăng nhập lại để đồng bộ. Lịch đã lưu vẫn được giữ."
                         } else {
                             "Không tải được lịch mới: ${cause.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu."
                         }
@@ -413,8 +413,6 @@ class TimetableViewModel(
     }
 }
 
-private val dayFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-private val dayLabelFormat = ThreadLocal.withInitial { SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN")) }
 
 private fun normalizeDateToYmd(dateStr: String): String =
     RustScheduleCore.normalizeDate(dateStr)
@@ -448,12 +446,6 @@ internal fun adjacentTimetableDay(
         normalizeDateToYmd(it.ngayBatDau)..normalizeDateToYmd(it.ngayKetThuc)
     } ?: return null
     return next to week.tuanHocKy
-}
-
-private fun dayLabel(ngayHoc: String): String {
-    val datePart = normalizeDateToYmd(ngayHoc)
-    val date = runCatching { dayFormat.get().parse(datePart) }.getOrNull() ?: return datePart
-    return dayLabelFormat.get().format(date).replaceFirstChar { it.uppercase() }
 }
 
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
@@ -988,50 +980,6 @@ private fun DayRail(rail: Pair<String, String>?, isToday: Boolean) {
             color = if (isToday) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-private fun DayHeader(date: String, isToday: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = dayLabel(date),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        if (isToday) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                    .padding(horizontal = 10.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Hôm nay",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        }
     }
 }
 

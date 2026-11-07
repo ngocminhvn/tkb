@@ -4,18 +4,24 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.sv.tnu.tnut.LoginResponse
+import com.sv.tnu.schools.SchoolIds
+import com.sv.tnu.schools.SchoolSessionTokens
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Tài khoản + token chỉ lưu trên máy, mã hóa bằng EncryptedSharedPreferences.
- * Không gửi đi đâu ngoài portal.tnut.edu.vn.
+ * Chỉ school provider tương ứng được sử dụng thông tin này.
  */
 class AuthStore(context: Context) {
     private val appContext: Context = context.applicationContext
     private val prefs: SharedPreferences = getPrefs(context)
+
+    // No migration needed: existing encrypted credentials remain TNUT.
+    var schoolId: String
+        get() = prefs.getString(KEY_SCHOOL_ID, SchoolIds.TNUT) ?: SchoolIds.TNUT
+        set(value) = prefs.edit().putString(KEY_SCHOOL_ID, value).apply()
 
     var username: String?
         get() = prefs.getString(KEY_USERNAME, null)
@@ -107,7 +113,7 @@ class AuthStore(context: Context) {
     val isLoggedIn: Boolean
         get() = !accessToken.isNullOrBlank()
 
-    fun saveLogin(username: String, password: String, response: LoginResponse) {
+    fun saveLogin(username: String, password: String, response: SchoolSessionTokens) {
         if (this.username != null && this.username != username) {
             // A newly signed-in account must never inherit another
             // student's name/avatar from encrypted preferences.
@@ -128,7 +134,7 @@ class AuthStore(context: Context) {
         response.idpc?.let { idpc = it }
     }
 
-    fun saveTokens(response: LoginResponse) {
+    fun saveTokens(response: SchoolSessionTokens) {
         // The portal may rotate only access_token. An omitted refresh_token
         // must NOT erase the previously valid one.
         val editor = prefs.edit().putString(KEY_ACCESS_TOKEN, response.accessToken)
@@ -172,6 +178,7 @@ class AuthStore(context: Context) {
                 }
             }
 
+        private const val KEY_SCHOOL_ID = "school_id"
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
         private const val KEY_ACCESS_TOKEN = "access_token"

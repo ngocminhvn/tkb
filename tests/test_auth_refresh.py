@@ -3,7 +3,7 @@
 from pathlib import Path
 
 root = Path("app/src/main/java/com/sv/tnu")
-client = (root / "tnut/TnutApiClient.kt").read_text(encoding="utf-8")
+client = (root / "schools/tnut/TnutApiClient.kt").read_text(encoding="utf-8")
 store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
 screen = (root / "ui/TimetableScreen.kt").read_text(encoding="utf-8")
 
@@ -37,7 +37,7 @@ assert 'runBlocking { plainApi.login(username = username, password = password) }
 assert 'val validSession = session?.takeIf { it.accessToken.isNotBlank() }' in client
 
 # A missing rotated refresh_token must never delete the existing credential.
-tokens_block = store.split('fun saveTokens(response: LoginResponse)', 1)[1].split('fun clear()', 1)[0]
+tokens_block = store.split('fun saveTokens(response: SchoolSessionTokens)', 1)[1].split('fun clear()', 1)[0]
 assert 'response.refreshToken?.takeIf { it.isNotBlank() }?.let {' in tokens_block
 assert 'editor.putString(KEY_REFRESH_TOKEN, it)' in tokens_block
 assert '.putString(KEY_REFRESH_TOKEN, response.refreshToken)' not in tokens_block
