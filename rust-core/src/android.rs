@@ -61,52 +61,6 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_weekDatesNative(
     into_java(&mut env, crate::calendar_week_dates(&source).join(","))
 }
 
-fn return_or_throw(env: &mut JNIEnv<'_>, result: Result<String, String>) -> jstring {
-    match result {
-        Ok(value) => into_java(env, value),
-        Err(message) => {
-            let _ = env.throw_new("java/lang/IllegalStateException", message);
-            std::ptr::null_mut()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapTimetableNative(
-    mut env: JNIEnv<'_>,
-    _this: JObject<'_>,
-    semester: jint,
-    payload: JString<'_>,
-) -> jstring {
-    let source = from_java(&mut env, &payload);
-    return_or_throw(&mut env, crate::portal::map_timetable(semester, &source))
-}
-
-#[no_mangle]
-pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamPageNative(
-    mut env: JNIEnv<'_>,
-    _this: JObject<'_>,
-    semester: jint,
-    is_midterm: jni::sys::jboolean,
-    payload: JString<'_>,
-) -> jstring {
-    let source = from_java(&mut env, &payload);
-    return_or_throw(
-        &mut env,
-        crate::portal::map_exam_page(semester, is_midterm != 0, &source),
-    )
-}
-
-#[no_mangle]
-pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_dedupeExamsNative(
-    mut env: JNIEnv<'_>,
-    _this: JObject<'_>,
-    payload: JString<'_>,
-) -> jstring {
-    let source = from_java(&mut env, &payload);
-    return_or_throw(&mut env, crate::portal::dedupe_exam_rows(&source))
-}
-
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_hasNextExamPageNative(
     _env: JNIEnv<'_>,
