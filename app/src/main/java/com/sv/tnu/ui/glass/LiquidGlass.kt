@@ -122,12 +122,15 @@ object GlassMaterialDefaults {
 fun Modifier.glassEffect(
     glass: Glass = Glass(),
     shape: Shape = CapsuleShape,
+    interactionSource: MutableInteractionSource? = null,
 ): Modifier = composed {
     val config = LocalGlassConfig.current
     val isDark = config.dark
 
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    // Share the button's click interaction so the glass scale actually reacts
+    // to presses. Keep an internal source for existing non-clickable panels.
+    val internalSource = remember { MutableInteractionSource() }
+    val isPressed by (interactionSource ?: internalSource).collectIsPressedAsState()
     val pressScale by animateFloatAsState(
         targetValue = if (glass.isInteractive && isPressed) 0.97f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
