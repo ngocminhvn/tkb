@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.notifications.ScheduleReminders
 import com.sv.tnu.tnut.TnutApiClient
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.LoginScreen
@@ -25,6 +26,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val authStore = AuthStore(this)
+        // Restore user-approved alarms after upgrade or normal app start.
+        ScheduleReminders.syncAll(this)
         val api = TnutApiClient.create(authStore)
         val db = AppDatabase.get(this)
         val repository = TnutRepository(this, api, db.tkbDao(), authStore)
@@ -60,6 +63,7 @@ class MainActivity : ComponentActivity() {
                             timetableViewModel = timetableVm,
                             onLogout = {
                                 repository.clearAvatar()
+                                ScheduleReminders.cancelAll(this@MainActivity)
                                 authStore.clear()
                                 navController.navigate("login") {
                                     popUpTo("main") { inclusive = true }
