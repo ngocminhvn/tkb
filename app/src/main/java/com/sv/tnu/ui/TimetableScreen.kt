@@ -166,9 +166,10 @@ class TimetableViewModel(
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
 
     init {
+        // Populate offline cache only; refreshIfNeeded() owns network sync.
+        // Fetching exams here would duplicate the calls made by refresh().
         viewModelScope.launch {
             repository.seedFromAssetsIfEmpty(hocKy)
-            fetchExamsOnly()
         }
     }
 
@@ -188,8 +189,9 @@ class TimetableViewModel(
 
     fun fetchExamsOnly(force: Boolean = false) {
         if (!authStore.showExamsOnHome && !force) return
+        if (_isFetchingExams.value) return
+        _isFetchingExams.value = true
         viewModelScope.launch {
-            _isFetchingExams.value = true
             try {
                 repository.fetchAndSaveExams(hocKy)
             } catch (_: Exception) {
@@ -214,15 +216,19 @@ class TimetableViewModel(
     }
 
     fun refresh() {
+        if (_refreshing.value) return
+        _refreshing.value = true
         viewModelScope.launch {
-            _refreshing.value = true
-            _error.value = null
-            repository.refresh(hocKy)
-                .onSuccess {
-                    _lastSyncTime.value = authStore.lastSyncTime
-                }
-                .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
-            _refreshing.value = false
+            try {
+                _error.value = null
+                repository.refresh(hocKy)
+                    .onSuccess {
+                        _lastSyncTime.value = authStore.lastSyncTime
+                    }
+                    .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
+            } finally {
+                _refreshing.value = false
+            }
         }
     }
 
