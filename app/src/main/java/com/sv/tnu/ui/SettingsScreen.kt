@@ -90,7 +90,7 @@ fun SettingsScreen(
 ) {
     val refreshing by timetableViewModel.refreshing.collectAsState()
     val lastSyncTime by timetableViewModel.lastSyncTime.collectAsState()
-    val lessons by timetableViewModel.lessons.collectAsState()
+    val lessons by timetableViewModel.semesterLessons.collectAsState()
     val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.allExams.collectAsState()
@@ -248,7 +248,7 @@ fun SettingsScreen(
                     ) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Tuần này",
+                            label = "Môn học HK",
                             value = "$totalSubjects môn",
                         )
                         StatItem(
