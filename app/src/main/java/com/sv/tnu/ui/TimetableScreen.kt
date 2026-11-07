@@ -587,11 +587,8 @@ fun TimetableScreen(
     }
     androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped) {
         if (selectedDay in displayedGrouped) {
-            // Each date contributes a header and at least one row. Jump close
-            // to distant targets before the short animation: animating through
-            // all seven days creates unnecessary Compose list work/jank.
-            val target = displayedGrouped.entries.takeWhile { it.key != selectedDay }
-                .sumOf { 1 + it.value.size.coerceAtLeast(1) }
+            // Each calendar day is one row: left date rail and right cards.
+            val target = displayedGrouped.keys.indexOf(selectedDay)
             if (!hasAutoScrolled) {
                 listState.scrollToItem(target)
                 hasAutoScrolled = true
@@ -763,48 +760,59 @@ fun TimetableScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                     displayedGrouped.forEach { (date, dayItems) ->
-                        val isToday = date == todayStr
-                        item(key = "header-$date", contentType = "header") {
-                            DayHeader(date = date, isToday = isToday)
-                        }
-                        if (dayItems.isEmpty()) {
-                            item(key = "empty-$date", contentType = "empty") {
-                                Text(
-                                    text = "Không có lịch học hoặc lịch thi.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
-                                    modifier = Modifier.padding(start = 12.dp, bottom = 14.dp),
-                                )
-                            }
-                        } else {
-                            items(
-                                items = dayItems,
-                                key = { item ->
-                                    when (item) {
-                                        is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
-                                        is ScheduleItem.Exam -> "exam-${item.exam.id}"
+                        item(key = "day-$date", contentType = "day") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                DayRail(date = date, isToday = date == todayStr)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (dayItems.isEmpty()) {
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(76.dp),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                            ),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = "Không có lịch học hoặc lịch thi.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                                                    textAlign = TextAlign.Center,
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        dayItems.forEach { item ->
+                                            when (item) {
+                                                is ScheduleItem.Lesson -> LessonCard(
+                                                    lesson = item.lesson,
+                                                    time = item.timeDisplay,
+                                                    isToday = date == todayStr,
+                                                    note = lessonNotes[item.lesson.idTkb].orEmpty(),
+                                                    onEditNote = { noteLesson = item.lesson },
+                                                )
+                                                is ScheduleItem.Exam -> ExamCard(
+                                                    exam = item.exam,
+                                                    endTime = item.endTime,
+                                                    isToday = date == todayStr,
+                                                )
+                                            }
+                                        }
                                     }
-                                },
-                                contentType = { item ->
-                                    when (item) {
-                                        is ScheduleItem.Lesson -> 0
-                                        is ScheduleItem.Exam -> 1
-                                    }
-                                },
-                            ) { item ->
-                                when (item) {
-                                    is ScheduleItem.Lesson -> LessonCard(
-                                        lesson = item.lesson,
-                                        time = item.timeDisplay,
-                                        isToday = isToday,
-                                        note = lessonNotes[item.lesson.idTkb].orEmpty(),
-                                        onEditNote = { noteLesson = item.lesson },
-                                    )
-                                    is ScheduleItem.Exam -> ExamCard(
-                                        exam = item.exam,
-                                        endTime = item.endTime,
-                                        isToday = isToday,
-                                    )
                                 }
                             }
                         }
@@ -824,6 +832,44 @@ fun TimetableScreen(
                 viewModel.saveLessonNote(lesson.idTkb, note)
                 noteLesson = null
             },
+        )
+    }
+}
+
+@Composable
+private fun DayRail(date: String, isToday: Boolean) {
+    val calendar = remember(date) {
+        runCatching {
+            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
+        }.getOrNull()
+    }
+    val weekday = remember(calendar) {
+        calendar?.let { SimpleDateFormat("EEEE", Locale("vi", "VN")).format(it) }
+            ?.let { when (it.lowercase(Locale("vi", "VN"))) {
+                "chủ nhật" -> "CN"
+                "thứ hai" -> "T2"
+                "thứ ba" -> "T3"
+                "thứ tư" -> "T4"
+                "thứ năm" -> "T5"
+                "thứ sáu" -> "T6"
+                else -> "T7"
+            } } ?: ""
+    }
+    Column(
+        modifier = Modifier.width(48.dp).padding(top = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = date.substringAfterLast('-').toIntOrNull()?.toString() ?: "",
+            style = MaterialTheme.typography.headlineMedium,
+            color = if (isToday) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = weekday,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isToday) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
