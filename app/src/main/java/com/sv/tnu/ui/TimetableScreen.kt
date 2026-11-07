@@ -93,6 +93,9 @@ class TimetableViewModel(
     private val authStore: AuthStore,
 ) : ViewModel() {
     val hocKy: Int = authStore.hocKy.takeIf { it != 0 } ?: repository.defaultHocKy
+    val avatarPath: StateFlow<String?> = repository.avatarPath
+    val studentName: StateFlow<String?> = repository.studentName
+    val studentId: String = authStore.username.orEmpty()
 
     private val _selectedWeek = MutableStateFlow<Int?>(null)
     private val _todayYmd = MutableStateFlow(localTodayYmd())
@@ -180,6 +183,19 @@ class TimetableViewModel(
     // This does not modify real portal cache, offline lessons or personal notes.
     private val cacheReadyJob = viewModelScope.launch {
         repository.prepareOfflineCache(hocKy)
+    }
+
+    init {
+        // Existing installations already have a cached avatar but no name.
+        // Ask the same portal profile endpoint at most once daily while the
+        // name is unknown; an offline failure does not block the timetable.
+        val studentId = authStore.username?.takeIf { it.isNotBlank() }
+        val now = System.currentTimeMillis()
+        if (studentId != null && authStore.studentName.isNullOrBlank() &&
+            now - authStore.lastProfileCheck > 24L * 60 * 60 * 1000) {
+            authStore.lastProfileCheck = now
+            viewModelScope.launch { repository.fetchAndSaveAvatar(studentId) }
+        }
     }
 
     fun setShowExamsOnHome(enable: Boolean) {
