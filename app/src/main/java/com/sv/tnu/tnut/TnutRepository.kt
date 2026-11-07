@@ -3,6 +3,7 @@ package com.sv.tnu.tnut
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
@@ -187,31 +188,8 @@ class TnutRepository(
         }
     }
 
-    private fun normalizeDateToYmd(dateStr: String): String {
-        val clean = dateStr.trim().substringBefore(" ").substringBefore("T")
-        val partsSlash = clean.split("/")
-        if (partsSlash.size == 3) {
-            val day = partsSlash[0].padStart(2, '0')
-            val month = partsSlash[1].padStart(2, '0')
-            val year = partsSlash[2]
-            return "$year-$month-$day"
-        }
-        val partsDash = clean.split("-")
-        if (partsDash.size == 3) {
-            return if (partsDash[0].length == 4) {
-                val year = partsDash[0]
-                val month = partsDash[1].padStart(2, '0')
-                val day = partsDash[2].padStart(2, '0')
-                "$year-$month-$day"
-            } else {
-                val day = partsDash[0].padStart(2, '0')
-                val month = partsDash[1].padStart(2, '0')
-                val year = partsDash[2]
-                "$year-$month-$day"
-            }
-        }
-        return clean
-    }
+    private fun normalizeDateToYmd(dateStr: String): String =
+        RustScheduleCore.normalizeDate(dateStr)
 
     suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
         return try {
