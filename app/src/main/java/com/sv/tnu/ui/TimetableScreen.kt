@@ -49,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sv.tnu.ui.glass.Glass
 import com.sv.tnu.ui.glass.glassEffect
 import androidx.lifecycle.viewModelScope
@@ -165,10 +169,10 @@ class TimetableViewModel(
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
 
-    // Await offline seed before the first network refresh. Otherwise the
-    // example timetable may race with and overwrite freshly downloaded rows.
-    private val seedJob = viewModelScope.launch {
-        repository.seedFromAssetsIfEmpty(hocKy)
+    // Clean up ONLY the exact known legacy demo-exam fixture before syncing.
+    // This does not modify real portal cache, offline lessons or personal notes.
+    private val cacheReadyJob = viewModelScope.launch {
+        repository.prepareOfflineCache(hocKy)
     }
 
     fun setShowExamsOnHome(enable: Boolean) {
@@ -191,7 +195,7 @@ class TimetableViewModel(
         _isFetchingExams.value = true
         viewModelScope.launch {
             try {
-                seedJob.join()
+                cacheReadyJob.join()
                 if (!_refreshing.value) {
                     repository.fetchAndSaveExams(hocKy)
                 }
@@ -221,7 +225,7 @@ class TimetableViewModel(
         _refreshing.value = true
         viewModelScope.launch {
             try {
-                seedJob.join()
+                cacheReadyJob.join()
                 _error.value = null
                 repository.refresh(hocKy)
                     .onSuccess {
@@ -325,6 +329,9 @@ private fun normalizeDateToYmd(dateStr: String): String {
     return clean
 }
 
+private fun localTodayYmd(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
 private fun dayLabel(ngayHoc: String): String {
     val datePart = normalizeDateToYmd(ngayHoc)
     val date = runCatching { dayFormat.get().parse(datePart) }.getOrNull() ?: return datePart
@@ -392,17 +399,20 @@ fun TimetableScreen(
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
-    // Date logic: Hôm nay và lọc ngày đã qua
-    val todayCalendar = remember {
-        Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    // Both lessons and exams share one past-day filter. Re-evaluate the local
+    // date when the app resumes after midnight, without background polling.
+    var todayStr by remember { mutableStateOf(localTodayYmd()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                todayStr = localTodayYmd()
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        todayStr = localTodayYmd()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val todayDate = remember(todayCalendar) { todayCalendar.time }
-    val todayStr = remember(todayDate) { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(todayDate) }
 
     // Mặc định: ngày qua rồi thì không hiện nữa (showPastDays = false)
     var showPastDays by remember { mutableStateOf(false) }
