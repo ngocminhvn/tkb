@@ -1,5 +1,5 @@
 //! JNI entry points for the TKB SV Android app. Data never leaves the process.
-use jni::objects::{JClass, JString};
+use jni::objects::{JObject, JString};
 use jni::sys::{jint, jstring};
 use jni::JNIEnv;
 
@@ -16,7 +16,7 @@ fn into_java(env: &mut JNIEnv<'_>, value: String) -> jstring {
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_normalizeDateNative(
     mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
+    _this: JObject<'_>,
     input: JString<'_>,
 ) -> jstring {
     let source = from_java(&mut env, &input);
@@ -26,7 +26,7 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_normalizeDateNative
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_examEndTimeNative(
     mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
+    _this: JObject<'_>,
     input: JString<'_>,
     minutes: jint,
 ) -> jstring {
@@ -40,7 +40,7 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_examEndTimeNative(
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_moveCalendarDayNative(
     mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
+    _this: JObject<'_>,
     input: JString<'_>,
     direction: jint,
 ) -> jstring {
@@ -54,7 +54,7 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_moveCalendarDayNati
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_weekDatesNative(
     mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
+    _this: JObject<'_>,
     input: JString<'_>,
 ) -> jstring {
     let source = from_java(&mut env, &input);
