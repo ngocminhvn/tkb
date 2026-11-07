@@ -21,7 +21,7 @@ class WeekDatePickerTest {
     fun monthViewAlignsWeekdaysAndAccountsForLeapYear() {
         val (november, dates) = monthDates("2026-11-07", 0)
         assertEquals("Tháng 11/2026", november)
-        assertEquals(35, dates.size)
+        assertEquals(42, dates.size) // Nov 2026 starts Sunday; six rows.
         assertNull(dates[0]) // November 1 2026 is a Sunday.
         assertEquals("2026-11-01", dates[6])
         assertEquals("2026-11-07", dates[12])
