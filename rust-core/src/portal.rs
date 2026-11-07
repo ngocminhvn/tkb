@@ -100,9 +100,7 @@ struct TimetableRows {
 
 /// Return entity-shaped JSON after verifying a complete semester timetable.
 /// Reject empty data before a transaction can replace the offline cache.
-pub fn map_timetable(semester: i32, payload: &str) -> Result<String, String> {
-    let source: Timetable = serde_json::from_str(payload)
-        .map_err(|error| format!("Invalid TNUT timetable: {error}"))?;
+fn timetable_rows(semester: i32, source: Timetable) -> Result<TimetableRows, String> {
     if source.weeks.is_empty() || source.weeks.iter().all(|week| week.lessons.is_empty()) {
         return Err(format!("Portal trả lịch học rỗng (học kỳ {semester}). Dữ liệu đã lưu được giữ nguyên."));
     }
@@ -128,7 +126,14 @@ pub fn map_timetable(semester: i32, payload: &str) -> Result<String, String> {
             });
         }
     }
-    serde_json::to_string(&TimetableRows { periods, weeks, lessons })
+    Ok(TimetableRows { periods, weeks, lessons })
+}
+
+/// Public JSON mapper kept for Rust regression fixtures; Android uses binary.
+pub fn map_timetable(semester: i32, payload: &str) -> Result<String, String> {
+    let source: Timetable = serde_json::from_str(payload)
+        .map_err(|error| format!("Invalid TNUT timetable: {error}"))?;
+    serde_json::to_string(&timetable_rows(semester, source)?)
         .map_err(|error| format!("Cannot encode timetable rows: {error}"))
 }
 
@@ -260,9 +265,7 @@ pub fn dedupe_exam_rows(payload: &str) -> Result<String, String> {
 }
 
 /// Decode one exam page; failure does not erase previously cached exams.
-pub fn map_exam_page(semester: i32, is_midterm: bool, payload: &str) -> Result<String, String> {
-    let page: ExamPage = serde_json::from_str(payload)
-        .map_err(|error| format!("Invalid TNUT exam page: {error}"))?;
+fn exam_rows(semester: i32, is_midterm: bool, page: ExamPage) -> Result<ExamPageRows, String> {
     let regular = page.regular.unwrap_or_default();
     let postponed = page.postponed.unwrap_or_default();
     let row_count = regular.len() + postponed.len();
@@ -288,13 +291,154 @@ pub fn map_exam_page(semester: i32, is_midterm: bool, payload: &str) -> Result<S
             });
         }
     }
-    serde_json::to_string(&ExamPageRows { rows, total_pages: page.total_pages, row_count })
+    Ok(ExamPageRows { rows, total_pages: page.total_pages, row_count })
+}
+
+/// Public JSON mapper kept for Rust regression fixtures; Android uses binary.
+pub fn map_exam_page(semester: i32, is_midterm: bool, payload: &str) -> Result<String, String> {
+    let page: ExamPage = serde_json::from_str(payload)
+        .map_err(|error| format!("Invalid TNUT exam page: {error}"))?;
+    serde_json::to_string(&exam_rows(semester, is_midterm, page)?)
         .map_err(|error| format!("Cannot encode exam rows: {error}"))
+}
+
+
+const MAX_WIRE_PAYLOAD: usize = 8 * 1024 * 1024;
+
+/// The Android boundary carries original portal bytes into Rust and a single
+/// length-prefixed binary buffer back. No Kotlin model->JSON->Rust->JSON bounce.
+#[derive(Deserialize)]
+struct PortalEnvelope<T> {
+    code: i32,
+    message: Option<String>,
+    data: Option<T>,
+}
+fn parse_envelope<T: for<'de> Deserialize<'de>>(
+    input: &[u8],
+    section: &str,
+) -> Result<T, String> {
+    if input.len() > MAX_WIRE_PAYLOAD {
+        return Err(format!("TNUT {section} payload exceeds the 8 MiB limit"));
+    }
+    let wrapper: PortalEnvelope<T> = serde_json::from_slice(input)
+        .map_err(|error| format!("Invalid TNUT {section} response: {error}"))?;
+    if wrapper.code != 200 {
+        return Err(wrapper.message.unwrap_or_else(|| {
+            format!("Không tải được {section} ({})", wrapper.code)
+        }));
+    }
+    wrapper.data.ok_or_else(|| format!("TNUT {section} response has no data"))
+}
+fn binary_i32(out: &mut Vec<u8>, value: i32) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+fn binary_i64(out: &mut Vec<u8>, value: i64) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+fn binary_count(out: &mut Vec<u8>, value: usize) -> Result<(), String> {
+    let count = i32::try_from(value).map_err(|_| "Too many TNUT rows".to_string())?;
+    binary_i32(out, count);
+    Ok(())
+}
+fn binary_str(out: &mut Vec<u8>, value: &str) -> Result<(), String> {
+    binary_count(out, value.len())?;
+    out.extend_from_slice(value.as_bytes());
+    Ok(())
+}
+fn binary_header(kind: u8) -> Vec<u8> {
+    let mut out = Vec::with_capacity(4096);
+    out.extend_from_slice(b"TKB1");
+    out.push(kind);
+    out
+}
+fn pack_timetable(rows: TimetableRows) -> Result<Vec<u8>, String> {
+    let mut out = binary_header(b'T');
+    binary_count(&mut out, rows.periods.len())?;
+    for row in rows.periods {
+        binary_i32(&mut out, row.tiet);
+        binary_str(&mut out, &row.gio_bat_dau)?;
+        binary_str(&mut out, &row.gio_ket_thuc)?;
+    }
+    binary_count(&mut out, rows.weeks.len())?;
+    for row in rows.weeks {
+        binary_i32(&mut out, row.hoc_ky);
+        binary_i32(&mut out, row.tuan_hoc_ky);
+        binary_str(&mut out, &row.ngay_bat_dau)?;
+        binary_str(&mut out, &row.ngay_ket_thuc)?;
+        binary_str(&mut out, &row.thong_tin_tuan)?;
+    }
+    binary_count(&mut out, rows.lessons.len())?;
+    for row in rows.lessons {
+        binary_str(&mut out, &row.id_tkb)?;
+        binary_i32(&mut out, row.hoc_ky);
+        binary_i32(&mut out, row.tuan_hoc_ky);
+        binary_str(&mut out, &row.ngay_hoc)?;
+        binary_i32(&mut out, row.thu_kieu_so);
+        binary_i32(&mut out, row.tiet_bat_dau);
+        binary_i32(&mut out, row.so_tiet);
+        binary_str(&mut out, &row.ma_mon)?;
+        binary_str(&mut out, &row.ten_mon)?;
+        binary_str(&mut out, &row.so_tin_chi)?;
+        binary_str(&mut out, &row.ma_phong)?;
+        binary_str(&mut out, &row.ten_giang_vien)?;
+        binary_str(&mut out, &row.ten_lop)?;
+        binary_str(&mut out, &row.ma_nhom)?;
+    }
+    Ok(out)
+}
+fn pack_exams(page: ExamPageRows) -> Result<Vec<u8>, String> {
+    let mut out = binary_header(b'E');
+    binary_i32(&mut out, page.total_pages.and_then(|n| i32::try_from(n).ok()).unwrap_or(-1));
+    binary_count(&mut out, page.row_count)?;
+    binary_count(&mut out, page.rows.len())?;
+    for row in page.rows {
+        binary_i64(&mut out, row.id);
+        binary_i32(&mut out, row.hoc_ky);
+        out.push(u8::from(row.is_giua_ky));
+        binary_i32(&mut out, row.so_thu_tu);
+        binary_str(&mut out, &row.ma_mon)?;
+        binary_str(&mut out, &row.ten_mon)?;
+        binary_str(&mut out, &row.ngay_thi)?;
+        binary_str(&mut out, &row.gio_bat_dau)?;
+        binary_i32(&mut out, row.so_phut);
+        binary_str(&mut out, &row.ma_phong)?;
+        binary_str(&mut out, &row.dia_diem_thi)?;
+        binary_str(&mut out, &row.hinh_thuc_thi)?;
+        binary_str(&mut out, &row.so_bao_danh)?;
+        binary_str(&mut out, &row.dot_thi)?;
+        binary_str(&mut out, &row.ghi_chu_sv)?;
+        out.push(u8::from(row.is_hoan_thi));
+    }
+    Ok(out)
+}
+
+/// Receives exactly the network JSON bytes; does not reserialize Kotlin DTOs.
+pub fn map_timetable_wire(semester: i32, bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let data: Timetable = parse_envelope(bytes, "thời khóa biểu")?;
+    pack_timetable(timetable_rows(semester, data)?)
+}
+pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let data: ExamPage = parse_envelope(bytes, "lịch thi")?;
+    pack_exams(exam_rows(semester, is_midterm, data)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn binary_wire_reads_portal_envelope_without_json_roundtrip() {
+        let timetable = br#"{"code":200,"data":{"ds_tiet_trong_ngay":[],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":3,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}}"#;
+        let packed = map_timetable_wire(20261, timetable).unwrap();
+        assert_eq!(&packed[..5], b"TKB1T");
+        assert!(packed.windows("Toán".len()).any(|v| v == "Toán".as_bytes()));
+        let exam = br#"{"code":200,"data":{"total_pages":1,"ds_lich_thi":[{"ma_mon":"MAT","ngay_thi":"7/11/2026"}]}}"#;
+        let packed = map_exam_wire(20261, false, exam).unwrap();
+        assert_eq!(&packed[..5], b"TKB1E");
+        assert!(packed.windows(3).any(|v| v == b"MAT"));
+        assert!(map_timetable_wire(20261, br#"{"code":200,"data":{"ds_tuan_tkb":[]}}"#).is_err());
+        assert!(map_timetable_wire(20261, br#"{"code":401,"message":"expired"}"#).is_err());
+        assert!(map_exam_wire(20261, false, br#"{"code":200,"data":{"ds_lich_thi":[{}]}}"#).is_err());
+    }
     #[test]
     fn rejects_empty_timetable_to_preserve_offline_cache() {
         assert!(map_timetable(20261, r#"{"ds_tuan_tkb":[]}"#).is_err());
