@@ -20,8 +20,9 @@ assert "val examSync = async {" in refresh
 assert "fetchAndSaveExams(hocKy)" in refresh
 assert "examSync.await()" in refresh
 assert refresh.index("val examSync = async {") < refresh.index("api.weeklyTimetable(")
-assert "res.code != 200 || data == null" in refresh
-assert "data.dsTuanTkb.isEmpty()" in refresh
+assert "RustPortalCore.mapTimetable(hocKy, raw)" in refresh
+assert "val raw = api.weeklyTimetable(" in refresh
+assert "source.weeks.is_empty()" in Path("rust-core/src/portal.rs").read_text(encoding="utf-8")
 
 # Offline cache cleanup is serialized before refresh and cannot repopulate
 # legacy demo exams/timetable belonging to a different student.
@@ -60,15 +61,20 @@ assert "RustPortalCore.normalizeNote(note)" in repo
 assert "pub fn exam_has_next(" in native_portal
 assert "pub fn dedupe_exam_rows(" in native_portal
 assert "pub fn normalize_note(" in native_portal
-assert "RustPortalCore.mapExamPage(hocKy, isGiuaKy, response.data)" in repo
-assert "RustPortalCore.mapTimetable(hocKy, data)" in repo
-assert "dao.replaceTimetable(hocKy, mapped.periods, mapped.weeks, mapped.lessons)" in repo
+assert "RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)" in repo
+assert "RustPortalCore.mapTimetable(hocKy, raw)" in repo
+assert "dao.replaceTimetable(hocKy, data.periods, data.weeks, data.lessons)" in repo
 assert "@Serializable" in db_source
 assert "pub fn map_timetable(" in native_portal
 assert "pub fn map_exam_page(" in native_portal
 assert "System.loadLibrary(\"tkb_core\")" in native_bridge
-assert "mapTimetableNative(semester, source)" in native_bridge
-assert "mapExamPageNative(semester, isMidterm, source)" in native_bridge
+assert "mapTimetableBytesNative(semester, rawResponse)" in native_bridge
+assert "mapExamBytesNative(semester, isMidterm, rawResponse)" in native_bridge
+assert "codec.encodeToString(" not in native_bridge
+assert "codec.decodeFromString(" not in native_bridge
+assert "DataInputStream" in native_bridge
+assert "PortalBinaryDecoder.decodeTimetable(" in native_bridge
+assert "PortalBinaryDecoder.decodeExams(" in native_bridge
 assert "page < maxPages" in repo
 assert "if (exams.isNotEmpty())" in repo
 assert "dao.replaceExamsByType(hocKy, isGiuaKy, exams)" in repo
