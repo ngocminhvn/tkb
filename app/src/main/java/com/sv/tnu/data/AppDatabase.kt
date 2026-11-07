@@ -151,6 +151,9 @@ interface TkbDao {
     @Query("DELETE FROM exams WHERE hocKy = :hocKy")
     suspend fun deleteExams(hocKy: Int)
 
+    @Query("DELETE FROM exams WHERE hocKy = :hocKy AND isGiuaKy = :isGiuaKy")
+    suspend fun deleteExamsByType(hocKy: Int, isGiuaKy: Boolean)
+
     @Query("DELETE FROM weeks WHERE hocKy = :hocKy")
     suspend fun deleteWeeks(hocKy: Int)
 
@@ -175,6 +178,13 @@ interface TkbDao {
     @Transaction
     suspend fun replaceExams(hocKy: Int, exams: List<ExamEntity>) {
         deleteExams(hocKy)
+        insertExams(exams)
+    }
+
+    // Each TNUT exam endpoint can fail independently. Never erase the other type.
+    @Transaction
+    suspend fun replaceExamsByType(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>) {
+        deleteExamsByType(hocKy, isGiuaKy)
         insertExams(exams)
     }
 }
