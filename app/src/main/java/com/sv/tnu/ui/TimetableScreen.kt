@@ -93,6 +93,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** Room emission paired with its week so Compose never paints another week's lessons. */
+data class LoadedWeekLessons(val weekNumber: Int, val items: List<LessonEntity>)
+
 class TimetableViewModel(
     private val repository: TnutRepository,
     private val authStore: AuthStore,
@@ -112,11 +115,20 @@ class TimetableViewModel(
     private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
-    val weeks: StateFlow<List<WeekEntity>> = repository.weeksFlow(hocKy)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Null means Room has not delivered its FIRST cache snapshot. An empty list
+    // means Room really has no saved weeks. Do not confuse the two at startup.
+    val cachedWeeks: StateFlow<List<WeekEntity>?> = repository.weeksFlow(hocKy)
+        .map<List<WeekEntity>, List<WeekEntity>?> { it }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    // Keep the offline timetable hot across tab changes, rather than opening a
+    // new Room collector every time the TKB screen is mounted.
+    val weeks: StateFlow<List<WeekEntity>> = cachedWeeks
+        .map { it.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _showExamsOnHome = MutableStateFlow(authStore.showExamsOnHome)
     val showExamsOnHome: StateFlow<Boolean> = _showExamsOnHome.asStateFlow()
@@ -171,17 +183,20 @@ class TimetableViewModel(
         val current = currentWeekNumber(weekList, today)
         val validSelected = selected?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
         validSelected ?: current
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val lessons: StateFlow<List<LessonEntity>> = selectedWeek
+    // The first real Room emission (including a genuinely empty week) marks
+    // cached lessons as ready. A stale prior week's emission is never painted.
+    val weekLessons: StateFlow<LoadedWeekLessons?> = selectedWeek
         .flatMapLatest { week ->
-            if (week == null) kotlinx.coroutines.flow.flowOf(emptyList())
+            if (week == null) kotlinx.coroutines.flow.flowOf<LoadedWeekLessons?>(null)
             else repository.lessonsFlow(hocKy, week)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+                .map<List<LessonEntity>, LoadedWeekLessons?> { LoadedWeekLessons(week, it) }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Settings counts the whole semester, not just whichever week is selected.
     val semesterLessons: StateFlow<List<LessonEntity>> = repository.semesterLessonsFlow(hocKy)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
@@ -424,8 +439,12 @@ fun TimetableScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val weeks by viewModel.weeks.collectAsState()
+    val cachedWeeks by viewModel.cachedWeeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
-    val lessons by viewModel.lessons.collectAsState()
+    val loadedWeekLessons by viewModel.weekLessons.collectAsState()
+    val lessons = loadedWeekLessons?.takeIf { it.weekNumber == selectedWeek }?.items.orEmpty()
+    val cachedWeekReady = cachedWeeks != null &&
+        (cachedWeeks!!.isEmpty() || (selectedWeek != null && loadedWeekLessons?.weekNumber == selectedWeek))
     val avatarPath by viewModel.avatarPath.collectAsState()
     val studentName by viewModel.studentName.collectAsState()
     val semesterLessons by viewModel.semesterLessons.collectAsState()
@@ -686,7 +705,17 @@ fun TimetableScreen(
                 }
             }
 
-            if (displayedGrouped.isEmpty() && !refreshing) {
+            if (!cachedWeekReady || (displayedGrouped.isEmpty() && refreshing)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                }
+            } else if (displayedGrouped.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -141,6 +141,14 @@ assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
 assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
 assert "val weeks by viewModel.weeks.collectAsState()" in ui
+# An unloaded Room cache must not be mistaken for a genuinely missing timetable.
+assert "val cachedWeeks: StateFlow<List<WeekEntity>?>" in ui
+assert "SharingStarted.Eagerly, null)" in ui
+assert "val weekLessons: StateFlow<LoadedWeekLessons?>" in ui
+assert "loadedWeekLessons?.weekNumber == selectedWeek" in ui
+assert "if (!cachedWeekReady || (displayedGrouped.isEmpty() && refreshing))" in ui
+assert "else if (displayedGrouped.isEmpty())" in ui
+assert "val lessons by viewModel.lessons.collectAsState()" not in ui
 assert "combine(weeks, _todayYmd, _visibleWeekCount, _selectedWeek)" in ui
 assert "combine(weeks, _selectedWeek, _todayYmd)" in ui
 assert "combine(visibleWeeks, _selectedWeek, _todayYmd)" not in ui
