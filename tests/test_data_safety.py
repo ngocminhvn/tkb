@@ -64,7 +64,7 @@ assert "pub fn normalize_note(" in native_portal
 assert "RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)" in repo
 assert "RustPortalCore.mapTimetable(hocKy, raw)" in repo
 assert "dao.replaceTimetable(hocKy, data.periods, data.weeks, data.lessons)" in repo
-assert "@Serializable" in db_source
+assert "@Serializable" not in db_source  # Room no longer needs JSON serializers
 assert "pub fn map_timetable(" in native_portal
 assert "pub fn map_exam_page(" in native_portal
 assert "System.loadLibrary(\"tkb_core\")" in native_bridge
