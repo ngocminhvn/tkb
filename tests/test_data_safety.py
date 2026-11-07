@@ -94,7 +94,12 @@ assert "viewModel.refreshIfNeeded()" not in ui
 calendar = (root / "ui/WeekDatePicker.kt").read_text(encoding="utf-8")
 glass = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
 assert "(lessonItems + examItems)" in ui
-assert "allGrouped.filterKeys { date -> date == selectedDay }" in ui
+assert "weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }" in ui
+assert "val listState = rememberLazyListState()" in ui
+assert "listState.animateScrollToItem(target)" in ui
+assert "listState.scrollToItem(target)" in ui
+assert "scrollRequest++" in ui
+assert 'item(key = "empty-$date"' in ui
 assert "var selectedDay by remember { mutableStateOf(todayStr) }" in ui
 assert "if (actualToday != todayStr)" in ui
 assert "viewModel.updateToday()" in ui
@@ -127,6 +132,35 @@ assert "containerBorderBrush" not in nav_bar
 assert ".border(" not in nav_bar
 assert "lensOffsetAnim.animateTo(" in nav_bar
 assert "currentOnSelected(finalTab)" in nav_bar
+
+# Today and tomorrow reminders are opt-in, independently timed, and
+# display portal-derived Room data (no network or permanent foreground service).
+reminders = (root / "notifications/ScheduleReminders.kt").read_text(encoding="utf-8")
+manifest = Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+settings = (root / "ui/SettingsScreen.kt").read_text(encoding="utf-8")
+auth_store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
+main_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
+for kind in ("ACTION_TODAY", "ACTION_TOMORROW"):
+    assert kind in reminders
+assert "alarm.setAndAllowWhileIdle(" in reminders
+assert "nextAlarmMillis(System.currentTimeMillis(), minute)" in reminders
+assert "Intent.ACTION_BOOT_COMPLETED" in reminders
+assert "Intent.ACTION_MY_PACKAGE_REPLACED" in reminders
+assert "reminderLessonsOn(semester, target)" in reminders
+assert "reminderExamsOn(semester, target)" in reminders
+assert "store.hocKy.takeIf { it != 0 } ?: return" in reminders
+assert "POST_NOTIFICATIONS" in manifest
+assert "RECEIVE_BOOT_COMPLETED" in manifest
+assert "ScheduleReminderReceiver" in manifest
+assert "ReminderRescheduleReceiver" in manifest
+assert "TimePickerDialog(" in settings
+assert "Thông báo lịch hôm nay" in settings
+assert "Thông báo lịch ngày mai" in settings
+assert "RequestPermission()" in settings
+assert "getBoolean(KEY_REMIND_TODAY, false)" in auth_store
+assert "getBoolean(KEY_REMIND_TOMORROW, false)" in auth_store
+assert "ScheduleReminders.syncAll(this)" in main_activity
+assert "ScheduleReminders.cancelAll(this@MainActivity)" in main_activity
 
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
