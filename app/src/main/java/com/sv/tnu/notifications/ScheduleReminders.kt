@@ -110,7 +110,8 @@ object ScheduleReminders {
         val target = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date.time)
         val displayDate = SimpleDateFormat("dd/MM/yyyy", Locale("vi", "VN")).format(date.time)
         val dao = AppDatabase.get(context).tkbDao()
-        val semester = store.hocKy.takeIf { it != 0 } ?: 20261
+        // Never synthesize a semester: only notify for one the portal stored.
+        val semester = store.hocKy.takeIf { it != 0 } ?: return
         val lessons = dao.reminderLessonsOn(semester, target)
         val exams = dao.reminderExamsOn(semester, target)
         val periods = dao.periodsOnce()
@@ -129,7 +130,7 @@ object ScheduleReminders {
             "Không có lịch học hoặc lịch thi."
         } else {
             contents.take(7).joinToString("\n") +
-                if (contents.size > 7) "\nVà ${contents.size - 7} buổi khác" else ""
+                (if (contents.size > 7) "\nVà ${contents.size - 7} buổi khác" else "")
         }
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
