@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.sv.tnu.update.AppUpdateDownloadResult
 import com.sv.tnu.update.AppUpdateInfo
 import com.sv.tnu.update.AppUpdateManager
+import com.sv.tnu.ui.glass.GlassTextButton
 
 @Composable
 fun UpdateDialog(
@@ -142,44 +143,32 @@ fun UpdateDialog(
         },
         dismissButton = {
             if (!downloading) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text("Để sau")
-                }
+                GlassTextButton(text = "Để sau", onClick = onDismiss)
             }
         },
         confirmButton = {
             when {
                 downloading -> {
-                    FilledTonalButton(
+                    GlassTextButton(
+                        text = "${percent ?: 0}%",
                         enabled = false,
+                        loading = false,
                         onClick = {},
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text("${percent ?: 0}%")
-                    }
+                    )
                 }
 
                 downloadResult?.file != null || downloadResult?.uri != null -> {
-                    Button(
-                        onClick = {
-                            AppUpdateManager.installApk(context, downloadResult)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text("Cài đặt ngay")
-                    }
+                    GlassTextButton(
+                        text = "Cài đặt ngay",
+                        onClick = { AppUpdateManager.installApk(context, downloadResult) },
+                    )
                 }
 
                 else -> {
-                    Button(
+                    GlassTextButton(
+                        text = "Cập nhật ngay",
                         onClick = { onStartDownload(updateInfo) },
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text("Cập nhật ngay")
-                    }
+                    )
                 }
             }
         },
