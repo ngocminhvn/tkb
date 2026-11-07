@@ -122,22 +122,22 @@ private fun CalendarDay(
     Column(
         modifier = modifier
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         if (weekday != null) {
             Text(
                 text = weekday,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = if (weekend) 10.sp else 12.sp,
+                    fontSize = if (weekend) 10.sp else 11.sp,
                 ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             )
         }
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(36.dp)
                 .background(
                     color = if (isSelected) selectedDayColor
                         else if (isToday) selectedDayColor.copy(alpha = 0.15f)
@@ -148,7 +148,7 @@ private fun CalendarDay(
         ) {
             Text(
                 text = day,
-                fontSize = if (weekend) 21.sp else 23.sp,
+                fontSize = if (weekend) 17.sp else 19.sp,
                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
                 color = when {
                     !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.24f)
@@ -160,7 +160,7 @@ private fun CalendarDay(
         }
         Box(
             modifier = Modifier
-                .size(5.dp)
+                .size(4.dp)
                 .background(
                     if (hasSchedule && enabled) Color(0xFF22A74C) else Color.Transparent,
                     CircleShape,
@@ -246,7 +246,7 @@ fun WeekDatePicker(
                     showMonth = !showMonth
                     if (showMonth) monthOffset = 0
                 }
-                .padding(vertical = 5.dp),
+                .padding(vertical = 3.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
