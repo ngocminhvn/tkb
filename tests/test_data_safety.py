@@ -121,6 +121,16 @@ assert "GlasIconButton" not in ui  # catch misspelled component references
 assert "GlassIconButton(" in settings and "GlassIconButton(" in main_screen
 assert "glassEffect(" in settings
 assert "GlassTextButton(text = \"Đóng\"" in settings
+login_ui = (root / "ui/LoginScreen.kt").read_text(encoding="utf-8")
+update_dialog = (root / "ui/UpdateDialog.kt").read_text(encoding="utf-8")
+for screen in (ui, settings, main_screen, login_ui, update_dialog):
+    assert "GlassIconButton(" in screen or "GlassTextButton(" in screen
+assert "GlassTextButton(" in login_ui
+assert "GlassIconButton(" in login_ui
+assert "GlassTextButton(" in update_dialog
+assert "GlassIconButton(" in main_screen
+assert 'GlassTextButton(text = "Huỷ"' in ui
+assert 'contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú"' in ui
 
 # Guard exact legacy demo fingerprint: never delete arbitrary valid exams.
 assert "exams.size != fixture.size || keys != fixture" in db_source
