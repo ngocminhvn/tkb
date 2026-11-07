@@ -3,6 +3,8 @@ package com.sv.tnu.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,8 +43,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -53,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +74,7 @@ import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -376,6 +379,29 @@ private fun mondayOfLocalWeek(ymd: String): String {
     return format.format(calendar.time)
 }
 
+/**
+ * Swipe one CALENDAR DAY, even across a week boundary. Bounds come from
+ * actual semester weeks in Room; no fabricated lessons or extra API calls.
+ */
+internal fun adjacentTimetableDay(
+    selectedYmd: String,
+    direction: Int,
+    weeks: List<WeekEntity>,
+): Pair<String, Int>? {
+    if (direction == 0 || weeks.isEmpty()) return null
+    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+    val date = runCatching { format.parse(selectedYmd) }.getOrNull() ?: return null
+    val day = Calendar.getInstance().apply {
+        time = date
+        add(Calendar.DAY_OF_MONTH, if (direction > 0) 1 else -1)
+    }
+    val next = format.format(day.time)
+    val week = weeks.firstOrNull { next in
+        normalizeDateToYmd(it.ngayBatDau)..normalizeDateToYmd(it.ngayKetThuc)
+    } ?: return null
+    return next to week.tuanHocKy
+}
+
 private fun dayLabel(ngayHoc: String): String {
     val datePart = normalizeDateToYmd(ngayHoc)
     val date = runCatching { dayFormat.get().parse(datePart) }.getOrNull() ?: return datePart
@@ -434,6 +460,8 @@ fun TimetableScreen(
     val weeks by viewModel.weeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
     val lessons by viewModel.lessons.collectAsState()
+    val avatarPath by viewModel.avatarPath.collectAsState()
+    val studentName by viewModel.studentName.collectAsState()
     val semesterLessons by viewModel.semesterLessons.collectAsState()
     val exams by viewModel.exams.collectAsState()
     val periods by viewModel.periods.collectAsState()
@@ -545,6 +573,13 @@ fun TimetableScreen(
     // Render the whole seven-day week. The selected day controls scroll
     // position, not which classes are hidden. This also makes empty dates
     // selectable and visible without losing adjacent lessons.
+    fun changeSelectedDay(direction: Int) {
+        val next = adjacentTimetableDay(selectedDay, direction, weeks) ?: return
+        selectedDay = next.first
+        scrollRequest++
+        if (selectedWeek != next.second) viewModel.selectWeek(next.second)
+    }
+
     val displayedGrouped: Map<String, List<ScheduleItem>> = remember(startDayYmd, allGrouped) {
         if (startDayYmd.isBlank()) emptyMap()
         else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
@@ -573,40 +608,65 @@ fun TimetableScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "Thời khóa biểu",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            // Student header follows the portal's avatar/name/ID layout.
+            // Use the app's blue primary instead of introducing teal accents.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                UserAvatar(
+                    avatarPath = avatarPath,
+                    defaultIcon = Icons.Default.Person,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape),
+                    iconSize = 28.dp,
+                    contentDescription = "Ảnh đại diện sinh viên",
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = studentName?.takeIf { it.isNotBlank() } ?: "Sinh viên TNUT",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = viewModel.studentId.ifBlank { "Chưa có MSSV" }.uppercase(Locale.ROOT),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.94f),
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "Thời khóa biểu • Học kỳ ${viewModel.hocKy}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.78f),
+                    )
+                }
+                IconButton(
+                    onClick = { viewModel.refresh() },
+                    enabled = !refreshing,
+                ) {
+                    if (refreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
                         )
-                        Text(
-                            text = "Học kỳ ${viewModel.hocKy}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    } else {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = "Đồng bộ thời khóa biểu",
+                            tint = Color.White,
                         )
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.refresh() },
-                        enabled = !refreshing,
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) {
-                        if (refreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Tải lại")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
+                }
+            }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
@@ -672,7 +732,25 @@ fun TimetableScreen(
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(selectedDay, weeks, selectedWeek) {
+                                var totalDrag = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = { totalDrag = 0f },
+                                    onHorizontalDrag = { change, drag ->
+                                        totalDrag += drag
+                                        change.consume()
+                                    },
+                                    onDragEnd = {
+                                        if (kotlin.math.abs(totalDrag) > 64.dp.toPx()) {
+                                            changeSelectedDay(if (totalDrag < 0f) 1 else -1)
+                                        }
+                                        totalDrag = 0f
+                                    },
+                                    onDragCancel = { totalDrag = 0f },
+                                )
+                            },
                         // Leave a viewport of scroll space so Saturday/Sunday
                         // can also be brought to the top when tapped.
                         contentPadding = PaddingValues(
