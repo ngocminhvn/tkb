@@ -179,13 +179,10 @@ fun WeekDatePicker(
     availableWeeks: List<WeekEntity>,
     currentWeekNumber: Int?,
     onPickDate: (String, Int) -> Unit,
-    onMoveWeek: (Int) -> Unit,
+    onMoveDay: (Int) -> Unit,
 ) {
     val dates = remember(weekStartYmd) { weekDates(weekStartYmd) }
     val selectedDayColor = MaterialTheme.colorScheme.primary
-    val activeWeekIndex = availableWeeks.indexOfFirst { it.tuanHocKy == currentWeekNumber }
-    val canGoBack = activeWeekIndex > 0
-    val canGoForward = activeWeekIndex in 0 until availableWeeks.lastIndex
     var showMonth by rememberSaveable { mutableStateOf(false) }
     var monthOffset by remember { mutableIntStateOf(0) }
     LaunchedEffect(weekStartYmd) { monthOffset = 0 }
@@ -196,7 +193,7 @@ fun WeekDatePicker(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .pointerInput(weekStartYmd, showMonth, canGoBack, canGoForward) {
+            .pointerInput(weekStartYmd, showMonth, selectedYmd) {
                 var dx = 0f
                 var dy = 0f
                 detectDragGestures(
@@ -204,8 +201,9 @@ fun WeekDatePicker(
                     onDragEnd = {
                         when {
                             abs(dx) > abs(dy) && abs(dx) > 65f -> {
-                                if (dx < 0 && canGoForward) onMoveWeek(1)
-                                if (dx > 0 && canGoBack) onMoveWeek(-1)
+                                // Swiping the date strip moves ONE day, not
+                                // an entire week; the caller clamps semesters.
+                                onMoveDay(if (dx < 0f) 1 else -1)
                             }
                             dy > 55f -> showMonth = true
                             dy < -55f -> showMonth = false
