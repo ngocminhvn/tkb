@@ -105,6 +105,10 @@ assert "currentWeekNumber(weekList, today)" in ui
 assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
 assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
+assert "val weeks by viewModel.weeks.collectAsState()" in ui
+assert "combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek)" in ui
+assert "val list = weeks.value" in ui
+assert "list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy" in ui
 assert "val semesterLessons by viewModel.semesterLessons.collectAsState()" in ui
 assert "if (note.isNotBlank()) {" in ui
 assert 'text = if (showPastDays)' not in ui
