@@ -46,7 +46,6 @@ import java.util.Locale
 import kotlin.math.abs
 
 private val weekdayLabels = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
-private val selectedDayColor = Color(0xFF009F9C)
 
 /** Parse a date from TNUT as a strict local calendar day. */
 private fun calendarFor(ymd: String): Calendar? {
@@ -118,6 +117,7 @@ private fun CalendarDay(
 ) {
     val isSelected = ymd == selectedYmd
     val isToday = ymd == todayYmd
+    val selectedDayColor = MaterialTheme.colorScheme.primary
     val day = ymd.substringAfterLast('-').toIntOrNull()?.toString() ?: "-"
     Column(
         modifier = modifier
@@ -162,7 +162,7 @@ private fun CalendarDay(
             modifier = Modifier
                 .size(4.dp)
                 .background(
-                    if (hasSchedule && enabled) Color(0xFF22A74C) else Color.Transparent,
+                    if (hasSchedule && enabled) MaterialTheme.colorScheme.primary else Color.Transparent,
                     CircleShape,
                 ),
         )
@@ -182,6 +182,7 @@ fun WeekDatePicker(
     onMoveWeek: (Int) -> Unit,
 ) {
     val dates = remember(weekStartYmd) { weekDates(weekStartYmd) }
+    val selectedDayColor = MaterialTheme.colorScheme.primary
     val activeWeekIndex = availableWeeks.indexOfFirst { it.tuanHocKy == currentWeekNumber }
     val canGoBack = activeWeekIndex > 0
     val canGoForward = activeWeekIndex in 0 until availableWeeks.lastIndex
