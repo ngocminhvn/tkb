@@ -854,29 +854,15 @@ fun TimetableScreen(
 
 @Composable
 private fun DayRail(date: String, isToday: Boolean) {
-    val calendar = remember(date) {
-        runCatching {
-            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)
-        }.getOrNull()
-    }
-    val weekday = remember(calendar) {
-        calendar?.let { SimpleDateFormat("EEEE", Locale("vi", "VN")).format(it) }
-            ?.let { when (it.lowercase(Locale("vi", "VN"))) {
-                "chủ nhật" -> "CN"
-                "thứ hai" -> "T2"
-                "thứ ba" -> "T3"
-                "thứ tư" -> "T4"
-                "thứ năm" -> "T5"
-                "thứ sáu" -> "T6"
-                else -> "T7"
-            } } ?: ""
-    }
+    // Rust computes the label; no SimpleDateFormat is built while scrolling.
+    val rail = remember(date) { RustScheduleCore.dayRail(date) }
+    val weekday = rail?.second.orEmpty()
     Column(
         modifier = Modifier.width(48.dp).padding(top = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = date.substringAfterLast('-').toIntOrNull()?.toString() ?: "",
+            text = rail?.first.orEmpty(),
             style = MaterialTheme.typography.headlineMedium,
             color = if (isToday) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,

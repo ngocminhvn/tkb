@@ -24,6 +24,7 @@ object RustScheduleCore {
     private external fun examEndTimeNative(start: String, minutes: Int): String
     private external fun moveCalendarDayNative(date: String, direction: Int): String
     private external fun weekDatesNative(start: String): String
+    private external fun dayRailNative(date: String): String
 
     fun normalizeDate(value: String): String {
         if (nativeReady) return normalizeDateNative(value)
@@ -76,5 +77,26 @@ object RustScheduleCore {
             calendar.add(Calendar.DAY_OF_MONTH, 1)
             day
         }
+    }
+
+    /** Day-of-month and weekday label (T2..T7, CN) for a yyyy-MM-dd date. */
+    fun dayRail(date: String): Pair<String, String>? {
+        if (nativeReady) {
+            val parts = dayRailNative(date).split("|")
+            return if (parts.size == 2) parts[0] to parts[1] else null
+        }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val parsed = runCatching { format.parse(date) }.getOrNull() ?: return null
+        val calendar = Calendar.getInstance().apply { time = parsed }
+        val label = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> "T2"
+            Calendar.TUESDAY -> "T3"
+            Calendar.WEDNESDAY -> "T4"
+            Calendar.THURSDAY -> "T5"
+            Calendar.FRIDAY -> "T6"
+            Calendar.SATURDAY -> "T7"
+            else -> "CN"
+        }
+        return calendar.get(Calendar.DAY_OF_MONTH).toString() to label
     }
 }

@@ -81,6 +81,23 @@ pub fn calendar_week_dates(start: &str) -> Vec<String> {
         .collect()
 }
 
+/// Day-of-month and Vietnamese weekday label ("T2".."T7", "CN") for a date rail.
+/// Replaces two Java SimpleDateFormat constructions per list item.
+pub fn day_rail(ymd: &str) -> Option<(u32, &'static str)> {
+    use chrono::{Datelike, Weekday};
+    let date = NaiveDate::parse_from_str(ymd, "%Y-%m-%d").ok()?;
+    let label = match date.weekday() {
+        Weekday::Mon => "T2",
+        Weekday::Tue => "T3",
+        Weekday::Wed => "T4",
+        Weekday::Thu => "T5",
+        Weekday::Fri => "T6",
+        Weekday::Sat => "T7",
+        Weekday::Sun => "CN",
+    };
+    Some((date.day(), label))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +106,13 @@ mod tests {
         assert_eq!(normalize_date("7/11/2026"), "2026-11-07");
         assert_eq!(normalize_date("2026-11-7T07:00:00"), "2026-11-07");
         assert_eq!(normalize_date("07-11-2026 00:00:00"), "2026-11-07");
+    }
+    #[test]
+    fn day_rail_labels() {
+        assert_eq!(day_rail("2026-11-08"), Some((8, "CN")));
+        assert_eq!(day_rail("2026-11-02"), Some((2, "T2")));
+        assert_eq!(day_rail("2026-11-07"), Some((7, "T7")));
+        assert_eq!(day_rail("bad"), None);
     }
     #[test]
     fn exam_times() {

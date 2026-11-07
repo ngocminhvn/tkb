@@ -62,6 +62,19 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_weekDatesNative(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_dayRailNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    let text = crate::day_rail(&source)
+        .map(|(day, label)| format!("{day}|{label}"))
+        .unwrap_or_default();
+    into_java(&mut env, text)
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_hasNextExamPageNative(
     _env: JNIEnv<'_>,
     _this: JObject<'_>,
