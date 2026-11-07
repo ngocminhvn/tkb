@@ -53,8 +53,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -90,6 +97,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -536,8 +544,9 @@ fun TimetableScreen(
             pendingWeek = null
         }
     }
-    var scrollRequest by remember { mutableIntStateOf(0) }
-    var lastScrollWeek by remember { mutableStateOf<String?>(null) }
+    // Only explicit day taps/swipes request a programmatic scroll. A day
+    // inferred from vertical scrolling must not scroll the list back.
+    var requestedScrollDay by remember { mutableStateOf<String?>(null) }
     // Reopening TKB returns to today. Do not let an asynchronous week
     // emission overwrite a date explicitly picked by the user.
     androidx.compose.runtime.LaunchedEffect(viewModel) {
@@ -643,14 +652,30 @@ fun TimetableScreen(
     // Render the whole seven-day week. The selected day controls scroll
     // position, not which classes are hidden. This also makes empty dates
     // selectable and visible without losing adjacent lessons.
+    fun selectDay(date: String, weekNumber: Int) {
+        selectedDay = date
+        requestedScrollDay = date
+        if (selectedWeek != weekNumber) {
+            pendingWeek = weekNumber
+            viewModel.selectWeek(weekNumber)
+        }
+    }
+
     fun changeSelectedDay(direction: Int) {
         val next = adjacentTimetableDay(selectedDay, direction, weeks) ?: return
-        selectedDay = next.first
-        scrollRequest++
-        if (selectedWeek != next.second) {
-            pendingWeek = next.second
-            viewModel.selectWeek(next.second)
-        }
+        selectDay(next.first, next.second)
+    }
+
+    // Navigation by vertical overscroll happens only beyond the first/last
+    // actual semester week, never just because the final day is visible.
+    fun changeWeekAtBoundary(direction: Int) {
+        val index = weeks.indexOfFirst { it.tuanHocKy == selectedWeek }
+        if (index < 0) return
+        val next = weeks.getOrNull(index + direction) ?: return
+        val date = normalizeDateToYmd(
+            if (direction > 0) next.ngayBatDau else next.ngayKetThuc
+        )
+        selectDay(date, next.tuanHocKy)
     }
 
     val displayedGrouped: Map<String, List<ScheduleItem>> = remember(startDayYmd, allGrouped) {
@@ -692,19 +717,92 @@ fun TimetableScreen(
     val listState = key(startDayYmd) {
         rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
     }
-    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, startDayYmd, listState) {
-        val target = firstRowByDay[selectedDay] ?: return@LaunchedEffect
-        if (lastScrollWeek != startDayYmd) {
-            lastScrollWeek = startDayYmd
-            return@LaunchedEffect
-        }
+    // The first visible card determines which date is highlighted in the
+    // fixed week picker. Do not issue another scroll for this update.
+    androidx.compose.runtime.LaunchedEffect(listState, flatRows) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { visibleIndex ->
+                val visibleDay = flatRows.getOrNull(visibleIndex)?.date ?: return@collect
+                if (requestedScrollDay == null && selectedDay != visibleDay) {
+                    selectedDay = visibleDay
+                }
+            }
+    }
+
+    // A date tapped in the week/month picker or reached via horizontal swipe
+    // still scrolls to that date. Wait for the new week's rows before clearing
+    // the request, so a cross-week selection does not get lost.
+    androidx.compose.runtime.LaunchedEffect(requestedScrollDay, startDayYmd, listState) {
+        val requested = requestedScrollDay ?: return@LaunchedEffect
+        val target = firstRowByDay[requested] ?: return@LaunchedEffect
         val firstVisible = listState.firstVisibleItemIndex
-        if (firstVisible == target) return@LaunchedEffect
-        // Never animate across many cards or fight a user's ongoing drag.
-        if (listState.isScrollInProgress || kotlin.math.abs(target - firstVisible) > 4) {
-            listState.scrollToItem(target)
-        } else {
-            listState.animateScrollToItem(target)
+        if (firstVisible != target) {
+            if (listState.isScrollInProgress || kotlin.math.abs(target - firstVisible) > 4) {
+                listState.scrollToItem(target)
+            } else {
+                listState.animateScrollToItem(target)
+            }
+        }
+        if (requestedScrollDay == requested) requestedScrollDay = null
+    }
+
+    // An extra intentional pull after reaching the end starts the following
+    // week. Pulling past the very top similarly opens the previous week.
+    // Ordinary scrolling among the seven days only updates the highlight.
+    val edgeThresholdPx = with(LocalDensity.current) { 88.dp.toPx() }
+    val weekEdgeConnection = remember(listState, weeks, selectedWeek, edgeThresholdPx) {
+        object : NestedScrollConnection {
+            var beyondTop = 0f
+            var beyondBottom = 0f
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    if (available.y > 0f) beyondBottom = 0f
+                    if (available.y < 0f) beyondTop = 0f
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                when {
+                    available.y < 0f && !listState.canScrollForward -> {
+                        beyondTop = 0f
+                        beyondBottom -= available.y
+                        if (beyondBottom >= edgeThresholdPx) {
+                            beyondBottom = 0f
+                            changeWeekAtBoundary(1)
+                        }
+                    }
+                    available.y > 0f && !listState.canScrollBackward -> {
+                        beyondBottom = 0f
+                        beyondTop += available.y
+                        if (beyondTop >= edgeThresholdPx) {
+                            beyondTop = 0f
+                            changeWeekAtBoundary(-1)
+                        }
+                    }
+                    else -> {
+                        beyondTop = 0f
+                        beyondBottom = 0f
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity {
+                beyondTop = 0f
+                beyondBottom = 0f
+                return Velocity.Zero
+            }
         }
     }
 
@@ -789,14 +887,7 @@ fun TimetableScreen(
                 todayYmd = todayStr,
                 eventDays = eventDays,
                 availableWeeks = weeks,
-                onPickDate = { date, weekNumber ->
-                    selectedDay = date
-                    scrollRequest++
-                    if (selectedWeek != weekNumber) {
-                        pendingWeek = weekNumber
-                        viewModel.selectWeek(weekNumber)
-                    }
-                },
+                onPickDate = { date, weekNumber -> selectDay(date, weekNumber) },
                 onMoveDay = { direction -> changeSelectedDay(direction) },
             )
 
@@ -857,6 +948,7 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
+                            .nestedScroll(weekEdgeConnection)
                             .pointerInput(selectedDay, weeks, selectedWeek) {
                                 var totalDrag = 0f
                                 detectHorizontalDragGestures(
