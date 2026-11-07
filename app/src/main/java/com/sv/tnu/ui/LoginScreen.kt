@@ -51,6 +51,7 @@ import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutApi
 import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.rust.RustPortalCore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,13 +78,7 @@ class LoginViewModel(
             _state.value = LoginUiState.Error("Vui lòng nhập tài khoản và mật khẩu.")
             return
         }
-        val portalUsername = username.trim().let { value ->
-            if (value.contains('@')) {
-                value.substringBefore('@')
-            } else {
-                value
-            }
-        }
+        val portalUsername = RustPortalCore.normalizeUsername(username)
         viewModelScope.launch {
             _state.value = LoginUiState.Loading
             try {
