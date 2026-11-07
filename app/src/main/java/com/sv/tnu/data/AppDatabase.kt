@@ -100,6 +100,12 @@ interface TkbDao {
     @Query("SELECT * FROM weeks WHERE hocKy = :hocKy ORDER BY tuanHocKy ASC")
     fun weeks(hocKy: Int): Flow<List<WeekEntity>>
 
+    @Query("SELECT * FROM weeks WHERE hocKy = :hocKy ORDER BY tuanHocKy ASC")
+    suspend fun weeksOnce(hocKy: Int): List<WeekEntity>
+
+    @Query("SELECT * FROM lessons WHERE hocKy = :hocKy ORDER BY ngayHoc ASC")
+    suspend fun semesterLessonsOnce(hocKy: Int): List<LessonEntity>
+
     @Query("SELECT * FROM lessons WHERE hocKy = :hocKy AND tuanHocKy = :tuan ORDER BY ngayHoc ASC, tietBatDau ASC")
     fun lessons(hocKy: Int, tuan: Int): Flow<List<LessonEntity>>
 

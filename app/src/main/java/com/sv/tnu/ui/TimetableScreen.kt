@@ -91,8 +91,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /** One coherent offline screen state; never expose a partly loaded week/lesson pair. */
 data class TimetableSnapshot(
@@ -134,29 +136,57 @@ class TimetableViewModel(
     // could leave Compose waiting for a delayed emission until switching tabs.
     // Room loads both cached tables offline, then we atomically choose a week
     // and its lessons. Null is reserved solely for the initial disk read.
-    val timetable: StateFlow<TimetableSnapshot?> = combine(
-        repository.weeksFlow(hocKy),
-        repository.semesterLessonsFlow(hocKy),
-        _selectedWeek,
-        _todayYmd,
-    ) { weekList, lessonList, manual, today ->
+    private fun buildSnapshot(
+        weekList: List<WeekEntity>,
+        lessonList: List<LessonEntity>,
+        manual: Int?,
+        today: String,
+    ): TimetableSnapshot {
         val selected = manual?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
             ?: currentWeekNumber(weekList, today)
-        TimetableSnapshot(
+        return TimetableSnapshot(
             weeks = weekList,
             semesterLessons = lessonList,
             selectedWeek = selected,
             lessons = if (selected == null) emptyList()
                 else lessonList.filter { it.tuanHocKy == selected },
         )
+    }
+
+    // The saved timetable is read once, synchronously (a few small SQLite
+    // queries), so the very first frame already shows the cache instead of
+    // waiting for the asynchronous Room Flow emissions.
+    private val initialSnapshot: TimetableSnapshot = runCatching {
+        runBlocking(Dispatchers.IO) {
+            buildSnapshot(
+                repository.cachedWeeks(hocKy),
+                repository.cachedSemesterLessons(hocKy),
+                null,
+                _todayYmd.value,
+            )
+        }
+    }.getOrElse { TimetableSnapshot(emptyList(), emptyList(), null, emptyList()) }
+
+    val timetable: StateFlow<TimetableSnapshot?> = combine(
+        repository.weeksFlow(hocKy),
+        repository.semesterLessonsFlow(hocKy),
+        _selectedWeek,
+        _todayYmd,
+    ) { weekList, lessonList, manual, today ->
+        buildSnapshot(weekList, lessonList, manual, today)
     }.flowOn(Dispatchers.Default)
+        // Replacing the timetable is one atomic transaction, so a genuinely
+        // empty emission after cached weeks exist is never legitimate.
+        .scan(initialSnapshot) { previous, next ->
+            if (next.weeks.isEmpty() && previous.weeks.isNotEmpty()) previous else next
+        }
         .map<TimetableSnapshot, TimetableSnapshot?> { it }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot)
 
     // The existing settings and navigation APIs reuse that same Room snapshot.
     val weeks: StateFlow<List<WeekEntity>> = timetable
         .map { it?.weeks.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.weeks)
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -210,12 +240,12 @@ class TimetableViewModel(
 
     val selectedWeek: StateFlow<Int?> = timetable
         .map { it?.selectedWeek }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.selectedWeek)
 
     // Settings counts the whole semester, not just whichever week is selected.
     val semesterLessons: StateFlow<List<LessonEntity>> = timetable
         .map { it?.semesterLessons.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.semesterLessons)
 
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()

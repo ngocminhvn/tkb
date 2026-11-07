@@ -46,6 +46,11 @@ class TnutRepository(
 
     fun weeksFlow(hocKy: Int): Flow<List<WeekEntity>> = dao.weeks(hocKy)
 
+    /** One-shot cache read used to paint the saved timetable on the first frame. */
+    suspend fun cachedWeeks(hocKy: Int): List<WeekEntity> = dao.weeksOnce(hocKy)
+
+    suspend fun cachedSemesterLessons(hocKy: Int): List<LessonEntity> = dao.semesterLessonsOnce(hocKy)
+
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
     fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>> = dao.semesterLessons(hocKy)
