@@ -1,5 +1,12 @@
 package com.sv.tnu.ui
 
+import android.Manifest
+import android.app.TimePickerDialog
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +36,8 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Refresh
@@ -62,10 +71,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.notifications.ScheduleReminders
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
@@ -96,6 +107,72 @@ fun SettingsScreen(
     val examSyncError by timetableViewModel.examSyncError.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var remindToday by remember { mutableStateOf(authStore.remindToday) }
+    var remindTomorrow by remember { mutableStateOf(authStore.remindTomorrow) }
+    var todayMinutes by remember { mutableStateOf(authStore.todayReminderMinutes) }
+    var tomorrowMinutes by remember { mutableStateOf(authStore.tomorrowReminderMinutes) }
+    var notificationPermissionDenied by remember { mutableStateOf(false) }
+    var pendingEnableForTomorrow by remember { mutableStateOf<Boolean?>(null) }
+
+    fun setReminderEnabled(tomorrow: Boolean, enabled: Boolean) {
+        if (tomorrow) {
+            remindTomorrow = enabled
+            authStore.remindTomorrow = enabled
+        } else {
+            remindToday = enabled
+            authStore.remindToday = enabled
+        }
+        ScheduleReminders.syncAll(context)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val kind = pendingEnableForTomorrow
+        pendingEnableForTomorrow = null
+        if (granted && kind != null) {
+            notificationPermissionDenied = false
+            setReminderEnabled(kind, true)
+        } else if (!granted) {
+            notificationPermissionDenied = true
+        }
+    }
+
+    fun toggleReminder(tomorrow: Boolean, enabled: Boolean) {
+        if (!enabled) {
+            setReminderEnabled(tomorrow, false)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+            pendingEnableForTomorrow = tomorrow
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            setReminderEnabled(tomorrow, true)
+        }
+    }
+
+    fun pickReminderTime(tomorrow: Boolean) {
+        val oldMinutes = if (tomorrow) tomorrowMinutes else todayMinutes
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                val value = hour * 60 + minute
+                if (tomorrow) {
+                    tomorrowMinutes = value
+                    authStore.tomorrowReminderMinutes = value
+                } else {
+                    todayMinutes = value
+                    authStore.todayReminderMinutes = value
+                }
+                ScheduleReminders.syncAll(context)
+            },
+            oldMinutes / 60,
+            oldMinutes % 60,
+            true,
+        ).show()
+    }
     LaunchedEffect(authStore.username, avatarPath) {
         val username = authStore.username
         if (!username.isNullOrBlank() && avatarPath.isNullOrBlank()) {
@@ -288,6 +365,38 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            // Two independent opt-in reminders based on local Room data.
+            ReminderSettingCard(
+                title = "Thông báo lịch hôm nay",
+                subtitle = "Nhắc lịch học và lịch thi trong ngày",
+                enabled = remindToday,
+                minuteOfDay = todayMinutes,
+                icon = Icons.Default.NotificationsActive,
+                onToggle = { toggleReminder(false, it) },
+                onPickTime = { pickReminderTime(false) },
+            )
+            ReminderSettingCard(
+                title = "Thông báo lịch ngày mai",
+                subtitle = "Nhắc trước lịch học và lịch thi ngày mai",
+                enabled = remindTomorrow,
+                minuteOfDay = tomorrowMinutes,
+                icon = Icons.Default.NotificationsNone,
+                onToggle = { toggleReminder(true, it) },
+                onPickTime = { pickReminderTime(true) },
+            )
+            if (notificationPermissionDenied) {
+                Text(
+                    text = "Chưa được cấp quyền thông báo. Hãy cho phép thông báo trong cài đặt Android để bật nhắc lịch.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Text(
+                text = "Giờ nhắc theo giờ điện thoại; Android có thể phát muộn khi tiết kiệm pin. Không cần kết nối mạng nếu lịch đã được lưu.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             // Tùy chọn hiển thị số tuần (với nút - và +)
             val weeksBefore = (visibleWeekCount - 1) / 2
@@ -733,6 +842,66 @@ private fun formatLastSync(timestamp: Long): String {
     if (timestamp <= 0L) return "Chưa từng đồng bộ"
     val sdf = SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+@Composable
+private fun ReminderSettingCard(
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    minuteOfDay: Int,
+    icon: ImageVector,
+    onToggle: (Boolean) -> Unit,
+    onPickTime: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                    ))
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onToggle)
+            }
+            TextButton(
+                modifier = Modifier.align(Alignment.End),
+                onClick = onPickTime,
+            ) {
+                Text(
+                    text = "Giờ nhắc: %02d:%02d".format(
+                        Locale.US, minuteOfDay / 60, minuteOfDay % 60
+                    ),
+                )
+            }
+        }
+    }
 }
 
 @Composable
