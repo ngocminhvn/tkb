@@ -98,6 +98,7 @@ fun SettingsScreen(
     val visibleWeekCount by timetableViewModel.visibleWeekCount.collectAsState()
     val isDarkMode by authStore.isDarkModeFlow.collectAsState()
     val isFetchingExams by timetableViewModel.isFetchingExams.collectAsState()
+    val examSyncError by timetableViewModel.examSyncError.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var importStatus by remember { mutableStateOf<String?>(null) }
@@ -694,9 +695,10 @@ fun SettingsScreen(
                         }
                     } else if (exams.isEmpty()) {
                         Text(
-                            text = "Portal chưa trả về lịch thi. Có thể nhập lịch thi từ tệp CSV/TSV tại mục Cài đặt mà không cần xóa dữ liệu.",
+                            text = examSyncError ?: "Chưa có dữ liệu lịch thi đã xác minh từ portal cho học kỳ này. Nhấn đóng rồi mở lại mục Lịch thi để thử đồng bộ.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            color = if (examSyncError != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         )
                     } else {
                         Column(
@@ -705,6 +707,13 @@ fun SettingsScreen(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
+                            examSyncError?.let { message ->
+                                Text(
+                                    text = "Dữ liệu đang hiển thị là lịch lưu trên máy. Đồng bộ mới không hoàn tất: $message",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                             exams.forEach { exam ->
                                 val isHoan = exam.isHoanThi
                                 Card(
