@@ -14,8 +14,14 @@ refresh = repo.split("suspend fun refresh(hocKy: Int)", 1)[1].split("private sus
 for destructive in ("dao.clearAllLessonNotes(", "dao.clearOldLessonNotes(",
                     "dao.deleteLessons(", "dao.deleteWeeks(", "dao.deleteExams("):
     assert destructive not in refresh, f"Unsafe pre-fetch cleanup: {destructive}"
-assert refresh.index("api.weeklyTimetable(") < refresh.index("saveToDb(hocKy, res.data)")
-assert refresh.index("saveToDb(hocKy, res.data)") < refresh.index("authStore.lastSyncTime =")
+assert refresh.index("api.weeklyTimetable(") < refresh.index("saveToDb(hocKy, data)")
+assert refresh.index("saveToDb(hocKy, data)") < refresh.index("authStore.lastSyncTime =")
+assert "val examSync = async {" in refresh
+assert "fetchAndSaveExams(hocKy)" in refresh
+assert "examSync.await()" in refresh
+assert refresh.index("val examSync = async {") < refresh.index("api.weeklyTimetable(")
+assert "res.code != 200 || data == null" in refresh
+assert "data.dsTuanTkb.isEmpty()" in refresh
 
 # Offline cache cleanup is serialized before refresh and cannot repopulate
 # legacy demo exams/timetable belonging to a different student.
@@ -50,23 +56,34 @@ assert "data.totalPages?.takeIf { it > 0 }" in repo
 assert "page < maxPages" in repo
 assert "if (exams.isNotEmpty())" in repo
 assert "dao.replaceExamsByType(hocKy, isGiuaKy, exams)" in repo
-assert "incomingLessons == 0" in repo
 assert "Dữ liệu đã lưu được giữ nguyên" in repo
-assert "return Result.failure(" in repo
 assert "suspend fun deleteExamsByType(" in db_source
 assert "suspend fun replaceExamsByType(" in db_source
-assert "suspend fun importPersonalTimetable(uri: Uri, hocKy: Int)" in repo
-assert "suspend fun importPersonalExams(uri: Uri, hocKy: Int)" in repo
-assert "dao.replaceExamsByType(hocKy, false, exams)" in repo
 assert "saveToDb(hocKy, data)" in repo
-assert "PersonalExamImporter.parse(" in repo
-parser = (root / "tnut/PersonalExamImporter.kt").read_text(encoding="utf-8")
-assert "class PersonalExamImporter" in parser or "object PersonalExamImporter" in parser
-assert "val normalizedDate" in parser
-assert "require(maMon.isNotBlank() && tenMon.isNotBlank())" in parser
+
+# Only the TNUT portal is allowed to supply timetable/exam data. Remove
+# manual import UI, file pickers, parser, and their repository entry points.
 settings = (root / "ui/SettingsScreen.kt").read_text(encoding="utf-8")
-assert "Khôi phục thời khóa biểu từ JSON" in settings
-assert "Nhập lịch thi từ Excel (CSV/TSV)" in settings
+for removed in (
+    "Khôi phục thời khóa biểu từ JSON",
+    "Nhập lịch thi từ Excel (CSV/TSV)",
+    "importPersonalTimetable",
+    "importPersonalExams",
+    "timetableJsonPicker",
+    "examCsvPicker",
+    "rememberLauncherForActivityResult",
+):
+    assert removed not in settings, f"Manual import action still present: {removed}"
+for removed in ("importPersonalTimetable", "importPersonalExams", "readPersonalFile", "PersonalExamImporter"):
+    assert removed not in repo, f"Manual import repository path still present: {removed}"
+assert not (root / "tnut/PersonalExamImporter.kt").exists()
+
+# A successful login must trigger a fresh portal sync even when a prior
+# session has already refreshed today. Otherwise stored exams go stale.
+auth_store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
+assert ".putLong(KEY_LAST_AUTO_SYNC_ATTEMPT, 0L)" in auth_store
+assert "val lastAutomaticCheck = authStore.lastAutoSyncAttempt" in ui
+assert "val lastAutomaticCheck = maxOf(" not in ui
 
 # Past days are filtered uniformly across lessons AND exam cards, including
 # when app resumes from the background after a local calendar-day change.
