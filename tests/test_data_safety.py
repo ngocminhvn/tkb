@@ -84,6 +84,10 @@ auth_store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
 assert ".putLong(KEY_LAST_AUTO_SYNC_ATTEMPT, 0L)" in auth_store
 assert "val lastAutomaticCheck = authStore.lastAutoSyncAttempt" in ui
 assert "val lastAutomaticCheck = maxOf(" not in ui
+main_screen = (root / "ui/MainScreen.kt").read_text(encoding="utf-8")
+assert "LaunchedEffect(timetableViewModel)" in main_screen
+assert "timetableViewModel.refreshIfNeeded()" in main_screen
+assert "viewModel.refreshIfNeeded()" not in ui
 
 # Past days are filtered uniformly across lessons AND exam cards, including
 # when app resumes from the background after a local calendar-day change.
