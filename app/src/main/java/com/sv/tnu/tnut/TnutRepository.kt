@@ -12,6 +12,8 @@ import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.widget.TimetableWidgetProvider
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -76,50 +78,63 @@ class TnutRepository(
         }
     }
 
-    /** Tải lịch tuần của học kỳ từ API rồi ghi đè vào Room trong 1 transaction. */
-    suspend fun refresh(hocKy: Int): Result<Unit> {
-        return try {
-            // Keep cached timetable, exams and personal notes untouched until the
-            // portal returns valid data. Room replaces timetable rows atomically.
-            // Notes are user-owned data and must never expire on a sync timer.
-            val res = api.weeklyTimetable(WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy)))
-            if (res.code != 200 || res.data == null) {
-                return Result.failure(
-                    IllegalStateException(res.message ?: "Không tải được thời khóa biểu (${res.code})"),
-                )
-            }
-            // A portal response may be HTTP/code 200 but contain no lessons.
-            // Never overwrite genuine offline lessons/weeks with that empty
-            // response, nor label it a successful synchronization.
-            val incomingLessons = res.data.dsTuanTkb.sumOf { it.dsThoiKhoaBieu.size }
-            if (res.data.dsTuanTkb.isEmpty() || incomingLessons == 0) {
-                // Exam endpoint may still return valid rows independently.
-                fetchAndSaveExams(hocKy)
-                return Result.failure(
-                    IllegalStateException(
-                        "Portal trả lịch học rỗng (học kỳ $hocKy). Dữ liệu đã lưu được giữ nguyên."
-                    ),
-                )
-            }
-            saveToDb(hocKy, res.data)
-            authStore.hocKy = hocKy
-            // Save successful timetable sync immediately; auxiliary exam/avatar
-            // requests can be slow or fail without invalidating the timetable.
-            authStore.lastSyncTime = System.currentTimeMillis()
-            // Đồng thời tải lịch thi (cả giữa kỳ và cuối kỳ)
+    /**
+     * Synchronize the timetable and exams on every requested portal sync.
+     * These API sources are independent: failed/empty timetable requests must
+     * never suppress the exam request, and neither may wipe the other's Room
+     * cache. Both run concurrently, but each uses its own transactional write.
+     */
+    suspend fun refresh(hocKy: Int): Result<Unit> = coroutineScope {
+        val examSync = async {
             try {
                 fetchAndSaveExams(hocKy)
-            } catch (_: Exception) {}
-            // Đồng thời tải avatar nếu chưa có
-            if (authStore.avatarPath.isNullOrBlank() && !authStore.username.isNullOrBlank()) {
-                try {
-                    fetchAndSaveAvatar(authStore.username!!)
-                } catch (_: Exception) {}
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-            Result.success(Unit)
+        }
+
+        val timetableResult = try {
+            val res = api.weeklyTimetable(WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy)))
+            val data = res.data
+            when {
+                res.code != 200 || data == null ->
+                    Result.failure(IllegalStateException(
+                        res.message ?: "Không tải được thời khóa biểu (${res.code})."
+                    ))
+                data.dsTuanTkb.isEmpty() ||
+                    data.dsTuanTkb.sumOf { it.dsThoiKhoaBieu.size } == 0 ->
+                    Result.failure(IllegalStateException(
+                        "Portal trả lịch học rỗng (học kỳ $hocKy). Dữ liệu đã lưu được giữ nguyên."
+                    ))
+                else -> {
+                    saveToDb(hocKy, data)
+                    authStore.hocKy = hocKy
+                    authStore.lastSyncTime = System.currentTimeMillis()
+                    if (authStore.avatarPath.isNullOrBlank() &&
+                        !authStore.username.isNullOrBlank()) {
+                        try {
+                            fetchAndSaveAvatar(authStore.username!!)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w("TnutRepository", "Could not refresh avatar", e)
+                        }
+                    }
+                    Result.success(Unit)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
+
+        examSync.await().onFailure { error ->
+            Log.w("TnutRepository", "Exam sync failed independently of timetable", error)
+        }
+        timetableResult
     }
 
     private suspend fun saveToDb(hocKy: Int, data: TkbData) {
