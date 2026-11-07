@@ -64,7 +64,7 @@ private fun calendarFor(ymd: String): Calendar? {
 private fun calendarYmd(date: Date): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
 
-private fun weekDates(start: String): List<String> {
+internal fun weekDates(start: String): List<String> {
     val calendar = calendarFor(start) ?: return emptyList()
     return List(7) {
         val day = calendarYmd(calendar.time)
@@ -73,7 +73,7 @@ private fun weekDates(start: String): List<String> {
     }
 }
 
-private fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>> {
+internal fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>> {
     val calendar = calendarFor(anchor) ?: return "" to emptyList()
     calendar.set(Calendar.DAY_OF_MONTH, 1)
     calendar.add(Calendar.MONTH, offset)
@@ -97,7 +97,7 @@ private fun dateInWeek(ymd: String, week: WeekEntity): Boolean {
     return ymd in start..end
 }
 
-private fun normalizePortalDay(value: String): String {
+internal fun normalizePortalDay(value: String): String {
     val bits = value.split("/")
     return if (bits.size == 3) {
         "${bits[2]}-${bits[1].padStart(2, '0')}-${bits[0].padStart(2, '0')}"
