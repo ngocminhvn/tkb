@@ -96,3 +96,48 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamPageNative(
         crate::portal::map_exam_page(semester, is_midterm != 0, &source),
     )
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_dedupeExamsNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    payload: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &payload);
+    return_or_throw(&mut env, crate::portal::dedupe_exam_rows(&source))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_hasNextExamPageNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    page: jint,
+    total_pages: jint,
+    row_count: jint,
+) -> jni::sys::jboolean {
+    u8::from(crate::portal::exam_has_next(
+        page.max(1) as usize,
+        (total_pages > 0).then_some(total_pages as usize),
+        row_count.max(0) as usize,
+    ))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_normalizeNoteNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::portal::normalize_note(&source))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_normalizeUsernameNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::portal::normalize_username(&source))
+}
