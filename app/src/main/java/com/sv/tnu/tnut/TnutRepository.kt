@@ -100,35 +100,27 @@ class TnutRepository(
         }
 
         val timetableResult = try {
-            val res = api.weeklyTimetable(WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy)))
-            val data = res.data
-            when {
-                res.code != 200 || data == null ->
-                    Result.failure(IllegalStateException(
-                        res.message ?: "Không tải được thời khóa biểu (${res.code})."
-                    ))
-                data.dsTuanTkb.isEmpty() ||
-                    data.dsTuanTkb.sumOf { it.dsThoiKhoaBieu.size } == 0 ->
-                    Result.failure(IllegalStateException(
-                        "Portal trả lịch học rỗng (học kỳ $hocKy). Dữ liệu đã lưu được giữ nguyên."
-                    ))
-                else -> {
-                    saveToDb(hocKy, data)
-                    authStore.hocKy = hocKy
-                    authStore.lastSyncTime = System.currentTimeMillis()
-                    if (authStore.avatarPath.isNullOrBlank() &&
-                        !authStore.username.isNullOrBlank()) {
-                        try {
-                            fetchAndSaveAvatar(authStore.username!!)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Log.w("TnutRepository", "Could not refresh avatar", e)
-                        }
-                    }
-                    Result.success(Unit)
+            // Retrofit/OkHttp still owns HTTP + token refresh. Rust receives the
+            // original response bytes, parses the portal wrapper once, and
+            // returns compact binary records; no Kotlin JSON round-trip.
+            val raw = api.weeklyTimetable(
+                WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy))
+            ).use { it.bytes() }
+            val data = RustPortalCore.mapTimetable(hocKy, raw)
+            saveToDb(hocKy, data)
+            authStore.hocKy = hocKy
+            authStore.lastSyncTime = System.currentTimeMillis()
+            if (authStore.avatarPath.isNullOrBlank() &&
+                !authStore.username.isNullOrBlank()) {
+                try {
+                    fetchAndSaveAvatar(authStore.username!!)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("TnutRepository", "Could not refresh avatar", e)
                 }
             }
+            Result.success(Unit)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -141,11 +133,13 @@ class TnutRepository(
         timetableResult
     }
 
-    private suspend fun saveToDb(hocKy: Int, data: TkbData) {
-        // Rust owns timetable validation and column mapping. Room retains
-        // transactional writes and migration compatibility for existing users.
-        val mapped = RustPortalCore.mapTimetable(hocKy, data)
-        dao.replaceTimetable(hocKy, mapped.periods, mapped.weeks, mapped.lessons)
+    private suspend fun saveToDb(
+        hocKy: Int,
+        data: com.sv.tnu.rust.PortalBinaryDecoder.TimetableRows,
+    ) {
+        // Native decoder has already checked the response; only then commit.
+        // Keep the original Room transaction and all existing notes.
+        dao.replaceTimetable(hocKy, data.periods, data.weeks, data.lessons)
         TimetableWidgetProvider.updateAll(context)
     }
 
@@ -201,16 +195,11 @@ class TnutRepository(
         val maxPages = 50
         var page = 1
         while (true) {
-            val response = api.exams(ExamRequest.forSemester(hocKy, isGiuaKy, page))
-            if (response.code != 200 || response.data == null) {
-                throw IllegalStateException(
-                    "Portal không trả lịch thi ${if (isGiuaKy) "giữa kỳ" else "cuối kỳ"} " +
-                        "(HTTP/API ${response.code}): ${response.message.orEmpty()}"
-                )
-            }
-            // JSON parsing, validation and record mapping run in the Rust
-            // engine. A malformed page aborts the type-specific batch.
-            val mapped = RustPortalCore.mapExamPage(hocKy, isGiuaKy, response.data)
+            val raw = api.exams(
+                ExamRequest.forSemester(hocKy, isGiuaKy, page)
+            ).use { it.bytes() }
+            // Rust rejects invalid portal pages before any Room replacement.
+            val mapped = RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
             all.addAll(mapped.rows)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
