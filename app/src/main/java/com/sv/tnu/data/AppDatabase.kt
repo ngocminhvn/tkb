@@ -208,10 +208,11 @@ interface TkbDao {
             "ELE309|2026-11-25|10:45|DOT1|ELE309_61TDH8_02",
             "ELE201|2026-11-30|10:45|DOT1|ELE201_61TDH8_02",
         )
-        if (exams.size != fixture.size || exams.any { exam ->
-                exam.isGiuaKy || exam.isHoanThi ||
-                    "${exam.maMon}|${exam.ngayThi}|${exam.gioBatDau}|${exam.dotThi}|${exam.soBaoDanh}" !in fixture
-            }) return false
+        val keys = exams.map { exam ->
+            if (exam.isGiuaKy || exam.isHoanThi) return false
+            "${exam.maMon}|${exam.ngayThi}|${exam.gioBatDau}|${exam.dotThi}|${exam.soBaoDanh}"
+        }.toSet()
+        if (exams.size != fixture.size || keys != fixture) return false
         deleteExams(hocKy)
         return true
     }
