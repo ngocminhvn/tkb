@@ -10,11 +10,13 @@ permissions:
   pages: write
   id-token: write
 
-# A push supersedes older APK builds, preventing obsolete commits from
-# publishing an outdated APK/update.json after a newer push.
+# GitHub Pages rejects a deployment while another deployment is in
+# progress (HTTP 400). Serialize the ENTIRE build + deploy workflow so a new
+# push cannot cancel an active deployment. GitHub retains the latest pending
+# run rather than publishing a stale intermediate APK.
 concurrency:
-  group: tkb-apk-${{ github.ref }}
-  cancel-in-progress: true
+  group: tkb-pages-release
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -125,10 +127,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    continue-on-error: true
-    concurrency:
-      group: pages
-      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -136,4 +134,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        continue-on-error: true
