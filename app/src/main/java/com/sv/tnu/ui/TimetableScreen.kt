@@ -737,6 +737,23 @@ fun TimetableScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .pointerInput(selectedDay, weeks, selectedWeek) {
+                            var totalDrag = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { totalDrag = 0f },
+                                onHorizontalDrag = { change, drag ->
+                                    totalDrag += drag
+                                    change.consume()
+                                },
+                                onDragEnd = {
+                                    if (kotlin.math.abs(totalDrag) > 64.dp.toPx()) {
+                                        changeSelectedDay(if (totalDrag < 0f) 1 else -1)
+                                    }
+                                    totalDrag = 0f
+                                },
+                                onDragCancel = { totalDrag = 0f },
+                            )
+                        }
                         .padding(bottom = contentPadding.calculateBottomPadding()),
                     contentAlignment = Alignment.Center,
                 ) {
