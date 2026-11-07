@@ -151,7 +151,7 @@ assert "val timetable by viewModel.timetable.collectAsState()" in ui
 assert "val weeks = timetable?.weeks.orEmpty()" in ui
 assert "val selectedWeek = timetable?.selectedWeek" in ui
 assert "val lessons = timetable?.lessons.orEmpty()" in ui
-assert "if (timetable == null)" in ui
+assert "if (timetable == null ||" in ui
 assert "else if (displayedGrouped.isEmpty())" in ui
 assert "cachedWeekReady" not in ui
 assert "LoadedWeekLessons" not in ui
@@ -292,7 +292,7 @@ assert "Giờ nhắc theo giờ điện thoại;" not in settings
 # One-line titles must shrink to their actual available width instead of
 # wrapping beside the note pencil or the THI badge.
 assert "private fun AutoFitSubjectTitle(" in ui
-assert "measurer.measure(" in ui
+assert "didOverflowWidth" in ui
 assert "maxWidth.roundToPx()" in ui
 assert "softWrap = false" in ui
 assert "maxLines = 1" in ui
