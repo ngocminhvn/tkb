@@ -459,10 +459,9 @@ private fun dayLabel(ngayHoc: String): String {
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
     RustScheduleCore.examEndTime(gioBatDau, soPhut)
 
-private fun timeRange(periods: List<PeriodEntity>, tietBatDau: Int, soTiet: Int): String {
-    val start = periods.firstOrNull { it.tiet == tietBatDau }?.gioBatDau ?: return "Tiết $tietBatDau"
-    val endTiet = tietBatDau + soTiet - 1
-    val end = periods.firstOrNull { it.tiet == endTiet }?.gioKetThuc ?: ""
+private fun timeRange(periods: Map<Int, PeriodEntity>, tietBatDau: Int, soTiet: Int): String {
+    val start = periods[tietBatDau]?.gioBatDau ?: return "Tiết $tietBatDau"
+    val end = periods[tietBatDau + soTiet - 1]?.gioKetThuc.orEmpty()
     return if (end.isNotBlank()) "$start – $end" else start
 }
 
@@ -473,17 +472,33 @@ private sealed interface ScheduleItem {
     data class Lesson(
         val lesson: LessonEntity,
         val timeDisplay: String,
+        override val date: String,
     ) : ScheduleItem {
-        override val date: String get() = normalizeDateToYmd(lesson.ngayHoc)
-        override val sortKey: String get() = lesson.tietBatDau.toString().padStart(2, '0')
+        override val sortKey: String = lesson.tietBatDau.toString().padStart(2, '0')
     }
 
     data class Exam(
         val exam: ExamEntity,
         val endTime: String,
+        override val date: String,
     ) : ScheduleItem {
-        override val date: String get() = normalizeDateToYmd(exam.ngayThi)
-        override val sortKey: String get() = exam.gioBatDau
+        override val sortKey: String = exam.gioBatDau
+    }
+}
+
+/** One lazy item per card, avoiding composing every card in a whole day. */
+private data class TimetableListRow(
+    val date: String,
+    val item: ScheduleItem?,
+    val firstInDay: Boolean,
+    val lastInDay: Boolean,
+    val rail: Pair<String, String>?,
+    val key: String,
+) {
+    val contentType: String = when (item) {
+        null -> "empty-day"
+        is ScheduleItem.Lesson -> "lesson"
+        is ScheduleItem.Exam -> "exam"
     }
 }
 
@@ -514,7 +529,7 @@ fun TimetableScreen(
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
     var scrollRequest by remember { mutableIntStateOf(0) }
-    var hasAutoScrolled by remember { mutableStateOf(false) }
+    var lastScrollWeek by remember { mutableStateOf<String?>(null) }
     // Reopening TKB always returns to today instead of a stale selected week.
     androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.focusToday() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -587,18 +602,27 @@ fun TimetableScreen(
         }
     }
 
-    // Gộp cả tiết học và buổi thi trong tuần, sắp xếp theo giờ
-    val allGrouped: Map<String, List<ScheduleItem>> = remember(lessons, examsInWeek, periods) {
+    // Reuse time labels across week navigation and lazy list recycling.
+    val lessonTimes = remember(semesterLessons, periods) {
+        val periodsByNumber = periods.associateBy { it.tiet }
+        semesterLessons.associate { lesson ->
+            lesson.idTkb to timeRange(periodsByNumber, lesson.tietBatDau, lesson.soTiet)
+        }
+    }
+    // Normalize dates and compute exam end times once per week snapshot.
+    val allGrouped: Map<String, List<ScheduleItem>> = remember(lessons, examsInWeek, lessonTimes) {
         val lessonItems = lessons.map { lesson ->
             ScheduleItem.Lesson(
                 lesson = lesson,
-                timeDisplay = timeRange(periods, lesson.tietBatDau, lesson.soTiet),
+                timeDisplay = lessonTimes[lesson.idTkb].orEmpty(),
+                date = normalizeDateToYmd(lesson.ngayHoc),
             )
         }
         val examItems = examsInWeek.map { exam ->
             ScheduleItem.Exam(
                 exam = exam,
                 endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut),
+                date = normalizeDateToYmd(exam.ngayThi),
             )
         }
         (lessonItems + examItems)
@@ -621,30 +645,54 @@ fun TimetableScreen(
         if (startDayYmd.isBlank()) emptyMap()
         else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
     }
-    // A new week must paint at the selected/current day on its first frame;
-    // scrolling only after composition briefly exposes earlier lessons.
-    val initialDayIndex = displayedGrouped.keys.indexOf(selectedDay).takeIf { it >= 0 }
-        ?: displayedGrouped.keys.indexOf(todayStr).takeIf { it >= 0 }
-        ?: 0
+    // Precompute all seven day labels before lazy composition.
+    val flatRows = remember(displayedGrouped) {
+        buildList {
+            displayedGrouped.forEach { (date, dayItems) ->
+                val rail = RustScheduleCore.dayRail(date)
+                if (dayItems.isEmpty()) {
+                    add(TimetableListRow(date, null, true, true, rail, "empty-$date"))
+                } else {
+                    dayItems.forEachIndexed { index, item ->
+                        val itemKey = when (item) {
+                            is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
+                            is ScheduleItem.Exam -> "exam-${item.exam.id}-$index"
+                        }
+                        add(TimetableListRow(
+                            date = date,
+                            item = item,
+                            firstInDay = index == 0,
+                            lastInDay = index == dayItems.lastIndex,
+                            rail = rail,
+                            key = "$date-$itemKey",
+                        ))
+                    }
+                }
+            }
+        }
+    }
+    val firstRowByDay = remember(flatRows) {
+        flatRows.withIndex().filter { it.value.firstInDay }
+            .associate { it.value.date to it.index }
+    }
+    // Initialize at the chosen day before the first frame, without extra scroll.
+    val initialDayIndex = firstRowByDay[selectedDay] ?: firstRowByDay[todayStr] ?: 0
     val listState = key(startDayYmd) {
         rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
     }
     androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, startDayYmd, listState) {
-        if (selectedDay in displayedGrouped) {
-            // Each calendar day is one row: left date rail and right cards.
-            val target = displayedGrouped.keys.indexOf(selectedDay)
-            if (!hasAutoScrolled) {
-                listState.scrollToItem(target)
-                hasAutoScrolled = true
-            } else {
-                val firstVisible = listState.firstVisibleItemIndex
-                if (kotlin.math.abs(target - firstVisible) > 5) {
-                    val nearTarget = if (target < firstVisible) target + 3
-                        else (target - 3).coerceAtLeast(0)
-                    listState.scrollToItem(nearTarget)
-                }
-                listState.animateScrollToItem(target)
-            }
+        val target = firstRowByDay[selectedDay] ?: return@LaunchedEffect
+        if (lastScrollWeek != startDayYmd) {
+            lastScrollWeek = startDayYmd
+            return@LaunchedEffect
+        }
+        val firstVisible = listState.firstVisibleItemIndex
+        if (firstVisible == target) return@LaunchedEffect
+        // Never animate across many cards or fight a user's ongoing drag.
+        if (listState.isScrollInProgress || kotlin.math.abs(target - firstVisible) > 4) {
+            listState.scrollToItem(target)
+        } else {
+            listState.animateScrollToItem(target)
         }
     }
 
@@ -819,60 +867,61 @@ fun TimetableScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                    displayedGrouped.forEach { (date, dayItems) ->
-                        item(key = "day-$date", contentType = "day") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                DayRail(date = date, isToday = date == todayStr)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    if (dayItems.isEmpty()) {
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(76.dp),
-                                            shape = RoundedCornerShape(14.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                            ),
+                    items(
+                        items = flatRows,
+                        key = { it.key },
+                        contentType = { it.contentType },
+                    ) { row ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    top = if (row.firstInDay) 8.dp else 0.dp,
+                                    bottom = if (row.lastInDay) 8.dp else 0.dp,
+                                ),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            if (row.firstInDay) {
+                                DayRail(rail = row.rail, isToday = row.date == todayStr)
+                            } else {
+                                Spacer(modifier = Modifier.width(48.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                when (val item = row.item) {
+                                    null -> Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(76.dp),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                        ),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center,
                                         ) {
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    text = "Không có lịch học hoặc lịch thi.",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
-                                                    textAlign = TextAlign.Center,
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        dayItems.forEach { item ->
-                                            when (item) {
-                                                is ScheduleItem.Lesson -> LessonCard(
-                                                    lesson = item.lesson,
-                                                    time = item.timeDisplay,
-                                                    isToday = date == todayStr,
-                                                    note = lessonNotes[item.lesson.idTkb].orEmpty(),
-                                                    onEditNote = { noteLesson = item.lesson },
-                                                )
-                                                is ScheduleItem.Exam -> ExamCard(
-                                                    exam = item.exam,
-                                                    endTime = item.endTime,
-                                                    isToday = date == todayStr,
-                                                )
-                                            }
+                                            Text(
+                                                text = "Không có lịch học hoặc lịch thi.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                                                textAlign = TextAlign.Center,
+                                            )
                                         }
                                     }
+                                    is ScheduleItem.Lesson -> LessonCard(
+                                        lesson = item.lesson,
+                                        time = item.timeDisplay,
+                                        isToday = row.date == todayStr,
+                                        note = lessonNotes[item.lesson.idTkb].orEmpty(),
+                                        onEditNote = { noteLesson = item.lesson },
+                                    )
+                                    is ScheduleItem.Exam -> ExamCard(
+                                        exam = item.exam,
+                                        endTime = item.endTime,
+                                        isToday = row.date == todayStr,
+                                    )
                                 }
                             }
                         }
@@ -897,9 +946,8 @@ fun TimetableScreen(
 }
 
 @Composable
-private fun DayRail(date: String, isToday: Boolean) {
-    // Rust computes the label; no SimpleDateFormat is built while scrolling.
-    val rail = remember(date) { RustScheduleCore.dayRail(date) }
+private fun DayRail(rail: Pair<String, String>?, isToday: Boolean) {
+    // Day labels are cached with the week's flattened rows.
     val weekday = rail?.second.orEmpty()
     Column(
         modifier = Modifier.width(48.dp).padding(top = 7.dp),

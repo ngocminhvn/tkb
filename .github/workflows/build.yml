@@ -87,27 +87,54 @@ jobs:
       - name: Decode keystore
         run: base64 -d tkb-release.keystore.b64 > tkb-release.keystore
 
-      - name: Test portal JSON and build signed APK
+      - name: Test Kotlin and build signed R8 Release APK
         run: |
           # Run real Kotlin serialization tests, not only source-code assertions.
           # The committed keystore is PKCS#12, so its private key uses the store password.
-          gradle testDebugUnitTest assembleDebug \
+          gradle testDebugUnitTest assembleRelease \
             -Pandroid.injected.signing.store.file="$PWD/tkb-release.keystore" \
             -Pandroid.injected.signing.store.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias=tkb \
             -Pandroid.injected.signing.key.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}"
 
-      - name: Verify APK
+      - name: Verify Release APK, signing certificate and Rust JNI
         run: |
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/zipalign -c -v 4 app/build/outputs/apk/debug/app-debug.apk
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s app/build/outputs/mapping/release/mapping.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          ! "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | grep -q '^application-debuggable$'
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            unzip -Z -1 app/build/outputs/apk/debug/app-debug.apk | grep -Fx "lib/$abi/libtkb_core.so"
+            unzip -Z -1 "$apk" | grep -Fx "lib/$abi/libtkb_core.so"
           done
+          # Check the signature against the keystore used by previous builds.
+          actual="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1)"
+          expected="$(keytool -list -v -keystore tkb-release.keystore -alias tkb \
+            -storepass "${{ secrets.TKB_KEYSTORE_PASSWORD }}" |
+            sed -n 's/^[[:space:]]*SHA256: //p' | head -n1 | tr -d ':')"
+          test -n "$actual"
+          test -n "$expected"
+          test "${actual,,}" = "${expected,,}"
+          # Fail before publishing if the existing downloadable APK has a
+          # different signature. A missing old download only emits a warning.
+          if curl -fsSL --connect-timeout 10 --max-time 45 \
+            https://ngocminhvn.github.io/tkb/TKB-SV.apk -o previous-TKB-SV.apk; then
+            previous="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs previous-TKB-SV.apk |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1)"
+            test -n "$previous"
+            test "${actual,,}" = "${previous,,}" || {
+              echo "::error::Signing certificate differs from the current published APK."
+              exit 1
+            }
+            rm -f previous-TKB-SV.apk
+          else
+            echo "::warning::Previous APK unavailable; checked certificate against existing keystore."
+          fi
 
       - name: Prepare release files
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk TKB-SV.apk
+          cp app/build/outputs/apk/release/app-release.apk TKB-SV.apk
           xz -9 -k TKB-SV.apk
           python3 - <<'PY'
           import hashlib, json, os, subprocess

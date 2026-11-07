@@ -126,9 +126,11 @@ assert "rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)" i
 assert "listState.animateScrollToItem(target)" in ui
 assert "listState.scrollToItem(target)" in ui
 assert "scrollRequest++" in ui
-assert 'item(key = "day-$date", contentType = "day")' in ui
-assert 'DayRail(date = date, isToday = date == todayStr)' in ui
-assert 'dayItems.forEach { item ->' in ui
+assert 'items = flatRows,' in ui
+assert 'key = { it.key }' in ui
+assert 'contentType = { it.contentType }' in ui
+assert 'DayRail(rail = row.rail, isToday = row.date == todayStr)' in ui
+assert 'dayItems.forEachIndexed { index, item ->' in ui
 assert 'text = "Không có lịch học hoặc lịch thi."' in ui
 assert "var selectedDay by remember { mutableStateOf(todayStr) }" in ui
 assert "if (actualToday != todayStr)" in ui
@@ -217,6 +219,10 @@ assert "scrollRequest++" in ui
 assert "bottom = contentPadding.calculateBottomPadding() + maxHeight" in ui
 assert "displayedGrouped.forEach { (date, dayItems) ->" in ui
 assert "if (dayItems.isEmpty())" in ui
+assert "firstRowByDay[selectedDay]" in ui
+assert "val lessonTimes = remember(semesterLessons, periods)" in ui
+assert "val rail = RustScheduleCore.dayRail(date)" in ui
+assert "val periodsByNumber = periods.associateBy { it.tiet }" in ui
 assert "if (date == selectedDay)" not in ui
 assert (Path("app/src/test/java/com/sv/tnu/notifications/ScheduleRemindersTest.kt")).exists()
 assert "TimePickerDialog(" in settings
@@ -274,11 +280,12 @@ assert (Path("app/src/test/java/com/sv/tnu/tnut/StudentProfileTest.kt")).exists(
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
 assert "if (note.isNotBlank()) {" in ui
-# Earlier dates use a short, bounded list animation after an immediate nearby
-# jump, avoiding a costly animation through every item in the prior days.
-assert "kotlin.math.abs(target - firstVisible) > 5" in ui
-assert "listState.scrollToItem(nearTarget)" in ui
+# Skip costly animations through many cards; short nearby jumps can animate.
+# Keep the first-frame Room seed and same calendar presentation.
+assert "kotlin.math.abs(target - firstVisible) > 4" in ui
+assert "listState.scrollToItem(target)" in ui
 assert "listState.animateScrollToItem(target)" in ui
+assert "private val initialSnapshot: TimetableSnapshot? = runCatching" in ui
 assert "color = MaterialTheme.colorScheme.onSurface," in ui
 assert "if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface" not in ui
 assert "MaterialTheme.colorScheme.primary" in calendar
@@ -397,6 +404,15 @@ assert 'echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"' in workflow
 assert "dependsOn(verifyRustNativeLibraries)" in build_config
 assert "cargo test --manifest-path rust-core/Cargo.toml" in workflow
 assert "bash scripts/build-rust-android.sh" in workflow
+assert "testDebugUnitTest assembleRelease" in workflow
+assert "testDebugUnitTest assembleDebug" not in workflow
+assert "outputs/mapping/release/mapping.txt" in workflow
+assert "outputs/apk/release/app-release.apk" in workflow
+assert "Signer #1 certificate SHA-256 digest" in workflow
+assert "app-release.apk TKB-SV.apk" in workflow
+proguard = Path("app/proguard-rules.pro").read_text(encoding="utf-8")
+assert "-keep class com.sv.tnu.rust.RustScheduleCore { *; }" in proguard
+assert "-keep class com.sv.tnu.rust.RustPortalCore { *; }" in proguard
 assert (Path("app/src/test/java/com/sv/tnu/rust/RustScheduleCoreTest.kt")).exists()
 
 print("OK: timetable/notes survive sync, demo exams are excluded, past exams hide, v1-v4 migration preserves data; Rust JNI bridge and Android ABIs configured")
