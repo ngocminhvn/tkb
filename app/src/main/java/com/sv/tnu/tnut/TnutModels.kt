@@ -182,14 +182,53 @@ data class ExamResponse(
     val result: Boolean = false,
 )
 
+/**
+ * Exam portal request fields must be REQUIRED (no Kotlin defaults).
+ * Json.encodeDefaults is false, so using WeeklyAdditional() and
+ * isGiuaKy = false silently omits required fields from the HTTP body.
+ * This model matches the request used by TNUT's /#/lichthi page.
+ */
 @Serializable
 data class ExamFilter(
     @SerialName("hoc_ky") val hocKy: Int,
-    @SerialName("is_giua_ky") val isGiuaKy: Boolean = false,
+    @SerialName("is_giua_ky") val isGiuaKy: Boolean,
+)
+
+@Serializable
+data class ExamPaging(
+    val limit: Int,
+    val page: Int,
+)
+
+@Serializable
+data class ExamOrdering(
+    val name: String?,
+    @SerialName("order_type") val orderType: String?,
+)
+
+@Serializable
+data class ExamAdditional(
+    val paging: ExamPaging,
+    val ordering: List<ExamOrdering>,
 )
 
 @Serializable
 data class ExamRequest(
     val filter: ExamFilter,
-    val additional: WeeklyAdditional = WeeklyAdditional(),
-)
+    val additional: ExamAdditional,
+) {
+    companion object {
+        const val PAGE_SIZE: Int = 100
+
+        fun forSemester(hocKy: Int, isGiuaKy: Boolean, page: Int = 1): ExamRequest {
+            require(page >= 1) { "Trang lịch thi phải >= 1" }
+            return ExamRequest(
+                filter = ExamFilter(hocKy = hocKy, isGiuaKy = isGiuaKy),
+                additional = ExamAdditional(
+                    paging = ExamPaging(limit = PAGE_SIZE, page = page),
+                    ordering = listOf(ExamOrdering(name = null, orderType = null)),
+                ),
+            )
+        }
+    }
+}
