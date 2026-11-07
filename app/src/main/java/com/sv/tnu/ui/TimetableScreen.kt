@@ -56,6 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -762,6 +765,46 @@ private fun DayHeader(date: String, isToday: Boolean) {
     }
 }
 
+/**
+ * Measure against the real space left after the pencil/exam badge.
+ * Fit the subject on ONE line without changing the font for short names.
+ * Very long names fall back to an ellipsis once the legible minimum is hit.
+ */
+@Composable
+private fun AutoFitSubjectTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    val style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier) {
+        val availablePx = with(density) { maxWidth.roundToPx() }
+        val fittedSize = remember(title, availablePx, style, measurer) {
+            var size = style.fontSize
+            while (size.value > 10f) {
+                val layout = measurer.measure(
+                    text = title,
+                    style = style.copy(fontSize = size),
+                    softWrap = false,
+                    maxLines = 1,
+                )
+                if (layout.size.width <= availablePx && !layout.hasVisualOverflow) break
+                size = (size.value - 0.5f).coerceAtLeast(10f).sp
+            }
+            size
+        }
+        Text(
+            text = title,
+            style = style.copy(fontSize = fittedSize),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
 @Composable
 private fun LessonCard(
     lesson: LessonEntity,
@@ -787,9 +830,8 @@ private fun LessonCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                Text(
-                    text = lesson.tenMon,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                AutoFitSubjectTitle(
+                    title = lesson.tenMon,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -985,9 +1027,8 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                Text(
-                    text = exam.tenMon,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                AutoFitSubjectTitle(
+                    title = exam.tenMon,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
