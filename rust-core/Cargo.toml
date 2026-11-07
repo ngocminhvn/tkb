@@ -1,8 +1,8 @@
 [package]
 name = "tkb-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Portable schedule business logic for TKB SV"
+description = "Android native schedule business logic for TKB SV"
 license = "MIT"
 
 [lib]
@@ -10,3 +10,7 @@ name = "tkb_core"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+chrono = { version = "0.4.42", default-features = false, features = ["std"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21.1"
