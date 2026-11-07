@@ -1,0 +1,12 @@
+[package]
+name = "tkb-core"
+version = "0.1.0"
+edition = "2021"
+description = "Portable schedule business logic for TKB SV"
+license = "MIT"
+
+[lib]
+name = "tkb_core"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
