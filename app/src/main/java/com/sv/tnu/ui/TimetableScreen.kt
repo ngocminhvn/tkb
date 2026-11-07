@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -425,6 +427,9 @@ fun TimetableScreen(
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
+    var scrollRequest by remember { mutableIntStateOf(0) }
+    val listState = rememberLazyListState()
+    var hasAutoScrolled by remember { mutableStateOf(false) }
     // Reopening TKB always returns to today instead of a stale selected week.
     androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.focusToday() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -517,10 +522,23 @@ fun TimetableScreen(
             .toSortedMap()
     }
 
-    // Only show the selected calendar day. Past days remain hidden on
-    // first launch but can be opened explicitly by tapping their date.
-    val displayedGrouped = remember(allGrouped, selectedDay) {
-        allGrouped.filterKeys { date -> date == selectedDay }
+    // Render the whole seven-day week. The selected day controls scroll
+    // position, not which classes are hidden. This also makes empty dates
+    // selectable and visible without losing adjacent lessons.
+    val displayedGrouped: Map<String, List<ScheduleItem>> = remember(startDayYmd, allGrouped) {
+        if (startDayYmd.isBlank()) emptyMap()
+        else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
+    }
+    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped) {
+        if (selectedDay in displayedGrouped) {
+            val target = displayedGrouped.entries.takeWhile { it.key != selectedDay }
+                .sumOf { 1 + it.value.size.coerceAtLeast(1) }
+            if (hasAutoScrolled) listState.animateScrollToItem(target)
+            else {
+                listState.scrollToItem(target)
+                hasAutoScrolled = true
+            }
+        }
     }
 
     Scaffold(
@@ -579,6 +597,7 @@ fun TimetableScreen(
                 currentWeekNumber = selectedWeek,
                 onPickDate = { date, weekNumber ->
                     selectedDay = date
+                    scrollRequest++
                     if (selectedWeek != weekNumber) viewModel.selectWeek(weekNumber)
                 },
                 onMoveWeek = { delta -> viewModel.moveWeek(delta) },
@@ -605,7 +624,6 @@ fun TimetableScreen(
                 }
             }
 
-            // Empty state căn giữa trung tâm
             if (displayedGrouped.isEmpty() && !refreshing) {
                 Box(
                     modifier = Modifier
@@ -615,68 +633,66 @@ fun TimetableScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = when {
-                            weekInfo == null -> "Chưa có thời khóa biểu được đồng bộ."
-                            selectedDay == todayStr -> "Hôm nay không có lịch học hoặc lịch thi."
-                            else -> "Ngày ${dayLabel(selectedDay)} không có lịch học hoặc lịch thi."
-                        },
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        text = "Chưa có thời khóa biểu được đồng bộ.",
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                        textAlign = TextAlign.Center,
                     )
                 }
-            }
-
-            // Timetable List
-            if (displayedGrouped.isNotEmpty()) {
+            } else if (displayedGrouped.isNotEmpty()) {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(
                         top = 4.dp,
                         bottom = contentPadding.calculateBottomPadding() + 16.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                displayedGrouped.forEach { (date, dayItems) ->
-                    val isToday = date == todayStr
-
-                    item(key = "header-$date", contentType = "header") {
-                        DayHeader(
-                            date = date,
-                            isToday = isToday,
-                        )
-                    }
-
-                    items(
-                        items = dayItems,
-                        key = { item ->
-                            when (item) {
-                                is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
-                                is ScheduleItem.Exam -> "exam-${item.exam.id}"
+                    displayedGrouped.forEach { (date, dayItems) ->
+                        val isToday = date == todayStr
+                        item(key = "header-$date", contentType = "header") {
+                            DayHeader(date = date, isToday = isToday)
+                        }
+                        if (dayItems.isEmpty()) {
+                            item(key = "empty-$date", contentType = "empty") {
+                                Text(
+                                    text = "Không có lịch học hoặc lịch thi.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
+                                    modifier = Modifier.padding(start = 12.dp, bottom = 14.dp),
+                                )
                             }
-                        },
-                        contentType = { item ->
-                            when (item) {
-                                is ScheduleItem.Lesson -> 0
-                                is ScheduleItem.Exam -> 1
+                        } else {
+                            items(
+                                items = dayItems,
+                                key = { item ->
+                                    when (item) {
+                                        is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
+                                        is ScheduleItem.Exam -> "exam-${item.exam.id}"
+                                    }
+                                },
+                                contentType = { item ->
+                                    when (item) {
+                                        is ScheduleItem.Lesson -> 0
+                                        is ScheduleItem.Exam -> 1
+                                    }
+                                },
+                            ) { item ->
+                                when (item) {
+                                    is ScheduleItem.Lesson -> LessonCard(
+                                        lesson = item.lesson,
+                                        time = item.timeDisplay,
+                                        isToday = isToday,
+                                        note = lessonNotes[item.lesson.idTkb].orEmpty(),
+                                        onEditNote = { noteLesson = item.lesson },
+                                    )
+                                    is ScheduleItem.Exam -> ExamCard(
+                                        exam = item.exam,
+                                        endTime = item.endTime,
+                                        isToday = isToday,
+                                    )
+                                }
                             }
-                        },
-                    ) { item ->
-                        when (item) {
-                            is ScheduleItem.Lesson -> LessonCard(
-                                lesson = item.lesson,
-                                time = item.timeDisplay,
-                                isToday = isToday,
-                                note = lessonNotes[item.lesson.idTkb].orEmpty(),
-                                onEditNote = { noteLesson = item.lesson },
-                            )
-                            is ScheduleItem.Exam -> ExamCard(
-                                exam = item.exam,
-                                endTime = item.endTime,
-                                isToday = isToday,
-                            )
                         }
                     }
                 }
