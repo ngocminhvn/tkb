@@ -53,8 +53,9 @@ assert "event == Lifecycle.Event.ON_RESUME" in ui
 assert "todayStr = localTodayYmd()" in ui
 
 # Guard exact legacy demo fingerprint: never delete arbitrary valid exams.
-assert "exams.size != fixture.size" in db_source
-assert "exams.any { exam ->" in db_source
+assert "exams.size != fixture.size || keys != fixture" in db_source
+assert "exams.any { it.isGiuaKy || it.isHoanThi }" in db_source
+assert "}.toSet()" in db_source
 assert "B103BC1|2026-11-08|14:25|THECHAT|002" in db_source
 assert "deleteExams(hocKy)" in db_source
 
