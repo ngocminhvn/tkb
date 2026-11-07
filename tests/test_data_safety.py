@@ -71,9 +71,13 @@ for removed in (
     "importPersonalExams",
     "timetableJsonPicker",
     "examCsvPicker",
-    "rememberLauncherForActivityResult",
 ):
     assert removed not in settings, f"Manual import action still present: {removed}"
+# Permission request launcher is required for Android 13+ notifications.
+# It must not be mistaken for the deleted JSON/CSV file pickers.
+assert "ActivityResultContracts.RequestPermission()" in settings
+assert "ActivityResultContracts.OpenDocument()" not in settings
+assert "ActivityResultContracts.GetContent()" not in settings
 for removed in ("importPersonalTimetable", "importPersonalExams", "readPersonalFile", "PersonalExamImporter"):
     assert removed not in repo, f"Manual import repository path still present: {removed}"
 assert not (root / "tnut/PersonalExamImporter.kt").exists()
