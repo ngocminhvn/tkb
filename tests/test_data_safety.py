@@ -191,6 +191,17 @@ assert "UserAvatar(" in ui
 assert "val avatarPath by viewModel.avatarPath.collectAsState()" in ui
 assert "val studentName by viewModel.studentName.collectAsState()" in ui
 assert "viewModel.studentId.ifBlank" in ui
+# App branding and Android install ID must match the renamed release.
+build_config = Path("app/build.gradle.kts").read_text(encoding="utf-8")
+strings = Path("app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+manifest_xml = Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+workflow = Path(".github/workflows/build.yml").read_text(encoding="utf-8")
+assert 'applicationId = "com.tkb.sv"' in build_config
+assert '<string name="app_name">TKB SV</string>' in strings
+assert 'android:name="com.sv.tnu.MainActivity"' in manifest_xml
+assert 'android:name="com.sv.tnu.notifications.ScheduleReminderReceiver"' in manifest_xml
+assert 'android:name="com.sv.tnu.widget.TimetableWidgetProvider"' in manifest_xml
+assert "TKB-SV.apk" in workflow
 assert '"Sinh viên TNUT"' not in ui
 assert 'if (!studentName.isNullOrBlank()) {' in ui
 assert '.height(64.dp)' in ui
