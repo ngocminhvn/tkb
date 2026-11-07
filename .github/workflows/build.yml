@@ -10,6 +10,12 @@ permissions:
   pages: write
   id-token: write
 
+# A push supersedes older APK builds, preventing obsolete commits from
+# publishing an outdated APK/update.json after a newer push.
+concurrency:
+  group: tkb-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
