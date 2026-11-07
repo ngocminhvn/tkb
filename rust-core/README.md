@@ -16,10 +16,15 @@ existing `com.tkb.sv` application ID.
 - Student-ID normalization at login and lesson-note whitespace normalization.
 
 The Rust engine is called via `RustPortalCore` and `RustScheduleCore`.
-Serialization through the JNI bridge is intentional: Kotlin remains the
-Android interface layer; Rust owns the listed business transformations.
-Failures throw `IllegalStateException` before a transaction overwrites
-offline cache.
+The JNI bridge now takes the **original HTTP response bytes** and returns
+a compact versioned binary format (`TKB1`). Rust parses the TNUT JSON once,
+then Kotlin reads binary Room-ready rows. The old Kotlin DTO -> JSON -> Rust ->
+JSON -> Kotlin sequence is eliminated; cross-page duplicate filtering also
+works directly on Room records without another JSON round-trip.
+
+The network and native conversion run on `Dispatchers.IO` so reading the
+response stream does not block Compose. Rust rejects malformed responses
+before Room begins a replacement transaction. Errors preserve offline cache.
 
 ## Still Android/Kotlin (not fully migrated)
 
