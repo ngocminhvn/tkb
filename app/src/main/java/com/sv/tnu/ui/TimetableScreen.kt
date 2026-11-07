@@ -48,7 +48,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -413,7 +412,6 @@ fun TimetableScreen(
     val refreshing by viewModel.refreshing.collectAsState()
     val error by viewModel.error.collectAsState()
     val lessonNotes by viewModel.lessonNotes.collectAsState()
-    var askedRefresh by remember { mutableStateOf(false) }
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
@@ -434,13 +432,6 @@ fun TimetableScreen(
 
     // Mặc định: ngày qua rồi thì không hiện nữa (showPastDays = false)
     var showPastDays by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (!askedRefresh) {
-            askedRefresh = true
-            viewModel.refreshIfNeeded()
-        }
-    }
 
     val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
     val startDayYmd = remember(weekInfo) {
