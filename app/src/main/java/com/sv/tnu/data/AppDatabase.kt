@@ -112,6 +112,12 @@ interface TkbDao {
     @Query("SELECT * FROM exams WHERE ngayThi LIKE :date || '%' AND isHoanThi = 0 ORDER BY gioBatDau ASC")
     suspend fun examsOn(date: String): List<ExamEntity>
 
+    @Query("SELECT * FROM lessons WHERE hocKy = :hocKy AND ngayHoc LIKE :date || '%' ORDER BY tietBatDau ASC")
+    suspend fun reminderLessonsOn(hocKy: Int, date: String): List<LessonEntity>
+
+    @Query("SELECT * FROM exams WHERE hocKy = :hocKy AND ngayThi LIKE :date || '%' AND isHoanThi = 0 ORDER BY gioBatDau ASC")
+    suspend fun reminderExamsOn(hocKy: Int, date: String): List<ExamEntity>
+
     @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
     fun exams(hocKy: Int): Flow<List<ExamEntity>>
 
