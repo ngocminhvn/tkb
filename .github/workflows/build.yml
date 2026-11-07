@@ -10,6 +10,7 @@ permissions:
   pages: write
   id-token: write
 
+# Build validation: compile Rust JNI for every ABI before packaging TKB SV.
 # GitHub Pages rejects a deployment while another deployment is in
 # progress (HTTP 400). Serialize the ENTIRE build + deploy workflow so a new
 # push cannot cancel an active deployment. GitHub retains the latest pending
