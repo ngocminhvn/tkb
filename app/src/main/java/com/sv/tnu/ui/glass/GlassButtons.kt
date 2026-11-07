@@ -80,6 +80,7 @@ fun GlassTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    loading: Boolean = false,
     tint: Color = MaterialTheme.colorScheme.primary,
 ) {
     val dark = LocalGlassConfig.current.dark
@@ -90,11 +91,18 @@ fun GlassTextButton(
                 glass = Glass(alpha = if (dark) 0.60f else 0.78f),
                 shape = CapsuleShape,
             )
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled && !loading, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 9.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = tint,
+            )
+        }
         Text(
             text = text,
             color = tint.copy(alpha = if (enabled) 1f else 0.35f),
