@@ -97,7 +97,6 @@ fun SettingsScreen(
     val refreshing by timetableViewModel.refreshing.collectAsState()
     val lastSyncTime by timetableViewModel.lastSyncTime.collectAsState()
     val lessons by timetableViewModel.semesterLessons.collectAsState()
-    val isCheckingUpdate by appUpdateViewModel.isChecking.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.allExams.collectAsState()
     val showExamsOnHome by timetableViewModel.showExamsOnHome.collectAsState()
@@ -369,7 +368,6 @@ fun SettingsScreen(
             // Two independent opt-in reminders based on local Room data.
             ReminderSettingCard(
                 title = "Thông báo lịch hôm nay",
-                subtitle = "Nhắc lịch học và lịch thi trong ngày",
                 enabled = remindToday,
                 minuteOfDay = todayMinutes,
                 icon = Icons.Default.NotificationsActive,
@@ -378,7 +376,6 @@ fun SettingsScreen(
             )
             ReminderSettingCard(
                 title = "Thông báo lịch ngày mai",
-                subtitle = "Nhắc trước lịch học và lịch thi ngày mai",
                 enabled = remindTomorrow,
                 minuteOfDay = tomorrowMinutes,
                 icon = Icons.Default.NotificationsNone,
@@ -392,12 +389,6 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            Text(
-                text = "Giờ nhắc theo giờ điện thoại; Android có thể phát muộn khi tiết kiệm pin. Không cần kết nối mạng nếu lịch đã được lưu.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
             // Tùy chọn hiển thị số tuần (với nút - và +)
             val weeksBefore = (visibleWeekCount - 1) / 2
             val weeksAfter = visibleWeekCount - 1 - weeksBefore
@@ -614,29 +605,6 @@ fun SettingsScreen(
                 onClick = { appUpdateViewModel.checkForUpdate(manual = true) },
             )
 
-            ActionCard(
-                icon = Icons.Default.Sync,
-                title = "Kiểm tra cập nhật",
-                subtitle = if (isCheckingUpdate) "Đang kiểm tra phiên bản mới từ server..." else "Nhấn để kiểm tra và tải bản mới nhất",
-                trailing = {
-                    if (isCheckingUpdate) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                            contentDescription = "Check",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                        )
-                    }
-                },
-                onClick = {
-                    if (!isCheckingUpdate) {
-                        appUpdateViewModel.checkForUpdate(manual = true)
-                    }
-                },
-            )
-
             Spacer(modifier = Modifier.height(4.dp))
 
             // Logout Button
@@ -847,59 +815,65 @@ private fun formatLastSync(timestamp: Long): String {
 @Composable
 private fun ReminderSettingCard(
     title: String,
-    subtitle: String,
     enabled: Boolean,
     minuteOfDay: Int,
     icon: ImageVector,
     onToggle: (Boolean) -> Unit,
     onPickTime: () -> Unit,
 ) {
+    // Tapping the card edits the reminder time. The switch alone controls
+    // whether the reminder is enabled; no extra row or action button needed.
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onPickTime),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                    ))
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
-                    )
-                }
-                Switch(checked = enabled, onCheckedChange = onToggle)
-            }
-            TextButton(
-                modifier = Modifier.align(Alignment.End),
-                onClick = onPickTime,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "Giờ nhắc: %02d:%02d".format(
-                        Locale.US, minuteOfDay / 60, minuteOfDay % 60
-                    ),
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
                 )
             }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Giờ nhắc: %02d:%02d".format(
+                        Locale.US, minuteOfDay / 60, minuteOfDay % 60,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle,
+            )
         }
     }
 }
