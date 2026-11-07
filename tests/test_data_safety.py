@@ -192,7 +192,9 @@ assert "val avatarPath by viewModel.avatarPath.collectAsState()" in ui
 assert "val studentName by viewModel.studentName.collectAsState()" in ui
 assert "viewModel.studentId.ifBlank" in ui
 assert '"Sinh viên TNUT"' in ui
-assert "background(MaterialTheme.colorScheme.primary)" in ui
+assert ".background(MaterialTheme.colorScheme.background)" in ui
+assert "modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)" in ui
+assert '"• T${lesson.tietBatDau} · ${lesson.soTiet} tiết"' in ui
 assert '"Thời khóa biểu • Học kỳ' in ui
 assert "studentName: StateFlow<String?> = repository.studentName" in ui
 assert "val studentName: StateFlow<String?>" in repo
