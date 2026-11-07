@@ -55,7 +55,7 @@ class TnutRepository(
     fun lessonNotesFlow(): Flow<List<LessonNoteEntity>> = dao.lessonNotes()
 
     suspend fun saveLessonNote(lessonId: String, note: String) {
-        val normalized = note.trim()
+        val normalized = RustPortalCore.normalizeNote(note)
         if (normalized.isEmpty()) {
             dao.deleteLessonNote(lessonId)
         } else {
@@ -214,18 +214,12 @@ class TnutRepository(
             all.addAll(mapped.rows)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
-            val totalPages = mapped.totalPages?.takeIf { it > 0 }
-            val rowsOnPage = mapped.rowCount
-            val hasNext = if (totalPages != null) page < totalPages
-                else rowsOnPage >= ExamRequest.PAGE_SIZE
+            val hasNext = RustPortalCore.hasNextExamPage(page, mapped.totalPages, mapped.rowCount)
             if (!hasNext) break
             check(page < maxPages) { "Lịch thi vượt quá $maxPages trang; giữ dữ liệu cũ." }
             page++
         }
-        return all.distinctBy { item ->
-            listOf(item.isHoanThi.toString(), item.maMon, item.ngayThi,
-                item.gioBatDau, item.soBaoDanh, item.maPhong).joinToString("|")
-        }
+        return RustPortalCore.dedupeExams(all)
     }
 
     /**
