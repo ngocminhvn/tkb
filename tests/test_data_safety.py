@@ -359,7 +359,8 @@ assert "RustScheduleCore.normalizeDate(dateStr)" in repo
 assert "pub fn move_calendar_day(" in rust_source
 assert "pub fn calendar_week_dates(" in rust_source
 assert "Java_com_sv_tnu_rust_RustScheduleCore_weekDatesNative" in rust_jni
-assert "cargo ndk -p 24" in build_script
+assert "cargo ndk --platform 24" in build_script
+assert 'echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"' in workflow
 assert "dependsOn(verifyRustNativeLibraries)" in build_config
 assert "cargo test --manifest-path rust-core/Cargo.toml" in workflow
 assert "bash scripts/build-rust-android.sh" in workflow
