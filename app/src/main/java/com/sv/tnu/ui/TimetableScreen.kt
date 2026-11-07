@@ -684,7 +684,6 @@ fun TimetableScreen(
                 todayYmd = todayStr,
                 eventDays = eventDays,
                 availableWeeks = weeks,
-                currentWeekNumber = selectedWeek,
                 onPickDate = { date, weekNumber ->
                     selectedDay = date
                     scrollRequest++
