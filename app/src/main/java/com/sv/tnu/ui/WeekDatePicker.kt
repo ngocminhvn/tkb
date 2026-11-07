@@ -114,6 +114,7 @@ private fun CalendarDay(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    weekend: Boolean = false,
 ) {
     val isSelected = ymd == selectedYmd
     val isToday = ymd == todayYmd
@@ -128,7 +129,9 @@ private fun CalendarDay(
         if (weekday != null) {
             Text(
                 text = weekday,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = if (weekend) 10.sp else 12.sp,
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             )
         }
@@ -145,7 +148,7 @@ private fun CalendarDay(
         ) {
             Text(
                 text = day,
-                fontSize = 23.sp,
+                fontSize = if (weekend) 21.sp else 23.sp,
                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
                 color = when {
                     !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.24f)
@@ -226,17 +229,23 @@ fun WeekDatePicker(
                     hasSchedule = ymd in eventDays,
                     enabled = true,
                     onClick = {
+                        // Re-tapping today's selected date closes the month view.
+                        if (ymd == selectedYmd && showMonth) showMonth = false
                         val week = availableWeeks.firstOrNull { dateInWeek(ymd, it) }
                         if (week != null) onPickDate(ymd, week.tuanHocKy)
                     },
                     modifier = Modifier.weight(1f),
+                    weekend = index >= 5,
                 )
             }
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showMonth = !showMonth }
+                .clickable {
+                    showMonth = !showMonth
+                    if (showMonth) monthOffset = 0
+                }
                 .padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -279,7 +288,7 @@ fun WeekDatePicker(
                 }
                 monthView.second.chunked(7).forEach { rowDates ->
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        rowDates.forEach { ymd ->
+                        rowDates.forEachIndexed { dayIndex, ymd ->
                             if (ymd == null) {
                                 Spacer(modifier = Modifier.weight(1f))
                             } else {
@@ -298,6 +307,7 @@ fun WeekDatePicker(
                                         }
                                     },
                                     modifier = Modifier.weight(1f),
+                                    weekend = dayIndex >= 5,
                                 )
                             }
                         }
