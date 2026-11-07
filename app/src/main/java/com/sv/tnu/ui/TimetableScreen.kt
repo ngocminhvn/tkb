@@ -166,6 +166,10 @@ class TimetableViewModel(
             else repository.lessonsFlow(hocKy, week)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Settings counts the whole semester, not just whichever week is selected.
+    val semesterLessons: StateFlow<List<LessonEntity>> = repository.semesterLessonsFlow(hocKy)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
 
