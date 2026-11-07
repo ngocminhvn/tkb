@@ -51,6 +51,8 @@ pub fn lesson_time_range(periods: &[(i32, String, String)], start_period: i32, c
 
 use chrono::{Days, NaiveDate};
 
+pub mod portal;
+
 #[cfg(target_os = "android")]
 mod android;
 
