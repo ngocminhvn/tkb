@@ -134,18 +134,20 @@ class TimetableViewModel(
      * Ví dụ 4 tuần: (4-1)/2 = 1 tuần trước, 1 tuần hiện tại, 2 tuần sau.
      * Ví dụ 5 tuần: (5-1)/2 = 2 tuần trước, 1 tuần hiện tại, 2 tuần sau.
      */
-    val visibleWeeks: StateFlow<List<WeekEntity>> = combine(weeks, currentWeekNumber, _visibleWeekCount) { weekList, curr, count ->
-        if (weekList.isEmpty()) emptyList()
-        else {
-            val center = curr ?: weekList.firstOrNull()?.tuanHocKy ?: 1
-            val n = count.coerceIn(1, 20)
-            val weeksBefore = (n - 1) / 2
-            val weeksAfter = n - 1 - weeksBefore
-            val minWeek = center - weeksBefore
-            val maxWeek = center + weeksAfter
-            weekList.filter { it.tuanHocKy in minWeek..maxWeek }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val visibleWeeks: StateFlow<List<WeekEntity>> =
+        combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek) { weekList, curr, count, manual ->
+            if (weekList.isEmpty()) emptyList()
+            else {
+                // Preserve the number-of-weeks setting while allowing month
+                // navigation to any available semester week. Recenter the
+                // window on an explicitly selected week.
+                val center = manual ?: curr ?: weekList.firstOrNull()?.tuanHocKy ?: 1
+                val n = count.coerceIn(1, 20)
+                val weeksBefore = (n - 1) / 2
+                val weeksAfter = n - 1 - weeksBefore
+                weekList.filter { it.tuanHocKy in (center - weeksBefore)..(center + weeksAfter) }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val selectedWeek: StateFlow<Int?> = combine(visibleWeeks, _selectedWeek, _todayYmd) { weekList, selected, today ->
         val current = currentWeekNumber(weekList, today) ?: weekList.firstOrNull()?.tuanHocKy
@@ -233,13 +235,14 @@ class TimetableViewModel(
     }
 
     fun moveWeek(delta: Int) {
-        val list = visibleWeeks.value
+        val list = weeks.value
         if (list.isEmpty()) return
         val current = selectedWeek.value ?: return
-        val min = list.minOf { it.tuanHocKy }
-        val max = list.maxOf { it.tuanHocKy }
-        val target = (current + delta).coerceIn(min, max)
-        _selectedWeek.value = target
+        val currentIndex = list.indexOfFirst { it.tuanHocKy == current }
+        if (currentIndex < 0) return
+        // Use actual semester week order (handles gaps and term boundaries).
+        _selectedWeek.value =
+            list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy
     }
 
     fun refresh() {
@@ -406,7 +409,7 @@ fun TimetableScreen(
     viewModel: TimetableViewModel,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-    val weeks by viewModel.visibleWeeks.collectAsState()
+    val weeks by viewModel.weeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
     val lessons by viewModel.lessons.collectAsState()
     val semesterLessons by viewModel.semesterLessons.collectAsState()
