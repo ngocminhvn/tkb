@@ -12,6 +12,10 @@ android {
 
     defaultConfig {
         applicationId = "com.tkb.sv"
+        ndk {
+            // Ship native Rust implementations for common physical devices and emulators.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
         minSdk = 24
         targetSdk = 35
         // CI overwrites both with sed (versionCode = 100000 + run number, versionName = 1.0.<run number>)
@@ -74,4 +78,23 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
     testImplementation("junit:junit:4.13.2")
+}
+
+val rustAndroidAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+val verifyRustNativeLibraries = tasks.register("verifyRustNativeLibraries") {
+    group = "verification"
+    description = "Fail Android builds missing the native Rust schedule engine"
+    doLast {
+        val missing = rustAndroidAbis.filterNot { abi ->
+            file("src/main/jniLibs/$abi/libtkb_core.so").isFile
+        }
+        check(missing.isEmpty()) {
+            "Rust native libraries missing for: ${missing.joinToString()}. " +
+                "Run ./scripts/build-rust-android.sh before building the Android APK."
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(verifyRustNativeLibraries)
 }
