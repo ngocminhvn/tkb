@@ -4,78 +4,186 @@ import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
-import com.sv.tnu.tnut.ExamDataApi
-import com.sv.tnu.tnut.TkbData
-import com.sv.tnu.tnut.TnutApiClient
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
+import java.io.ByteArrayInputStream
+import java.io.DataInputStream
+import java.nio.charset.StandardCharsets
 
 /**
- * Android-side transport adapter for business rules in Rust.
- * Rust validates and constructs the Room-shaped records; Android's existing
- * Room DAO remains the storage adapter to preserve historical migrations and
- * note flows. Do not call these methods on the main/UI thread.
+ * Android adapter. Kotlin only passes raw portal HTTP bytes and converts the
+ * one compact Rust binary result into existing Room entities. No intermediate
+ * Kotlin JSON decoding, encoding, or JSON JNI round-trip occurs.
  */
 object RustPortalCore {
     init {
         System.loadLibrary("tkb_core")
     }
 
-    @Serializable
+    private external fun mapTimetableBytesNative(semester: Int, responseBody: ByteArray): ByteArray
+    private external fun mapExamBytesNative(
+        semester: Int,
+        isMidterm: Boolean,
+        responseBody: ByteArray,
+    ): ByteArray
+    private external fun hasNextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Boolean
+    private external fun normalizeNoteNative(value: String): String
+    private external fun normalizeUsernameNative(value: String): String
+
+    fun mapTimetable(semester: Int, rawResponse: ByteArray): PortalBinaryDecoder.TimetableRows =
+        PortalBinaryDecoder.decodeTimetable(mapTimetableBytesNative(semester, rawResponse))
+
+    fun mapExamPage(
+        semester: Int,
+        isMidterm: Boolean,
+        rawResponse: ByteArray,
+    ): PortalBinaryDecoder.ExamPageRows =
+        PortalBinaryDecoder.decodeExams(mapExamBytesNative(semester, isMidterm, rawResponse))
+
+    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
+        hasNextExamPageNative(page, totalPages ?: -1, rowCount)
+
+    fun normalizeNote(value: String): String = normalizeNoteNative(value)
+
+    fun normalizeUsername(value: String): String = normalizeUsernameNative(value)
+
+    // Cross-page dedup is linear and tiny. Do it once on already decoded Room
+    // rows instead of turning all records back into JSON for another JNI call.
+    private data class ExamKey(
+        val postponed: Boolean,
+        val course: String,
+        val date: String,
+        val time: String,
+        val candidate: String,
+        val room: String,
+    )
+
+    fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> =
+        rows.distinctBy {
+            ExamKey(it.isHoanThi, it.maMon, it.ngayThi, it.gioBatDau, it.soBaoDanh, it.maPhong)
+        }
+}
+
+/** Versioned native binary bridge, big-endian integers and length-prefixed UTF-8. */
+internal object PortalBinaryDecoder {
     data class TimetableRows(
         val periods: List<PeriodEntity>,
         val weeks: List<WeekEntity>,
         val lessons: List<LessonEntity>,
     )
 
-    @Serializable
     data class ExamPageRows(
         val rows: List<ExamEntity>,
-        val totalPages: Int? = null,
+        val totalPages: Int?,
         val rowCount: Int,
     )
 
-    private external fun mapTimetableNative(semester: Int, payload: String): String
-    private external fun mapExamPageNative(
-        semester: Int,
-        isMidterm: Boolean,
-        payload: String,
-    ): String
+    private class Reader(bytes: ByteArray, type: Byte) {
+        private val data = DataInputStream(ByteArrayInputStream(bytes))
 
-    private external fun dedupeExamsNative(payload: String): String
-    private external fun hasNextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Boolean
-    private external fun normalizeNoteNative(value: String): String
-    private external fun normalizeUsernameNative(value: String): String
+        init {
+            val signature = ByteArray(5)
+            data.readFully(signature)
+            require(signature[0] == 'T'.code.toByte() &&
+                signature[1] == 'K'.code.toByte() &&
+                signature[2] == 'B'.code.toByte() &&
+                signature[3] == '1'.code.toByte() &&
+                signature[4] == type
+            ) { "Rust/Android binary protocol mismatch" }
+        }
 
-    fun normalizeNote(value: String): String = normalizeNoteNative(value)
+        fun int(): Int = data.readInt()
+        fun long(): Long = data.readLong()
+        fun bool(): Boolean = when (data.readUnsignedByte()) {
+            0 -> false
+            1 -> true
+            else -> throw IllegalArgumentException("Invalid Rust boolean")
+        }
 
-    fun normalizeUsername(value: String): String = normalizeUsernameNative(value)
+        fun count(): Int = int().also {
+            require(it in 0..100_000) { "Invalid Rust record count: $it" }
+        }
 
-    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
-        hasNextExamPageNative(page, totalPages ?: -1, rowCount)
+        fun string(): String {
+            val length = int()
+            require(length in 0..8_388_608 && length <= data.available()) {
+                "Invalid Rust string length: $length"
+            }
+            val raw = ByteArray(length)
+            data.readFully(raw)
+            return String(raw, StandardCharsets.UTF_8)
+        }
 
-    fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> {
-        val codec = TnutApiClient.json()
-        val serializer = ListSerializer(ExamEntity.serializer())
-        val payload = codec.encodeToString(serializer, rows)
-        return codec.decodeFromString(serializer, dedupeExamsNative(payload))
+        fun finish() {
+            require(data.available() == 0) { "Unexpected trailing Rust binary bytes" }
+        }
     }
 
-    fun mapTimetable(semester: Int, data: TkbData): TimetableRows {
-        val codec = TnutApiClient.json()
-        val source = codec.encodeToString(TkbData.serializer(), data)
-        return codec.decodeFromString(
-            TimetableRows.serializer(),
-            mapTimetableNative(semester, source),
-        )
+    fun decodeTimetable(bytes: ByteArray): TimetableRows {
+        val reader = Reader(bytes, 'T'.code.toByte())
+        val periods = List(reader.count()) {
+            PeriodEntity(
+                tiet = reader.int(),
+                gioBatDau = reader.string(),
+                gioKetThuc = reader.string(),
+            )
+        }
+        val weeks = List(reader.count()) {
+            WeekEntity(
+                hocKy = reader.int(),
+                tuanHocKy = reader.int(),
+                ngayBatDau = reader.string(),
+                ngayKetThuc = reader.string(),
+                thongTinTuan = reader.string(),
+            )
+        }
+        val lessons = List(reader.count()) {
+            LessonEntity(
+                idTkb = reader.string(),
+                hocKy = reader.int(),
+                tuanHocKy = reader.int(),
+                ngayHoc = reader.string(),
+                thuKieuSo = reader.int(),
+                tietBatDau = reader.int(),
+                soTiet = reader.int(),
+                maMon = reader.string(),
+                tenMon = reader.string(),
+                soTinChi = reader.string(),
+                maPhong = reader.string(),
+                tenGiangVien = reader.string(),
+                tenLop = reader.string(),
+                maNhom = reader.string(),
+            )
+        }
+        reader.finish()
+        return TimetableRows(periods, weeks, lessons)
     }
 
-    fun mapExamPage(semester: Int, isMidterm: Boolean, data: ExamDataApi): ExamPageRows {
-        val codec = TnutApiClient.json()
-        val source = codec.encodeToString(ExamDataApi.serializer(), data)
-        return codec.decodeFromString(
-            ExamPageRows.serializer(),
-            mapExamPageNative(semester, isMidterm, source),
-        )
+    fun decodeExams(bytes: ByteArray): ExamPageRows {
+        val reader = Reader(bytes, 'E'.code.toByte())
+        val rawPages = reader.int()
+        val totalPages = rawPages.takeIf { it > 0 }
+        val rowCount = reader.count()
+        val rows = List(reader.count()) {
+            ExamEntity(
+                id = reader.long(),
+                hocKy = reader.int(),
+                isGiuaKy = reader.bool(),
+                soThuTu = reader.int(),
+                maMon = reader.string(),
+                tenMon = reader.string(),
+                ngayThi = reader.string(),
+                gioBatDau = reader.string(),
+                soPhut = reader.int(),
+                maPhong = reader.string(),
+                diaDiemThi = reader.string(),
+                hinhThucThi = reader.string(),
+                soBaoDanh = reader.string(),
+                dotThi = reader.string(),
+                ghiChuSv = reader.string(),
+                isHoanThi = reader.bool(),
+            )
+        }
+        reader.finish()
+        require(rowCount == rows.size) { "Rust exam page row count mismatch" }
+        return ExamPageRows(rows, totalPages, rowCount)
     }
 }
