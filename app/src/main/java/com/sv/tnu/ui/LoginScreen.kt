@@ -166,7 +166,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "SvTNU",
+                    text = "TKB SV",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground,
                 )
