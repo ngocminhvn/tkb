@@ -36,12 +36,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -64,8 +67,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sv.tnu.ui.glass.Glass
-import com.sv.tnu.ui.glass.GlassIconButton
-import com.sv.tnu.ui.glass.GlassTextButton
 import com.sv.tnu.ui.glass.glassEffect
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
@@ -506,14 +507,20 @@ fun TimetableScreen(
                     }
                 },
                 actions = {
-                    GlassIconButton(
-                        icon = Icons.Filled.Refresh,
-                        contentDescription = "Tải lại thời khóa biểu và lịch thi",
+                    IconButton(
                         onClick = { viewModel.refresh() },
                         enabled = !refreshing,
-                        loading = refreshing,
                         modifier = Modifier.padding(end = 8.dp),
-                    )
+                    ) {
+                        if (refreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Tải lại")
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -548,12 +555,18 @@ fun TimetableScreen(
                     val canMovePrev = selectedWeek != null && minWeek != null && selectedWeek!! > minWeek
                     val canMoveNext = selectedWeek != null && maxWeek != null && selectedWeek!! < maxWeek
 
-                    GlassIconButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Tuần trước",
+                    IconButton(
                         onClick = { viewModel.moveWeek(-1) },
                         enabled = canMovePrev,
-                    )
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Tuần trước",
+                            tint = if (canMovePrev) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -567,12 +580,18 @@ fun TimetableScreen(
                         )
                     }
 
-                    GlassIconButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Tuần sau",
+                    IconButton(
                         onClick = { viewModel.moveWeek(1) },
                         enabled = canMoveNext,
-                    )
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Tuần sau",
+                            tint = if (canMoveNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
 
@@ -586,10 +605,8 @@ fun TimetableScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .glassEffect(
-                                glass = Glass(alpha = if (isDark) 0.66f else 0.80f),
-                                shape = RoundedCornerShape(50),
-                            )
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { showPastDays = !showPastDays }
                             .padding(horizontal = 14.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
@@ -788,7 +805,9 @@ private fun LessonCard(
         border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Subject title & credits badge
+            // The pencil replaces the old credits badge. The note editor
+            // opens only when the student taps it; the original icon-button
+            // style is retained (no newly added Liquid Glass buttons).
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -800,16 +819,17 @@ private fun LessonCard(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                // Replace the per-lesson credit badge with a single action:
-                // the editor is only created after the student taps the pencil.
-                GlassIconButton(
-                    icon = Icons.Default.Edit,
-                    contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú",
+                IconButton(
                     onClick = onEditNote,
-                    size = 38.dp,
-                    iconSize = 18.dp,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -901,19 +921,16 @@ private fun LessonCard(
                 )
             }
 
-            // No empty "Thêm ghi chú" row. Only saved notes are displayed.
-            // The glass pencil in the title row is always available to edit.
+            // Only saved notes occupy a row; empty cards show the pencil only.
             if (note.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(
-                            glass = Glass(alpha = 0.55f),
-                            shape = RoundedCornerShape(12.dp),
-                        )
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                         .clickable(onClick = onEditNote)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -964,10 +981,14 @@ private fun LessonNoteDialog(
             }
         },
         confirmButton = {
-            GlassTextButton(text = "Lưu", onClick = { onSave(note.trim()) })
+            TextButton(onClick = { onSave(note.trim()) }) {
+                Text("Lưu")
+            }
         },
         dismissButton = {
-            GlassTextButton(text = "Huỷ", onClick = onDismiss)
+            TextButton(onClick = onDismiss) {
+                Text("Huỷ")
+            }
         },
     )
 }
