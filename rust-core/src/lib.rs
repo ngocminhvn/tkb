@@ -48,6 +48,37 @@ pub fn lesson_time_range(periods: &[(i32, String, String)], start_period: i32, c
     }
 }
 
+
+use chrono::{Days, NaiveDate};
+
+#[cfg(target_os = "android")]
+mod android;
+
+/// Move one calendar date; semester constraints stay with the Android repository.
+pub fn move_calendar_day(ymd: &str, direction: i32) -> Option<String> {
+    if direction == 0 {
+        return None;
+    }
+    let date = NaiveDate::parse_from_str(ymd, "%Y-%m-%d").ok()?;
+    let next = if direction > 0 {
+        date.checked_add_days(Days::new(1))?
+    } else {
+        date.checked_sub_days(Days::new(1))?
+    };
+    Some(next.format("%Y-%m-%d").to_string())
+}
+
+/// Seven consecutive ISO dates. Calendar arithmetic is independent of DST.
+pub fn calendar_week_dates(start: &str) -> Vec<String> {
+    let Some(first) = NaiveDate::parse_from_str(start, "%Y-%m-%d").ok() else {
+        return Vec::new();
+    };
+    (0..7)
+        .filter_map(|offset| first.checked_add_days(Days::new(offset)))
+        .map(|date| date.format("%Y-%m-%d").to_string())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,6 +94,14 @@ mod tests {
         assert_eq!(exam_end_time("23:45", 30).as_deref(), Some("00:15"));
         assert_eq!(exam_end_time("25:00", 30), None);
         assert_eq!(exam_end_time("07:00", 0), None);
+    }
+    #[test]
+    fn day_navigation_and_week_dates() {
+        assert_eq!(move_calendar_day("2026-11-08", 1).as_deref(), Some("2026-11-09"));
+        assert_eq!(move_calendar_day("2026-11-09", -1).as_deref(), Some("2026-11-08"));
+        assert_eq!(move_calendar_day("2026-11-09", 0), None);
+        assert_eq!(calendar_week_dates("2026-12-28").last().map(String::as_str), Some("2027-01-03"));
+        assert!(calendar_week_dates("bad-date").is_empty());
     }
     #[test]
     fn periods() {
