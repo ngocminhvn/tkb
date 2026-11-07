@@ -106,6 +106,11 @@ main_screen = (root / "ui/MainScreen.kt").read_text(encoding="utf-8")
 assert "fun GlassIconButton(" in glass
 assert "fun GlassTextButton(" in glass
 assert ".glassEffect(" in glass
+assert "interactionSource = interactionSource" in glass
+assert ".interactive()" in glass
+glass_material = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
+assert "interactionSource: MutableInteractionSource? = null" in glass_material
+assert "(interactionSource ?: internalSource).collectIsPressedAsState()" in glass_material
 assert "GlassIconButton(" in ui
 assert "icon = Icons.Default.Edit" in ui
 assert "contentDescription = if (note.isBlank())" in ui
