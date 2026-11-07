@@ -323,18 +323,18 @@ class TnutRepository(
 
     suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
         return try {
-            val list = mutableListOf<ExamEntity>()
-            var fetchedAny = false
+            val finalExams = mutableListOf<ExamEntity>()
+            var fetchedCuoiKy = false
 
             // Lịch thi cuối kỳ
             try {
                 val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
                 Log.d("TnutRepository", "fetch exams cuoiky result: code=${resCuoiKy.code}, items=${resCuoiKy.data?.dsLichThi?.size}")
                 if (resCuoiKy.code == 200 || resCuoiKy.result) {
-                    fetchedAny = true
+                    fetchedCuoiKy = true
                     resCuoiKy.data?.let { data ->
                         data.dsLichThi?.forEach {
-                            list.add(
+                            finalExams.add(
                                 ExamEntity(
                                     hocKy = hocKy,
                                     isGiuaKy = false,
@@ -355,7 +355,7 @@ class TnutRepository(
                             )
                         }
                         data.dsLichHoanThi?.forEach {
-                            list.add(
+                            finalExams.add(
                                 ExamEntity(
                                     hocKy = hocKy,
                                     isGiuaKy = false,
@@ -381,15 +381,18 @@ class TnutRepository(
                 Log.e("TnutRepository", "fetch exams cuoiky failed", e)
             }
 
+            val midtermExams = mutableListOf<ExamEntity>()
+            var fetchedGiuaKy = false
+
             // Lịch thi giữa kỳ
             try {
                 val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
                 Log.d("TnutRepository", "fetch exams giuaky result: code=${resGiuaKy.code}, items=${resGiuaKy.data?.dsLichThi?.size}")
                 if (resGiuaKy.code == 200 || resGiuaKy.result) {
-                    fetchedAny = true
+                    fetchedGiuaKy = true
                     resGiuaKy.data?.let { data ->
                         data.dsLichThi?.forEach {
-                            list.add(
+                            midtermExams.add(
                                 ExamEntity(
                                     hocKy = hocKy,
                                     isGiuaKy = true,
@@ -415,11 +418,16 @@ class TnutRepository(
                 Log.e("TnutRepository", "fetch exams giuaky failed", e)
             }
 
-            if (list.isNotEmpty()) {
-                dao.replaceExams(hocKy, list)
-            } else {
-                // Portal chưa có lịch thi học kỳ hoặc trả về danh sách rỗng:
-                // Tuyệt đối không xoá trắng SQLite; nếu DB đang rỗng thì nạp lịch thi mặc định
+            // Both APIs are independent: a failed response for one exam type
+            // must not erase the cached exams of the other type.
+            // Keep the previous cache when the portal returns no new rows.
+            if (fetchedCuoiKy && finalExams.isNotEmpty()) {
+                dao.replaceExamsByType(hocKy, false, finalExams)
+            }
+            if (fetchedGiuaKy && midtermExams.isNotEmpty()) {
+                dao.replaceExamsByType(hocKy, true, midtermExams)
+            }
+            if (dao.examCount(hocKy) == 0) {
                 seedSampleExamsIfEmpty(hocKy)
             }
             Result.success(Unit)
