@@ -42,3 +42,5 @@
 # JNI uses exported Rust symbols bound to these exact method names.
 # R8 must not rename the Kotlin entry points in release builds.
 -keep class com.sv.tnu.rust.RustScheduleCore { *; }
+
+-keep class com.sv.tnu.rust.RustPortalCore { *; }
