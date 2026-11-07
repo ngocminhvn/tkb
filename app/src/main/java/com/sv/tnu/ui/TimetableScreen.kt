@@ -1,5 +1,6 @@
 package com.sv.tnu.ui
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,18 +81,19 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -153,19 +155,20 @@ class TimetableViewModel(
         )
     }
 
-    // The saved timetable is read once, synchronously (a few small SQLite
-    // queries), so the very first frame already shows the cache instead of
-    // waiting for the asynchronous Room Flow emissions.
-    private val initialSnapshot: TimetableSnapshot = runCatching {
+    // Preserve the working first-frame cache behavior. A single Room transaction
+    // gives both tables from the same point in time; the blocking seed is kept
+    // intentionally until a non-blocking splash handoff is implemented.
+    // If the one-shot read fails, wait for the regular Room Flow rather than
+    // incorrectly displaying "not synced" while offline data may still exist.
+    private val initialSnapshot: TimetableSnapshot? = runCatching {
         runBlocking(Dispatchers.IO) {
-            buildSnapshot(
-                repository.cachedWeeks(hocKy),
-                repository.cachedSemesterLessons(hocKy),
-                null,
-                _todayYmd.value,
-            )
+            val cache = repository.cachedTimetable(hocKy)
+            buildSnapshot(cache.weeks, cache.lessons, null, _todayYmd.value)
         }
-    }.getOrElse { TimetableSnapshot(emptyList(), emptyList(), null, emptyList()) }
+    }.getOrElse { cause ->
+        Log.w("TimetableViewModel", "Could not preload Room timetable; waiting for Flow", cause)
+        null
+    }
 
     val timetable: StateFlow<TimetableSnapshot?> = combine(
         repository.weeksFlow(hocKy),
@@ -175,18 +178,23 @@ class TimetableViewModel(
     ) { weekList, lessonList, manual, today ->
         buildSnapshot(weekList, lessonList, manual, today)
     }.flowOn(Dispatchers.Default)
-        // Replacing the timetable is one atomic transaction, so a genuinely
-        // empty emission after cached weeks exist is never legitimate.
-        .scan(initialSnapshot) { previous, next ->
-            if (next.weeks.isEmpty() && previous.weeks.isNotEmpty()) previous else next
-        }
+        // Room's replaceTimetable() is transactional. Never pin a previous
+        // semester forever when the DB legitimately becomes empty.
         .map<TimetableSnapshot, TimetableSnapshot?> { it }
+        .catch { cause ->
+            if (cause is CancellationException) throw cause
+            Log.e("TimetableViewModel", "Room timetable observation failed", cause)
+            _error.value = "Không đọc được thời khóa biểu đã lưu. Hãy thử mở lại ứng dụng."
+            // Preserve a successfully seeded offline schedule when observation
+            // fails; only use an empty fallback when neither read worked.
+            emit(initialSnapshot ?: TimetableSnapshot(emptyList(), emptyList(), null, emptyList()))
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot)
 
     // The existing settings and navigation APIs reuse that same Room snapshot.
     val weeks: StateFlow<List<WeekEntity>> = timetable
         .map { it?.weeks.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.weeks)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.weeks.orEmpty())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -240,12 +248,12 @@ class TimetableViewModel(
 
     val selectedWeek: StateFlow<Int?> = timetable
         .map { it?.selectedWeek }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.selectedWeek)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.selectedWeek)
 
     // Settings counts the whole semester, not just whichever week is selected.
     val semesterLessons: StateFlow<List<LessonEntity>> = timetable
         .map { it?.semesterLessons.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot.semesterLessons)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.semesterLessons.orEmpty())
 
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
@@ -769,7 +777,13 @@ fun TimetableScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "Chưa có thời khóa biểu được đồng bộ.",
+                        text = when {
+                            error?.startsWith("Không đọc được thời khóa biểu đã lưu") == true ->
+                                "Không đọc được lịch đã lưu."
+                            weeks.isEmpty() && semesterLessons.isEmpty() ->
+                                "Chưa có thời khóa biểu được đồng bộ."
+                            else -> "Không tìm thấy tuần học trong lịch đã lưu."
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     )

@@ -89,6 +89,12 @@ data class ExamEntity(
     val isHoanThi: Boolean = false,
 )
 
+/** Coherent week and lesson snapshot from the same Room transaction. */
+data class CachedTimetable(
+    val weeks: List<WeekEntity>,
+    val lessons: List<LessonEntity>,
+)
+
 @Dao
 interface TkbDao {
     @Query("SELECT * FROM periods ORDER BY tiet ASC")
@@ -105,6 +111,11 @@ interface TkbDao {
 
     @Query("SELECT * FROM lessons WHERE hocKy = :hocKy ORDER BY ngayHoc ASC")
     suspend fun semesterLessonsOnce(hocKy: Int): List<LessonEntity>
+
+    /** Both lists must describe the same committed timetable. */
+    @Transaction
+    suspend fun cachedTimetable(hocKy: Int): CachedTimetable =
+        CachedTimetable(weeksOnce(hocKy), semesterLessonsOnce(hocKy))
 
     @Query("SELECT * FROM lessons WHERE hocKy = :hocKy AND tuanHocKy = :tuan ORDER BY ngayHoc ASC, tietBatDau ASC")
     fun lessons(hocKy: Int, tuan: Int): Flow<List<LessonEntity>>

@@ -6,6 +6,7 @@ import android.util.Log
 import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.CachedTimetable
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.LessonNoteEntity
@@ -46,10 +47,8 @@ class TnutRepository(
 
     fun weeksFlow(hocKy: Int): Flow<List<WeekEntity>> = dao.weeks(hocKy)
 
-    /** One-shot cache read used to paint the saved timetable on the first frame. */
-    suspend fun cachedWeeks(hocKy: Int): List<WeekEntity> = dao.weeksOnce(hocKy)
-
-    suspend fun cachedSemesterLessons(hocKy: Int): List<LessonEntity> = dao.semesterLessonsOnce(hocKy)
+    /** One-shot, transactionally consistent cache read for the first frame. */
+    suspend fun cachedTimetable(hocKy: Int): CachedTimetable = dao.cachedTimetable(hocKy)
 
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 

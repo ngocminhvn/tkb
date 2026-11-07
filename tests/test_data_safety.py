@@ -142,6 +142,15 @@ assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
 # One Room-backed timetable snapshot selects the week and its cached lessons
 # atomically. No perpetual spinner waiting for independent StateFlows.
+# An offline seed is read atomically, but an I/O failure must not look like an
+# intentionally empty timetable. Real empty DB emissions must still propagate.
+assert "suspend fun cachedTimetable(hocKy: Int): CachedTimetable" in db_source
+assert "dao.cachedTimetable(hocKy)" in repo
+assert "val cache = repository.cachedTimetable(hocKy)" in ui
+assert "private val initialSnapshot: TimetableSnapshot? = runCatching" in ui
+assert "getOrElse { cause ->" in ui
+assert ".scan(initialSnapshot)" not in ui
+assert "weeks.isEmpty() && semesterLessons.isEmpty()" in ui
 assert "val timetable: StateFlow<TimetableSnapshot?>" in ui
 assert "repository.weeksFlow(hocKy)," in ui
 assert "repository.semesterLessonsFlow(hocKy)," in ui
