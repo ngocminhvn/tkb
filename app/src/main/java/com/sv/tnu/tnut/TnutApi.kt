@@ -1,5 +1,6 @@
 package com.sv.tnu.tnut
 
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
@@ -32,7 +33,7 @@ interface TnutApi {
     @POST("sch/w-locdstkbtuanusertheohocky")
     suspend fun weeklyTimetable(
         @Body body: WeeklyRequest,
-    ): ApiWrapper<TkbData>
+    ): ResponseBody
 
     @POST("sms/w-locthongtinimagesinhvien")
     suspend fun avatar(
@@ -43,5 +44,5 @@ interface TnutApi {
     @POST("epm/w-locdslichthisvtheohocky")
     suspend fun exams(
         @Body body: ExamRequest,
-    ): ExamResponse
+    ): ResponseBody
 }
