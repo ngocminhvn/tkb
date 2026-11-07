@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,12 +58,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -717,17 +715,22 @@ fun TimetableScreen(
     val listState = key(startDayYmd) {
         rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
     }
-    // The first visible card determines which date is highlighted in the
-    // fixed week picker. Do not issue another scroll for this update.
+    // Follow the user's actual scroll without fighting a tapped date.
+    // At the bottom the final date might not fit at the top of the viewport,
+    // so selecting just the first visible item would leave it stuck on Saturday.
     androidx.compose.runtime.LaunchedEffect(listState, flatRows) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .collect { visibleIndex ->
-                val visibleDay = flatRows.getOrNull(visibleIndex)?.date ?: return@collect
-                if (requestedScrollDay == null && selectedDay != visibleDay) {
-                    selectedDay = visibleDay
-                }
-            }
+        snapshotFlow {
+            Triple(
+                listState.isScrollInProgress,
+                listState.firstVisibleItemIndex,
+                listState.canScrollBackward && !listState.canScrollForward,
+            )
+        }.distinctUntilChanged().collect { (scrolling, index, atEnd) ->
+            if (!scrolling || requestedScrollDay != null) return@collect
+            val visibleDay = if (atEnd) flatRows.lastOrNull()?.date
+                else flatRows.getOrNull(index)?.date
+            if (visibleDay != null && visibleDay != selectedDay) selectedDay = visibleDay
+        }
     }
 
     // A date tapped in the week/month picker or reached via horizontal swipe
@@ -747,64 +750,12 @@ fun TimetableScreen(
         if (requestedScrollDay == requested) requestedScrollDay = null
     }
 
-    // An extra intentional pull after reaching the end starts the following
-    // week. Pulling past the very top similarly opens the previous week.
-    // Ordinary scrolling among the seven days only updates the highlight.
-    val edgeThresholdPx = with(LocalDensity.current) { 88.dp.toPx() }
-    val weekEdgeConnection = remember(listState, weeks, selectedWeek, edgeThresholdPx) {
-        object : NestedScrollConnection {
-            var beyondTop = 0f
-            var beyondBottom = 0f
-
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput) {
-                    if (available.y > 0f) beyondBottom = 0f
-                    if (available.y < 0f) beyondTop = 0f
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (source != NestedScrollSource.UserInput) return Offset.Zero
-                when {
-                    available.y < 0f && !listState.canScrollForward -> {
-                        beyondTop = 0f
-                        beyondBottom -= available.y
-                        if (beyondBottom >= edgeThresholdPx) {
-                            beyondBottom = 0f
-                            changeWeekAtBoundary(1)
-                        }
-                    }
-                    available.y > 0f && !listState.canScrollBackward -> {
-                        beyondBottom = 0f
-                        beyondTop += available.y
-                        if (beyondTop >= edgeThresholdPx) {
-                            beyondTop = 0f
-                            changeWeekAtBoundary(-1)
-                        }
-                    }
-                    else -> {
-                        beyondTop = 0f
-                        beyondBottom = 0f
-                    }
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPostFling(
-                consumed: Velocity,
-                available: Velocity,
-            ): Velocity {
-                beyondTop = 0f
-                beyondBottom = 0f
-                return Velocity.Zero
-            }
-        }
-    }
+    // Count real finger movement at an exhausted scroll edge. A nested-scroll
+    // onPostScroll callback is unreliable with Compose's built-in overscroll
+    // effect (which can consume the remaining delta first). This observer
+    // never consumes touch input, so normal LazyColumn scrolling and horizontal
+    // day swipes keep working.
+    val edgeThresholdPx = with(LocalDensity.current) { 76.dp.toPx() }
 
     Scaffold(
         topBar = {
@@ -948,7 +899,57 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .nestedScroll(weekEdgeConnection)
+                            .pointerInput(listState, selectedWeek, weeks, edgeThresholdPx) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var previous = down.position
+                                    var pastStart = 0f
+                                    var pastEnd = 0f
+                                    var switched = false
+
+                                    // Final pass lets LazyColumn consume the
+                                    // gesture before we check whether it has
+                                    // actually reached either scroll boundary.
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Final)
+                                        val change = event.changes.firstOrNull { it.id == down.id }
+                                            ?: break
+                                        if (!change.pressed) break
+                                        val delta = change.position - previous
+                                        previous = change.position
+                                        if (switched) continue
+                                        // Ignore sideways gestures; those change
+                                        // the selected day, not the week.
+                                        if (kotlin.math.abs(delta.x) > kotlin.math.abs(delta.y)) {
+                                            pastStart = 0f
+                                            pastEnd = 0f
+                                            continue
+                                        }
+                                        when {
+                                            delta.y < 0f && !listState.canScrollForward -> {
+                                                pastStart = 0f
+                                                pastEnd -= delta.y
+                                                if (pastEnd >= edgeThresholdPx) {
+                                                    switched = true
+                                                    changeWeekAtBoundary(1)
+                                                }
+                                            }
+                                            delta.y > 0f && !listState.canScrollBackward -> {
+                                                pastEnd = 0f
+                                                pastStart += delta.y
+                                                if (pastStart >= edgeThresholdPx) {
+                                                    switched = true
+                                                    changeWeekAtBoundary(-1)
+                                                }
+                                            }
+                                            else -> {
+                                                pastStart = 0f
+                                                pastEnd = 0f
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             .pointerInput(selectedDay, weeks, selectedWeek) {
                                 var totalDrag = 0f
                                 detectHorizontalDragGestures(
@@ -966,11 +967,12 @@ fun TimetableScreen(
                                     onDragCancel = { totalDrag = 0f },
                                 )
                             },
-                        // Leave a viewport of scroll space so Saturday/Sunday
-                        // can also be brought to the top when tapped.
+                        // Keep a small, usable footer instead of reserving an
+                        // entire blank viewport. Overscrolling the real end
+                        // now opens the next week; the start opens the previous.
                         contentPadding = PaddingValues(
                             top = 4.dp,
-                            bottom = contentPadding.calculateBottomPadding() + maxHeight,
+                            bottom = contentPadding.calculateBottomPadding() + 16.dp,
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
