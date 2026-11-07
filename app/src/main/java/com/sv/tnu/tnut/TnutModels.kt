@@ -112,6 +112,10 @@ data class WeeklyRequest(
 @Serializable
 data class StudentImage(
     val image: String? = null,
+    // Optional profile fields: older portal versions may return only image.
+    @SerialName("ho_ten") val hoTen: String? = null,
+    @SerialName("ten_sinh_vien") val tenSinhVien: String? = null,
+    @SerialName("ten_sv") val tenSv: String? = null,
 )
 
 @Serializable
