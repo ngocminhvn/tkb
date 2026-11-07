@@ -153,6 +153,15 @@ assert "POST_NOTIFICATIONS" in manifest
 assert "RECEIVE_BOOT_COMPLETED" in manifest
 assert "ScheduleReminderReceiver" in manifest
 assert "ReminderRescheduleReceiver" in manifest
+assert "weekend = index >= 5" in calendar
+assert "weekend = dayIndex >= 5" in calendar
+assert "if (ymd == selectedYmd && showMonth) showMonth = false" in calendar
+assert "scrollRequest++" in ui
+assert "bottom = contentPadding.calculateBottomPadding() + maxHeight" in ui
+assert "displayedGrouped.forEach { (date, dayItems) ->" in ui
+assert "if (dayItems.isEmpty())" in ui
+assert "if (date == selectedDay)" not in ui
+assert (Path("app/src/test/java/com/sv/tnu/notifications/ScheduleRemindersTest.kt")).exists()
 assert "TimePickerDialog(" in settings
 assert "Thông báo lịch hôm nay" in settings
 assert "Thông báo lịch ngày mai" in settings
