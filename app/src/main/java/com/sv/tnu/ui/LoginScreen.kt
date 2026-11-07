@@ -51,6 +51,8 @@ import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutApi
 import com.sv.tnu.tnut.TnutRepository
+import com.sv.tnu.ui.glass.GlassIconButton
+import com.sv.tnu.ui.glass.GlassTextButton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -228,13 +230,14 @@ fun LoginScreen(
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     ),
                     trailingIcon = {
-                        IconButton(onClick = { showPassword = !showPassword }) {
-                            Icon(
-                                imageVector = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                contentDescription = if (showPassword) "Ẩn mật khẩu" else "Hiện mật khẩu",
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            )
-                        }
+                        GlassIconButton(
+                            icon = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (showPassword) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                            onClick = { showPassword = !showPassword },
+                            size = 36.dp,
+                            iconSize = 20.dp,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -258,31 +261,16 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
+                GlassTextButton(
+                    text = if (state is LoginUiState.Loading) "Đang đăng nhập..." else "Đăng nhập",
                     onClick = { viewModel.login(username, password) },
                     enabled = state !is LoginUiState.Loading,
-                    shape = RoundedCornerShape(14.dp),
+                    loading = state is LoginUiState.Loading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    if (state is LoginUiState.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(
-                            text = "Đăng nhập",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        )
-                    }
-                }
+                    tint = MaterialTheme.colorScheme.primary,
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
