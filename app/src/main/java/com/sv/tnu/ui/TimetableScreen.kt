@@ -342,6 +342,17 @@ private fun normalizeDateToYmd(dateStr: String): String {
 private fun localTodayYmd(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
+private fun mondayOfLocalWeek(ymd: String): String {
+    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+    val date = runCatching { format.parse(ymd) }.getOrNull() ?: return ymd
+    val calendar = Calendar.getInstance().apply {
+        time = date
+        val offset = (get(Calendar.DAY_OF_WEEK) + 5) % 7
+        add(Calendar.DAY_OF_MONTH, -offset)
+    }
+    return format.format(calendar.time)
+}
+
 private fun dayLabel(ngayHoc: String): String {
     val datePart = normalizeDateToYmd(ngayHoc)
     val date = runCatching { dayFormat.get().parse(datePart) }.getOrNull() ?: return datePart
@@ -378,7 +389,7 @@ private sealed interface ScheduleItem {
         val lesson: LessonEntity,
         val timeDisplay: String,
     ) : ScheduleItem {
-        override val date: String get() = lesson.ngayHoc.take(10)
+        override val date: String get() = normalizeDateToYmd(lesson.ngayHoc)
         override val sortKey: String get() = lesson.tietBatDau.toString().padStart(2, '0')
     }
 
@@ -400,6 +411,7 @@ fun TimetableScreen(
     val weeks by viewModel.visibleWeeks.collectAsState()
     val selectedWeek by viewModel.selectedWeek.collectAsState()
     val lessons by viewModel.lessons.collectAsState()
+    val semesterLessons by viewModel.semesterLessons.collectAsState()
     val exams by viewModel.exams.collectAsState()
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
@@ -411,20 +423,23 @@ fun TimetableScreen(
     // Both lessons and exams share one past-day filter. Re-evaluate the local
     // date when the app resumes after midnight, without background polling.
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
+    // Day selection is local UI state, initialized from the phone's calendar.
+    var selectedDay by remember { mutableStateOf(todayStr) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                todayStr = localTodayYmd()
+                val actualToday = localTodayYmd()
+                if (actualToday != todayStr) {
+                    todayStr = actualToday
+                    selectedDay = actualToday
+                }
+                viewModel.updateToday()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        todayStr = localTodayYmd()
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-    // Mặc định: ngày qua rồi thì không hiện nữa (showPastDays = false)
-    var showPastDays by remember { mutableStateOf(false) }
 
     val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
     val startDayYmd = remember(weekInfo) {
@@ -432,6 +447,19 @@ fun TimetableScreen(
     }
     val endDayYmd = remember(weekInfo) {
         weekInfo?.let { normalizeDateToYmd(it.ngayKetThuc) } ?: ""
+    }
+    // Sync the highlighted day with navigation: today in the current week,
+    // otherwise the first day of the manually chosen week. Keep explicit taps.
+    androidx.compose.runtime.LaunchedEffect(weekInfo?.tuanHocKy, todayStr) {
+        if (startDayYmd.isNotBlank() && selectedDay !in startDayYmd..endDayYmd) {
+            selectedDay = if (todayStr in startDayYmd..endDayYmd) todayStr else startDayYmd
+        }
+    }
+
+    // Dots are driven by real portal data only, not a hard-coded calendar.
+    val eventDays = remember(semesterLessons, exams) {
+        (semesterLessons.map { normalizeDateToYmd(it.ngayHoc) } +
+            exams.filterNot { it.isHoanThi }.map { normalizeDateToYmd(it.ngayThi) }).toSet()
     }
 
     val examsInWeek = remember(exams, startDayYmd, endDayYmd) {
@@ -466,21 +494,10 @@ fun TimetableScreen(
             .toSortedMap()
     }
 
-    // Các ngày đã qua trong tuần
-    val hasPastDaysInWeek = remember(allGrouped, todayStr) {
-        allGrouped.keys.any { it < todayStr }
-    }
-    val pastDaysCount = remember(allGrouped, todayStr) {
-        allGrouped.keys.count { it < todayStr }
-    }
-
-    // Danh sách hiển thị theo logic: ngày qua rồi thì không hiện nữa
-    val displayedGrouped = remember(allGrouped, showPastDays, todayStr) {
-        if (showPastDays) {
-            allGrouped
-        } else {
-            allGrouped.filterKeys { date -> date >= todayStr }
-        }
+    // Only show the selected calendar day. Past days remain hidden on
+    // first launch but can be opened explicitly by tapping their date.
+    val displayedGrouped = remember(allGrouped, selectedDay) {
+        allGrouped.filterKeys { date -> date == selectedDay }
     }
 
     Scaffold(
@@ -528,101 +545,23 @@ fun TimetableScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            // Week Selector Card with Liquid Glass
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassEffect(
-                        glass = Glass(alpha = if (isDark) 0.88f else 0.92f),
-                        shape = RoundedCornerShape(20.dp),
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val minWeek = weeks.minOfOrNull { it.tuanHocKy }
-                    val maxWeek = weeks.maxOfOrNull { it.tuanHocKy }
-                    val canMovePrev = selectedWeek != null && minWeek != null && selectedWeek!! > minWeek
-                    val canMoveNext = selectedWeek != null && maxWeek != null && selectedWeek!! < maxWeek
-
-                    IconButton(
-                        onClick = { viewModel.moveWeek(-1) },
-                        enabled = canMovePrev,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Tuần trước",
-                            tint = if (canMovePrev) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (selectedWeek != null) "Tuần $selectedWeek" else "—",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        )
-                        Text(
-                            text = weekInfo?.let { "${it.ngayBatDau} – ${it.ngayKetThuc}" } ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.moveWeek(1) },
-                        enabled = canMoveNext,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Tuần sau",
-                            tint = if (canMoveNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-            }
+            // Weekly calendar replaces the old "Tuần 10" capsule.
+            // Swipe horizontally for nearby weeks, down to show the month.
+            WeekDatePicker(
+                weekStartYmd = startDayYmd.ifBlank { mondayOfLocalWeek(todayStr) },
+                selectedYmd = selectedDay,
+                todayYmd = todayStr,
+                eventDays = eventDays,
+                availableWeeks = weeks,
+                currentWeekNumber = selectedWeek,
+                onPickDate = { date, weekNumber ->
+                    selectedDay = date
+                    if (selectedWeek != weekNumber) viewModel.selectWeek(weekNumber)
+                },
+                onMoveWeek = { delta -> viewModel.moveWeek(delta) },
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
-
-            // Toggle / Notice filter chip for past days
-            if (hasPastDaysInWeek) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { showPastDays = !showPastDays }
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (showPastDays) Icons.Default.FilterList else Icons.Default.History,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (showPastDays) "Đang hiện cả các ngày đã qua • Ẩn đi"
-                                else "Đã ẩn $pastDaysCount ngày đã qua • Chạm để xem",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-            }
 
             error?.let {
                 Card(
@@ -653,10 +592,10 @@ fun TimetableScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (allGrouped.isNotEmpty() && !showPastDays) {
-                            "Các ngày học của tuần này đã qua."
-                        } else {
-                            "Tuần này không có lịch học hoặc lịch thi nào."
+                        text = when {
+                            weekInfo == null -> "Chưa có thời khóa biểu được đồng bộ."
+                            selectedDay == todayStr -> "Hôm nay không có lịch học hoặc lịch thi."
+                            else -> "Ngày ${dayLabel(selectedDay)} không có lịch học hoặc lịch thi."
                         },
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
