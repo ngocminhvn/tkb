@@ -15,7 +15,9 @@ import androidx.room.Transaction
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "periods")
 data class PeriodEntity(
     @PrimaryKey val tiet: Int,
@@ -23,6 +25,7 @@ data class PeriodEntity(
     val gioKetThuc: String,
 )
 
+@Serializable
 @Entity(tableName = "weeks", primaryKeys = ["hocKy", "tuanHocKy"])
 data class WeekEntity(
     val hocKy: Int,
@@ -32,6 +35,7 @@ data class WeekEntity(
     val thongTinTuan: String,
 )
 
+@Serializable
 @Entity(
     tableName = "lessons",
     indices = [
@@ -63,6 +67,7 @@ data class LessonNoteEntity(
     val updatedAt: Long,
 )
 
+@Serializable
 @Entity(
     tableName = "exams",
     indices = [
