@@ -1,4 +1,4 @@
-# SvTNU
+# TKB SV
 
 Ứng dụng thời khóa biểu mã nguồn mở cho sinh viên ĐH Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
 
@@ -32,7 +32,7 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 ## Kỹ thuật
 
 - Kotlin + Jetpack Compose (Material 3), minSdk 24, targetSdk 35
-- Package `com.sv.tnu`, tên hiển thị SvTNU
+- Package `com.tkb.sv`, tên hiển thị TKB SV
 - Room (SQLite) cho lịch tuần, EncryptedSharedPreferences cho tài khoản/token
 - App không cố định một trường: phần chung (UI, Room, đăng nhập) ở `com.sv.tnu`, phần lấy lịch của từng trường nằm trong thư mục riêng — hiện tại chỉ có `com.sv.tnu.tnut` (TNUT). Thêm trường khác = thêm 1 thư mục như `tnut/` rồi đổi điểm gắn trong `MainActivity`.
 - Retrofit + kotlinx-serialization gọi API portal (mã TNUT trong `tnut/`):
@@ -51,4 +51,4 @@ Bản release ký được build tự động bằng GitHub Actions trên mỗi 
 
 ## Tải APK
 
-https://ngocminhvn.github.io/tkb/SvTNU.apk
+https://ngocminhvn.github.io/tkb/TKB-SV.apk
