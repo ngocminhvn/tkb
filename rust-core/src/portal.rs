@@ -216,6 +216,49 @@ fn valid_portal_date(value: &str) -> bool {
         if index == 4 || index == 7 { byte == b'-' } else { byte.is_ascii_digit() }
     })
 }
+
+/// Normalize editable notes without touching the existing SQLite schema.
+pub fn normalize_note(input: &str) -> String {
+    input.trim().to_string()
+}
+
+/// Student portal login accepts the ID prefix even when a user types @domain.
+pub fn normalize_username(input: &str) -> String {
+    input.trim().split('@').next().unwrap_or("").to_string()
+}
+
+/// Follow TNUT page metadata if provided, otherwise use the 100-item page size.
+pub fn exam_has_next(page: usize, total_pages: Option<usize>, rows: usize) -> bool {
+    match total_pages.filter(|total| *total > 0) {
+        Some(total) => page < total,
+        None => rows >= 100,
+    }
+}
+
+/// Drop duplicate exam records across multiple pages without changing any
+/// Room-backed columns; retain the first occurrence in original page order.
+pub fn dedupe_exam_rows(payload: &str) -> Result<String, String> {
+    use std::collections::HashSet;
+    let rows: Vec<Value> = serde_json::from_str(payload)
+        .map_err(|error| format!("Invalid exam rows for deduplication: {error}"))?;
+    let mut seen = HashSet::new();
+    let mut unique = Vec::with_capacity(rows.len());
+    for row in rows {
+        let get = |field: &str| -> String {
+            row.get(field).and_then(Value::as_str).unwrap_or_default().to_string()
+        };
+        let key = (
+            row.get("isHoanThi").and_then(Value::as_bool).unwrap_or(false),
+            get("maMon"), get("ngayThi"), get("gioBatDau"),
+            get("soBaoDanh"), get("maPhong"),
+        );
+        if seen.insert(key) {
+            unique.push(row);
+        }
+    }
+    serde_json::to_string(&unique).map_err(|error| format!("Cannot encode unique exams: {error}"))
+}
+
 /// Decode one exam page; failure does not erase previously cached exams.
 pub fn map_exam_page(semester: i32, is_midterm: bool, payload: &str) -> Result<String, String> {
     let page: ExamPage = serde_json::from_str(payload)
@@ -275,6 +318,23 @@ mod tests {
         assert_eq!(result["rows"][0]["soPhut"], 90);
         assert_eq!(result["rows"][0]["isGiuaKy"], true);
         assert_eq!(result["rows"][1]["isHoanThi"], true);
+    }
+    #[test]
+    fn keeps_exam_page_order_and_unique_records() {
+        let sample = r#"[{"maMon":"A","ngayThi":"2026-11-07","gioBatDau":"07:00","soBaoDanh":"1","maPhong":"101"},{"maMon":"A","ngayThi":"2026-11-07","gioBatDau":"07:00","soBaoDanh":"1","maPhong":"101"},{"maMon":"B","ngayThi":"2026-11-08"}]"#;
+        let rows: Vec<Value> = serde_json::from_str(&dedupe_exam_rows(sample).unwrap()).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["maMon"], "A");
+        assert_eq!(rows[1]["maMon"], "B");
+        assert!(exam_has_next(1, Some(2), 10));
+        assert!(!exam_has_next(2, Some(2), 100));
+        assert!(exam_has_next(1, None, 100));
+        assert!(!exam_has_next(1, None, 99));
+    }
+    #[test]
+    fn preserves_trim_and_login_name_rules() {
+        assert_eq!(normalize_note("  Mang laptop  "), "Mang laptop");
+        assert_eq!(normalize_username("  SV123@tnut.edu.vn "), "SV123");
     }
     #[test]
     fn refuses_missing_required_exam_data() {
