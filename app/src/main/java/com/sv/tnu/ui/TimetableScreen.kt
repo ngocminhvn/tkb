@@ -535,12 +535,22 @@ fun TimetableScreen(
     }
     androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped) {
         if (selectedDay in displayedGrouped) {
+            // Each date contributes a header and at least one row. Jump close
+            // to distant targets before the short animation: animating through
+            // all seven days creates unnecessary Compose list work/jank.
             val target = displayedGrouped.entries.takeWhile { it.key != selectedDay }
                 .sumOf { 1 + it.value.size.coerceAtLeast(1) }
-            if (hasAutoScrolled) listState.animateScrollToItem(target)
-            else {
+            if (!hasAutoScrolled) {
                 listState.scrollToItem(target)
                 hasAutoScrolled = true
+            } else {
+                val firstVisible = listState.firstVisibleItemIndex
+                if (kotlin.math.abs(target - firstVisible) > 5) {
+                    val nearTarget = if (target < firstVisible) target + 3
+                        else (target - 3).coerceAtLeast(0)
+                    listState.scrollToItem(nearTarget)
+                }
+                listState.animateScrollToItem(target)
             }
         }
     }
@@ -735,7 +745,7 @@ private fun DayHeader(date: String, isToday: Boolean) {
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
             ),
-            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
         if (isToday) {
@@ -751,7 +761,7 @@ private fun DayHeader(date: String, isToday: Boolean) {
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondary),
+                            .background(MaterialTheme.colorScheme.primary),
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
