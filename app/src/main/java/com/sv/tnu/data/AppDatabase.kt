@@ -194,6 +194,34 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tkbDao(): TkbDao
 
     companion object {
+        // Historical v1 APKs contained periods, weeks and lessons only.
+        // Preserve their cached timetable when upgrading directly to v4.
+        private val migration1To2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `exams` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `hocKy` INTEGER NOT NULL,
+                        `isGiuaKy` INTEGER NOT NULL,
+                        `soThuTu` INTEGER NOT NULL,
+                        `maMon` TEXT NOT NULL,
+                        `tenMon` TEXT NOT NULL,
+                        `ngayThi` TEXT NOT NULL,
+                        `gioBatDau` TEXT NOT NULL,
+                        `soPhut` INTEGER NOT NULL,
+                        `maPhong` TEXT NOT NULL,
+                        `diaDiemThi` TEXT NOT NULL,
+                        `hinhThucThi` TEXT NOT NULL,
+                        `soBaoDanh` TEXT NOT NULL,
+                        `dotThi` TEXT NOT NULL,
+                        `ghiChuSv` TEXT NOT NULL,
+                        `isHoanThi` INTEGER NOT NULL
+                    )""".trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exams_hocKy_ngayThi` ON `exams` (`hocKy`, `ngayThi`)")
+            }
+        }
+
         private val migration2To3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -224,8 +252,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tkb.db",
                 )
-                    .addMigrations(migration2To3, migration3To4)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(migration1To2, migration2To3, migration3To4)
                     .build()
                     .also { instance = it }
             }
