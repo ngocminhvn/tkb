@@ -510,8 +510,6 @@ fun TimetableScreen(
 ) {
     val timetable by viewModel.timetable.collectAsState()
     val weeks = timetable?.weeks.orEmpty()
-    val selectedWeek = timetable?.selectedWeek
-    val lessons = timetable?.lessons.orEmpty()
     val avatarPath by viewModel.avatarPath.collectAsState()
     val studentName by viewModel.studentName.collectAsState()
     val semesterLessons = timetable?.semesterLessons.orEmpty()
@@ -528,6 +526,24 @@ fun TimetableScreen(
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
+    // A month/day tap updates the selection instantly. StateFlow's combined
+    // database snapshot arrives asynchronously, so while it catches up, derive
+    // the displayed week and its lessons from the already-cached semester.
+    // This keeps the date strip and timetable in sync on the same frame.
+    var pendingWeek by remember { mutableStateOf<Int?>(null) }
+    val selectedWeek = pendingWeek ?: timetable?.selectedWeek
+    val lessons = if (pendingWeek != null && pendingWeek != timetable?.selectedWeek) {
+        remember(semesterLessons, pendingWeek) {
+            semesterLessons.filter { it.tuanHocKy == pendingWeek }
+        }
+    } else {
+        timetable?.lessons.orEmpty()
+    }
+    androidx.compose.runtime.LaunchedEffect(pendingWeek, timetable?.selectedWeek) {
+        if (pendingWeek != null && timetable?.selectedWeek == pendingWeek) {
+            pendingWeek = null
+        }
+    }
     var scrollRequest by remember { mutableIntStateOf(0) }
     var lastScrollWeek by remember { mutableStateOf<String?>(null) }
     // Reopening TKB always returns to today instead of a stale selected week.
@@ -638,7 +654,10 @@ fun TimetableScreen(
         val next = adjacentTimetableDay(selectedDay, direction, weeks) ?: return
         selectedDay = next.first
         scrollRequest++
-        if (selectedWeek != next.second) viewModel.selectWeek(next.second)
+        if (selectedWeek != next.second) {
+            pendingWeek = next.second
+            viewModel.selectWeek(next.second)
+        }
     }
 
     val displayedGrouped: Map<String, List<ScheduleItem>> = remember(startDayYmd, allGrouped) {
@@ -780,7 +799,10 @@ fun TimetableScreen(
                 onPickDate = { date, weekNumber ->
                     selectedDay = date
                     scrollRequest++
-                    if (selectedWeek != weekNumber) viewModel.selectWeek(weekNumber)
+                    if (selectedWeek != weekNumber) {
+                        pendingWeek = weekNumber
+                        viewModel.selectWeek(weekNumber)
+                    }
                 },
                 onMoveDay = { direction -> changeSelectedDay(direction) },
             )

@@ -160,8 +160,14 @@ assert "TimetableSnapshot(" in ui
 assert "lessonList.filter { it.tuanHocKy == selected }" in ui
 assert "val timetable by viewModel.timetable.collectAsState()" in ui
 assert "val weeks = timetable?.weeks.orEmpty()" in ui
-assert "val selectedWeek = timetable?.selectedWeek" in ui
-assert "val lessons = timetable?.lessons.orEmpty()" in ui
+# Selecting a date in another week must immediately paint that week's
+# already-cached lessons while the combined Room StateFlow catches up.
+assert "var pendingWeek by remember { mutableStateOf<Int?>(null) }" in ui
+assert "val selectedWeek = pendingWeek ?: timetable?.selectedWeek" in ui
+assert "semesterLessons.filter { it.tuanHocKy == pendingWeek }" in ui
+assert "pendingWeek = next.second" in ui
+assert "pendingWeek = weekNumber" in ui
+assert "timetable?.lessons.orEmpty()" in ui
 assert "if (timetable == null ||" in ui
 assert "else if (displayedGrouped.isEmpty())" in ui
 assert "cachedWeekReady" not in ui
