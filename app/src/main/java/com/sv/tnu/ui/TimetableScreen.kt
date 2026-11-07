@@ -194,7 +194,8 @@ class TimetableViewModel(
         // name is unknown; an offline failure does not block the timetable.
         val studentId = authStore.username?.takeIf { it.isNotBlank() }
         val now = System.currentTimeMillis()
-        if (studentId != null && authStore.studentName.isNullOrBlank() &&
+        if (studentId != null && !authStore.avatarPath.isNullOrBlank() &&
+            authStore.studentName.isNullOrBlank() &&
             now - authStore.lastProfileCheck > 24L * 60 * 60 * 1000) {
             authStore.lastProfileCheck = now
             viewModelScope.launch { repository.fetchAndSaveAvatar(studentId) }
