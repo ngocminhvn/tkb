@@ -97,45 +97,22 @@ assert "if (showPastDays)" in ui
 assert "event == Lifecycle.Event.ON_RESUME" in ui
 assert "todayStr = localTodayYmd()" in ui
 
-# Lesson notes must be edited only on demand. A saved note is the only
-# reason to render the note row; the top-right credit badge is now a glass
-# pencil. Notes remain bound to Room and are not tied to a local UI-only state.
-glass = (root / "ui/glass/GlassButtons.kt").read_text(encoding="utf-8")
-settings = (root / "ui/SettingsScreen.kt").read_text(encoding="utf-8")
-main_screen = (root / "ui/MainScreen.kt").read_text(encoding="utf-8")
-assert "fun GlassIconButton(" in glass
-assert "fun GlassTextButton(" in glass
-assert ".glassEffect(" in glass
-assert "interactionSource = interactionSource" in glass
-assert ".interactive()" in glass
-glass_material = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
-assert "interactionSource: MutableInteractionSource? = null" in glass_material
-assert "(interactionSource ?: internalSource).collectIsPressedAsState()" in glass_material
-assert "GlassIconButton(" in ui
-assert "icon = Icons.Default.Edit" in ui
-assert "contentDescription = if (note.isBlank())" in ui
+# Note editor remains opt-in, but the extra Liquid Glass button migration
+# is completely reverted. Saved notes still live in Room.
 assert "if (note.isNotBlank()) {" in ui
+assert "IconButton(" in ui
+assert 'contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú"' in ui
 assert 'text = note.ifBlank { "Thêm ghi chú" }' not in ui
 assert 'text = "${lesson.soTinChi} TC"' not in ui
 assert "note = lessonNotes[item.lesson.idTkb].orEmpty()" in ui
 assert "onEditNote = { noteLesson = item.lesson }" in ui
 assert "viewModel.saveLessonNote(lesson.idTkb, note)" in ui
-assert "GlassTextButton(text = \"Lưu\"" in ui
-assert "GlassTextButton(text = \"Huỷ\"" in ui
-assert "GlasIconButton" not in ui  # catch misspelled component references
-assert "GlassIconButton(" in settings and "GlassIconButton(" in main_screen
-assert "glassEffect(" in settings
-assert "GlassTextButton(text = \"Đóng\"" in settings
-login_ui = (root / "ui/LoginScreen.kt").read_text(encoding="utf-8")
-update_dialog = (root / "ui/UpdateDialog.kt").read_text(encoding="utf-8")
-for screen in (ui, settings, main_screen, login_ui, update_dialog):
-    assert "GlassIconButton(" in screen or "GlassTextButton(" in screen
-assert "GlassTextButton(" in login_ui
-assert "GlassIconButton(" in login_ui
-assert "GlassTextButton(" in update_dialog
-assert "GlassIconButton(" in main_screen
-assert 'GlassTextButton(text = "Huỷ"' in ui
-assert 'contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú"' in ui
+assert "TextButton(onClick = { onSave(note.trim()) })" in ui
+assert "GlassIconButton(" not in ui
+assert "GlassTextButton(" not in ui
+assert not (root / "ui/glass/GlassButtons.kt").exists()
+glass = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
+assert "interactionSource: MutableInteractionSource? = null" not in glass
 
 # Guard exact legacy demo fingerprint: never delete arbitrary valid exams.
 assert "exams.size != fixture.size || keys != fixture" in db_source
