@@ -9,3 +9,7 @@ local.properties
 *.keystore
 # OS
 .DS_Store
+
+# Generated native Rust artifacts; never commit host- or ABI-specific binaries.
+rust-core/target/
+app/src/main/jniLibs/
