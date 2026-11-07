@@ -97,6 +97,7 @@ class TimetableViewModel(
     val hocKy: Int = authStore.hocKy.takeIf { it != 0 } ?: repository.defaultHocKy
 
     private val _selectedWeek = MutableStateFlow<Int?>(null)
+    private val _todayYmd = MutableStateFlow(localTodayYmd())
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
@@ -132,8 +133,8 @@ class TimetableViewModel(
         .map { notes -> notes.associate { it.lessonId to it.note } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val currentWeekNumber: StateFlow<Int?> = weeks.map { weekList ->
-        currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
+    val currentWeekNumber: StateFlow<Int?> = combine(weeks, _todayYmd) { weekList, today ->
+        currentWeekNumber(weekList, today) ?: weekList.firstOrNull()?.tuanHocKy
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
@@ -154,9 +155,9 @@ class TimetableViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val selectedWeek: StateFlow<Int?> = combine(visibleWeeks, _selectedWeek) { weekList, selected ->
-        val current = currentWeekNumber(weekList) ?: weekList.firstOrNull()?.tuanHocKy
-        val validSelected = selected?.takeIf { s -> weekList.any { it.tuanHocKy == s } }
+    val selectedWeek: StateFlow<Int?> = combine(visibleWeeks, _selectedWeek, _todayYmd) { weekList, selected, today ->
+        val current = currentWeekNumber(weekList, today) ?: weekList.firstOrNull()?.tuanHocKy
+        val validSelected = selected?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
         validSelected ?: current
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -224,6 +225,15 @@ class TimetableViewModel(
         _selectedWeek.value = week
     }
 
+    /** Re-evaluate the local date after returning from the background. */
+    fun updateToday() {
+        val actualToday = localTodayYmd()
+        if (_todayYmd.value != actualToday) {
+            _todayYmd.value = actualToday
+            _selectedWeek.value = null // Follow the new current week at midnight.
+        }
+    }
+
     fun moveWeek(delta: Int) {
         val list = visibleWeeks.value
         if (list.isEmpty()) return
@@ -284,36 +294,19 @@ class TimetableViewModel(
         }
     }
 
-    /** Tuần chứa ngày hôm nay, theo ngay_bat_dau/ngay_ket_thuc dạng dd/MM/yyyy. */
-    private fun currentWeekNumber(weekList: List<WeekEntity>): Int? {
+    /** Compare normalized local calendar dates, not stale week-flow timestamps. */
+    private fun currentWeekNumber(weekList: List<WeekEntity>, todayYmd: String): Int? {
         if (weekList.isEmpty()) return null
-        val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-        for (week in weekList) {
-            val start = runCatching { fmt.parse(week.ngayBatDau.trim().take(10)) }.getOrNull() ?: continue
-            val end = runCatching { fmt.parse(week.ngayKetThuc.trim().take(10)) }.getOrNull() ?: continue
-            val endCal = Calendar.getInstance().apply {
-                time = end
-                set(Calendar.HOUR_OF_DAY, 23)
-                set(Calendar.MINUTE, 59)
-                set(Calendar.SECOND, 59)
+        val ordered = weekList.sortedBy { normalizeDateToYmd(it.ngayBatDau) }
+        return ordered.firstOrNull { week ->
+            todayYmd >= normalizeDateToYmd(week.ngayBatDau) &&
+                todayYmd <= normalizeDateToYmd(week.ngayKetThuc)
+        }?.tuanHocKy
+            ?: if (todayYmd < normalizeDateToYmd(ordered.first().ngayBatDau)) {
+                ordered.first().tuanHocKy
+            } else {
+                ordered.last().tuanHocKy
             }
-            if (!today.before(start) && !today.after(endCal.time)) return week.tuanHocKy
-        }
-        val firstStart = runCatching { fmt.parse(weekList.first().ngayBatDau.trim().take(10)) }.getOrNull()
-        if (firstStart != null && today.before(firstStart)) {
-            return weekList.first().tuanHocKy
-        }
-        val lastEnd = runCatching { fmt.parse(weekList.last().ngayKetThuc.trim().take(10)) }.getOrNull()
-        if (lastEnd != null && today.after(lastEnd)) {
-            return weekList.last().tuanHocKy
-        }
-        return weekList.firstOrNull()?.tuanHocKy
     }
 }
 
