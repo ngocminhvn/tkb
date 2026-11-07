@@ -24,7 +24,9 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 - Không có hai chức năng nhập JSON/CSV/TSV bằng tay; nguồn lịch học và lịch thi mới duy nhất là API TNUT theo phiên đăng nhập.
 - Khi đồng bộ lỗi (mạng, HTTP 401), giữ nguyên dữ liệu thật đã tải trước đó; không tạo ra lịch thi giả. Nếu phiên hết hạn, thử đăng nhập lại trong app.
 - Những bản cũ đã từng chèn 6 lịch thi mẫu: bản mới chỉ tự dọn nếu cả 6 dòng trong cache khớp chính xác bộ mẫu; các lịch thi thật và ghi chú không bị xóa.
-- Các ngày đã qua (cả lịch học và lịch thi) được ẩn mặc định. Có thể chạm để hiện lại; bộ lọc ngày được cập nhật khi app quay lại foreground.
+- Màn hình chính hiển thị đủ bảy ngày trong tuần; mở vào ngày hôm nay và tự cuộn đến mục tương ứng, chạm ngày khác để cuộn đến ngày đó. Dải lịch hỗ trợ xem lịch tháng; chạm lại ngày đã chọn để thu gọn. Ngày hiện tại được cập nhật sau nửa đêm.
+- Nhắc lịch **hôm nay** và **ngày mai** độc lập trong Cài đặt, mặc định tắt. Người dùng chọn giờ cho từng loại, Android xin quyền thông báo khi cần; lịch nhắc được lên lại sau khi khởi động máy hoặc đổi giờ/múi giờ.
+- Thông báo tổng hợp các buổi học/thi từ Room trong học kỳ hiện tại, không gọi mạng nền liên tục. Android có thể giao nhắc muộn hơn thời điểm chọn khi tiết kiệm pin.
 - Nếu chưa từng đồng bộ thành công, ứng dụng không thể biết lịch thi chính xác từ một ảnh bảng lịch dùng chung; cần đăng nhập để tải dữ liệu riêng từ portal.
 
 ## Kỹ thuật
