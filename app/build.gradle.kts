@@ -11,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sv.tnu"
+        applicationId = "com.tkb.sv"
         minSdk = 24
         targetSdk = 35
         // CI overwrites both with sed (versionCode = 100000 + run number, versionName = 1.0.<run number>)
