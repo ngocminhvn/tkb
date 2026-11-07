@@ -33,18 +33,28 @@ assert "sample_tkb_tuan_20261.json" not in repo
 assert "dao.removeLegacySampleExamsIfExact(hocKy)" in repo
 assert "suspend fun removeLegacySampleExamsIfExact(hocKy: Int)" in db_source
 
-# Empty portal payloads must not wipe real or imported offline exams.
-assert "if (fetchedCuoiKy && finalExams.isNotEmpty())" in repo
-assert "if (fetchedGiuaKy && midtermExams.isNotEmpty())" in repo
+# The exam endpoint must use a fully specified, non-default request body.
+models = (root / "tnut/TnutModels.kt").read_text(encoding="utf-8")
+assert "ExamRequest.forSemester(hocKy, isGiuaKy, page)" in repo
+assert "val isGiuaKy: Boolean," in models
+assert "data class ExamPaging(" in models
+assert "val limit: Int," in models and "val page: Int," in models
+assert "data class ExamAdditional(" in models
+assert "ExamOrdering(name = null, orderType = null)" in models
+assert 'SerialName("is_giua_ky")' in models
+assert "val additional: ExamAdditional," in models
+
+# No missing/partial page is allowed to wipe genuine cached or imported exams.
+assert "private suspend fun loadPortalExams(" in repo
+assert "data.totalPages?.takeIf { it > 0 }" in repo
+assert "page < maxPages" in repo
+assert "if (exams.isNotEmpty())" in repo
+assert "dao.replaceExamsByType(hocKy, isGiuaKy, exams)" in repo
 assert "incomingLessons == 0" in repo
 assert "Dữ liệu đã lưu được giữ nguyên" in repo
 assert "return Result.failure(" in repo
-assert "dao.replaceExamsByType(hocKy, false, finalExams)" in repo
-assert "dao.replaceExamsByType(hocKy, true, midtermExams)" in repo
 assert "suspend fun deleteExamsByType(" in db_source
 assert "suspend fun replaceExamsByType(" in db_source
-assert "resCuoiKy.data != null" in repo
-assert "resGiuaKy.data != null" in repo
 assert "suspend fun importPersonalTimetable(uri: Uri, hocKy: Int)" in repo
 assert "suspend fun importPersonalExams(uri: Uri, hocKy: Int)" in repo
 assert "dao.replaceExamsByType(hocKy, false, exams)" in repo
