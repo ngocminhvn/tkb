@@ -97,6 +97,31 @@ assert "if (showPastDays)" in ui
 assert "event == Lifecycle.Event.ON_RESUME" in ui
 assert "todayStr = localTodayYmd()" in ui
 
+# Lesson notes must be edited only on demand. A saved note is the only
+# reason to render the note row; the top-right credit badge is now a glass
+# pencil. Notes remain bound to Room and are not tied to a local UI-only state.
+glass = (root / "ui/glass/GlassButtons.kt").read_text(encoding="utf-8")
+settings = (root / "ui/SettingsScreen.kt").read_text(encoding="utf-8")
+main_screen = (root / "ui/MainScreen.kt").read_text(encoding="utf-8")
+assert "fun GlassIconButton(" in glass
+assert "fun GlassTextButton(" in glass
+assert ".glassEffect(" in glass
+assert "GlassIconButton(" in ui
+assert "icon = Icons.Default.Edit" in ui
+assert "contentDescription = if (note.isBlank())" in ui
+assert "if (note.isNotBlank()) {" in ui
+assert 'text = note.ifBlank { "Thêm ghi chú" }' not in ui
+assert 'text = "${lesson.soTinChi} TC"' not in ui
+assert "note = lessonNotes[item.lesson.idTkb].orEmpty()" in ui
+assert "onEditNote = { noteLesson = item.lesson }" in ui
+assert "viewModel.saveLessonNote(lesson.idTkb, note)" in ui
+assert "GlassTextButton(text = \"Lưu\"" in ui
+assert "GlassTextButton(text = \"Huỷ\"" in ui
+assert "GlasIconButton" not in ui  # catch misspelled component references
+assert "GlassIconButton(" in settings and "GlassIconButton(" in main_screen
+assert "glassEffect(" in settings
+assert "GlassTextButton(text = \"Đóng\"" in settings
+
 # Guard exact legacy demo fingerprint: never delete arbitrary valid exams.
 assert "exams.size != fixture.size || keys != fixture" in db_source
 assert "exams.any { it.isGiuaKy || it.isHoanThi }" in db_source
