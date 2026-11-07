@@ -100,10 +100,10 @@ object TnutApiClient {
                 refreshed
             }
 
-            val access = session?.accessToken?.takeIf { it.isNotBlank() }
+            val validSession = session?.takeIf { it.accessToken.isNotBlank() }
                 ?: return@synchronized null
-            authStore.saveTokens(session)
-            access
+            authStore.saveTokens(validSession)
+            validSession.accessToken
         }
 
     fun create(authStore: AuthStore): TnutApi {
