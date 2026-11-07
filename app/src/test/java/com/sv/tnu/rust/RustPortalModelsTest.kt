@@ -42,7 +42,7 @@ class RustPortalModelsTest {
                 out.writeInt(1)
                 out.writeInt(2)
                 listOf("MAT01", "Toán", "2", "101", "GV", "A", "01")
-                    .forEach(out::utf8)
+                    .forEach { out.utf8(it) }
             }
         }.toByteArray()
 
@@ -67,10 +67,10 @@ class RustPortalModelsTest {
                 out.writeByte(1) // isGiuaKy
                 out.writeInt(1)
                 listOf("MAT01", "Toán", "2026-11-07", "07:00")
-                    .forEach(out::utf8)
+                    .forEach { out.utf8(it) }
                 out.writeInt(90)
                 listOf("P101", "", "", "01", "", "")
-                    .forEach(out::utf8)
+                    .forEach { out.utf8(it) }
                 out.writeByte(0) // isHoanThi
             }
         }.toByteArray()
