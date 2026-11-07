@@ -78,7 +78,7 @@ assert "PortalBinaryDecoder.decodeExams(" in native_bridge
 assert "page < maxPages" in repo
 assert "if (exams.isNotEmpty())" in repo
 assert "dao.replaceExamsByType(hocKy, isGiuaKy, exams)" in repo
-assert "Dữ liệu đã lưu được giữ nguyên" in repo
+assert "Dữ liệu đã lưu được giữ nguyên" in native_portal
 assert "suspend fun deleteExamsByType(" in db_source
 assert "suspend fun replaceExamsByType(" in db_source
 assert "saveToDb(hocKy, data)" in repo
