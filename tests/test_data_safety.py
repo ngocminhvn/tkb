@@ -121,7 +121,8 @@ calendar = (root / "ui/WeekDatePicker.kt").read_text(encoding="utf-8")
 glass = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
 assert "(lessonItems + examItems)" in ui
 assert "weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }" in ui
-assert "val listState = rememberLazyListState()" in ui
+assert "val listState = key(startDayYmd) {" in ui
+assert "rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)" in ui
 assert "listState.animateScrollToItem(target)" in ui
 assert "listState.scrollToItem(target)" in ui
 assert "scrollRequest++" in ui
@@ -140,7 +141,10 @@ assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
 assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
 assert "val weeks by viewModel.weeks.collectAsState()" in ui
-assert "combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek)" in ui
+assert "combine(weeks, _todayYmd, _visibleWeekCount, _selectedWeek)" in ui
+assert "combine(weeks, _selectedWeek, _todayYmd)" in ui
+assert "combine(visibleWeeks, _selectedWeek, _todayYmd)" not in ui
+assert "combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek)" not in ui
 assert "val list = weeks.value" in ui
 assert "list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy" in ui
 assert "val semesterLessons by viewModel.semesterLessons.collectAsState()" in ui

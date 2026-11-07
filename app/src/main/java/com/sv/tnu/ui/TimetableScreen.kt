@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -148,13 +149,15 @@ class TimetableViewModel(
      * Ví dụ 5 tuần: (5-1)/2 = 2 tuần trước, 1 tuần hiện tại, 2 tuần sau.
      */
     val visibleWeeks: StateFlow<List<WeekEntity>> =
-        combine(weeks, currentWeekNumber, _visibleWeekCount, _selectedWeek) { weekList, curr, count, manual ->
+        combine(weeks, _todayYmd, _visibleWeekCount, _selectedWeek) { weekList, today, count, manual ->
             if (weekList.isEmpty()) emptyList()
             else {
                 // Preserve the number-of-weeks setting while allowing month
                 // navigation to any available semester week. Recenter the
                 // window on an explicitly selected week.
-                val center = manual ?: curr ?: weekList.firstOrNull()?.tuanHocKy ?: 1
+                // Calculate the current week from the same Room emission rather
+                // than waiting for a separate StateFlow with an initial null.
+                val center = manual ?: currentWeekNumber(weekList, today) ?: 1
                 val n = count.coerceIn(1, 20)
                 val weeksBefore = (n - 1) / 2
                 val weeksAfter = n - 1 - weeksBefore
@@ -162,8 +165,10 @@ class TimetableViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val selectedWeek: StateFlow<Int?> = combine(visibleWeeks, _selectedWeek, _todayYmd) { weekList, selected, today ->
-        val current = currentWeekNumber(weekList, today) ?: weekList.firstOrNull()?.tuanHocKy
+    // Derive directly from Room weeks so the first cache emission cannot
+    // momentarily select the semester's first (outdated) week.
+    val selectedWeek: StateFlow<Int?> = combine(weeks, _selectedWeek, _todayYmd) { weekList, selected, today ->
+        val current = currentWeekNumber(weekList, today)
         val validSelected = selected?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
         validSelected ?: current
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -437,7 +442,6 @@ fun TimetableScreen(
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
     var scrollRequest by remember { mutableIntStateOf(0) }
-    val listState = rememberLazyListState()
     var hasAutoScrolled by remember { mutableStateOf(false) }
     // Reopening TKB always returns to today instead of a stale selected week.
     androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.focusToday() }
@@ -545,7 +549,15 @@ fun TimetableScreen(
         if (startDayYmd.isBlank()) emptyMap()
         else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
     }
-    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped) {
+    // A new week must paint at the selected/current day on its first frame;
+    // scrolling only after composition briefly exposes earlier lessons.
+    val initialDayIndex = displayedGrouped.keys.indexOf(selectedDay).takeIf { it >= 0 }
+        ?: displayedGrouped.keys.indexOf(todayStr).takeIf { it >= 0 }
+        ?: 0
+    val listState = key(startDayYmd) {
+        rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
+    }
+    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped, listState) {
         if (selectedDay in displayedGrouped) {
             // Each calendar day is one row: left date rail and right cards.
             val target = displayedGrouped.keys.indexOf(selectedDay)
