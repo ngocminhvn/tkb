@@ -85,6 +85,19 @@ class TnutRepository(
                     IllegalStateException(res.message ?: "Không tải được thời khóa biểu (${res.code})"),
                 )
             }
+            // A portal response may be HTTP/code 200 but contain no lessons.
+            // Never overwrite genuine offline lessons/weeks with that empty
+            // response, nor label it a successful synchronization.
+            val incomingLessons = res.data.dsTuanTkb.sumOf { it.dsThoiKhoaBieu.size }
+            if (res.data.dsTuanTkb.isEmpty() || incomingLessons == 0) {
+                // Exam endpoint may still return valid rows independently.
+                fetchAndSaveExams(hocKy)
+                return Result.failure(
+                    IllegalStateException(
+                        "Portal trả lịch học rỗng (học kỳ $hocKy). Dữ liệu đã lưu được giữ nguyên; có thể nhập bản sao lưu."
+                    ),
+                )
+            }
             saveToDb(hocKy, res.data)
             authStore.hocKy = hocKy
             // Save successful timetable sync immediately; auxiliary exam/avatar
@@ -301,16 +314,21 @@ class TnutRepository(
             // Trust successful portal responses (including an empty exam list).
             // Only replace the exam type whose endpoint succeeded; keep the
             // previous offline cache for any type whose request failed.
-            if (fetchedCuoiKy) {
+            // A successful-but-empty portal response is NOT proof that the
+            // student's manually imported/offline exam schedule was cancelled.
+            if (fetchedCuoiKy && finalExams.isNotEmpty()) {
                 dao.replaceExamsByType(hocKy, false, finalExams)
             }
-            if (fetchedGiuaKy) {
+            if (fetchedGiuaKy && midtermExams.isNotEmpty()) {
                 dao.replaceExamsByType(hocKy, true, midtermExams)
             }
-            if (fetchedCuoiKy || fetchedGiuaKy) {
+            if ((fetchedCuoiKy && finalExams.isNotEmpty()) ||
+                (fetchedGiuaKy && midtermExams.isNotEmpty())) {
                 TimetableWidgetProvider.updateAll(context)
+                Result.success(Unit)
+            } else {
+                Result.failure(IllegalStateException("Portal chưa cung cấp dữ liệu lịch thi. Giữ lịch đã lưu trên máy."))
             }
-            Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TnutRepository", "fetchAndSaveExams error", e)
             Result.failure(e)
