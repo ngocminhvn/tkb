@@ -226,6 +226,12 @@ class TimetableViewModel(
         _selectedWeek.value = week
     }
 
+    /** Return to the actual current week when the main TKB tab opens. */
+    fun focusToday() {
+        updateToday()
+        _selectedWeek.value = null
+    }
+
     /** Re-evaluate the local date after returning from the background. */
     fun updateToday() {
         val actualToday = localTodayYmd()
@@ -426,6 +432,8 @@ fun TimetableScreen(
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
+    // Reopening TKB always returns to today instead of a stale selected week.
+    androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.focusToday() }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
