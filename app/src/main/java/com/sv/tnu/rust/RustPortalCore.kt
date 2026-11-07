@@ -63,7 +63,7 @@ object RustPortalCore {
 }
 
 /** Versioned native binary bridge, big-endian integers and length-prefixed UTF-8. */
-internal object PortalBinaryDecoder {
+object PortalBinaryDecoder {
     data class TimetableRows(
         val periods: List<PeriodEntity>,
         val weeks: List<WeekEntity>,
