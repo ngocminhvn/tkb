@@ -132,7 +132,7 @@ fun UpdateDialog(
 
                     else -> {
                         Text(
-                            text = "Gói cập nhật được tải trực tiếp từ GitHub Releases của SvTNU và kiểm tra SHA-256 trước khi cài đặt.",
+                            text = "Gói cập nhật được tải trực tiếp từ GitHub Releases của TKB SV và kiểm tra SHA-256 trước khi cài đặt.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
