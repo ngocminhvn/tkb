@@ -616,7 +616,8 @@ fun TimetableScreen(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .height(64.dp)
+                    .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 UserAvatar(
@@ -630,13 +631,15 @@ fun TimetableScreen(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = studentName?.takeIf { it.isNotBlank() } ?: "Sinh viên TNUT",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (!studentName.isNullOrBlank()) {
+                        Text(
+                            text = studentName.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Text(
                         text = viewModel.studentId.ifBlank { "Chưa có MSSV" }.uppercase(Locale.ROOT),
                         style = MaterialTheme.typography.bodySmall,
