@@ -1,7 +1,5 @@
 package com.sv.tnu.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,7 +56,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +63,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
@@ -75,7 +71,6 @@ import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,40 +96,6 @@ fun SettingsScreen(
     val examSyncError by timetableViewModel.examSyncError.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var importStatus by remember { mutableStateOf<String?>(null) }
-    var importInProgress by remember { mutableStateOf(false) }
-    val importScope = rememberCoroutineScope()
-    val timetableJsonPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null && !importInProgress) {
-            importInProgress = true
-            importStatus = null
-            importScope.launch {
-                try {
-                    repository.importPersonalTimetable(uri, timetableViewModel.hocKy)
-                        .onSuccess { count -> importStatus = "Đã khôi phục $count buổi học từ tệp cá nhân." }
-                        .onFailure { e -> importStatus = "Không thể nhập TKB: ${e.message ?: "Tệp không hợp lệ"}" }
-                } finally {
-                    importInProgress = false
-                }
-            }
-        }
-    }
-    val examCsvPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null && !importInProgress) {
-            importInProgress = true
-            importStatus = null
-            importScope.launch {
-                try {
-                    repository.importPersonalExams(uri, timetableViewModel.hocKy)
-                        .onSuccess { count -> importStatus = "Đã nhập $count môn thi từ bảng CSV/TSV." }
-                        .onFailure { e -> importStatus = "Không thể nhập lịch thi: ${e.message ?: "Tệp không hợp lệ"}" }
-                } finally {
-                    importInProgress = false
-                }
-            }
-        }
-    }
-
     LaunchedEffect(authStore.username, avatarPath) {
         val username = authStore.username
         if (!username.isNullOrBlank() && avatarPath.isNullOrBlank()) {
@@ -536,36 +497,6 @@ fun SettingsScreen(
                     }
                 },
             )
-
-            ActionCard(
-                icon = Icons.Default.School,
-                title = "Khôi phục thời khóa biểu từ JSON",
-                subtitle = "Chọn bản sao lưu cá nhân (được giữ offline trên máy)",
-                onClick = { if (!importInProgress) timetableJsonPicker.launch("*/*") },
-            )
-
-            ActionCard(
-                icon = Icons.Default.DateRange,
-                title = "Nhập lịch thi từ Excel (CSV/TSV)",
-                subtitle = "Xuất bảng Excel thành CSV UTF-8 rồi chọn tệp",
-                onClick = { if (!importInProgress) examCsvPicker.launch("*/*") },
-            )
-
-            if (importInProgress) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("Đang kiểm tra và nhập dữ liệu...", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            importStatus?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
 
             ActionCard(
                 icon = Icons.Default.Info,
