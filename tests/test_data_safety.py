@@ -326,4 +326,27 @@ assert conn.execute("SELECT COUNT(*) FROM weeks").fetchone()[0] == 1
 for index in ("index_exams_hocKy_ngayThi", "index_exams_ngayThi", "index_lessons_ngayHoc"):
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index,)).fetchone(), index
 conn.close()
-print("OK: timetable/notes survive sync, demo exams are excluded, past exams hide, v1-v4 migration preserves data")
+
+# Android builds now execute native Rust schedule logic and must ship every ABI.
+rust_bridge = (root / "rust/RustScheduleCore.kt").read_text(encoding="utf-8")
+rust_source = Path("rust-core/src/lib.rs").read_text(encoding="utf-8")
+rust_jni = Path("rust-core/src/android.rs").read_text(encoding="utf-8")
+build_script = Path("scripts/build-rust-android.sh").read_text(encoding="utf-8")
+assert "System.loadLibrary(\"tkb_core\")" in rust_bridge
+assert "private external fun normalizeDateNative" in rust_bridge
+assert "private external fun examEndTimeNative" in rust_bridge
+assert "RustScheduleCore.normalizeDate(dateStr)" in ui
+assert "RustScheduleCore.examEndTime(gioBatDau, soPhut)" in ui
+assert "RustScheduleCore.moveCalendarDay(selectedYmd, direction)" in ui
+assert "RustScheduleCore.weekDates(start)" in calendar
+assert "RustScheduleCore.normalizeDate(dateStr)" in repo
+assert "pub fn move_calendar_day(" in rust_source
+assert "pub fn calendar_week_dates(" in rust_source
+assert "Java_com_sv_tnu_rust_RustScheduleCore_weekDatesNative" in rust_jni
+assert "cargo ndk -p 24" in build_script
+assert "dependsOn(verifyRustNativeLibraries)" in build_config
+assert "cargo test --manifest-path rust-core/Cargo.toml" in workflow
+assert "bash scripts/build-rust-android.sh" in workflow
+assert (Path("app/src/test/java/com/sv/tnu/rust/RustScheduleCoreTest.kt")).exists()
+
+print("OK: timetable/notes survive sync, demo exams are excluded, past exams hide, v1-v4 migration preserves data; Rust JNI bridge and Android ABIs configured")
