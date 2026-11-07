@@ -175,6 +175,31 @@ assert "getBoolean(KEY_REMIND_TOMORROW, false)" in auth_store
 assert "ScheduleReminders.syncAll(this)" in main_activity
 assert "ScheduleReminders.cancelAll(this@MainActivity)" in main_activity
 
+# Swipe gestures navigate by one DATE even across a week boundary.
+# The profile header uses the logged-in account, never a hardcoded ID/name.
+profile_models = (root / "tnut/TnutModels.kt").read_text(encoding="utf-8")
+auth_store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
+assert "internal fun adjacentTimetableDay(" in ui
+assert "detectHorizontalDragGestures(" in ui
+assert "changeSelectedDay(if (totalDrag < 0f) 1 else -1)" in ui
+assert "val next = adjacentTimetableDay(selectedDay, direction, weeks)" in ui
+assert "if (selectedWeek != next.second) viewModel.selectWeek(next.second)" in ui
+assert "UserAvatar(" in ui
+assert "val avatarPath by viewModel.avatarPath.collectAsState()" in ui
+assert "val studentName by viewModel.studentName.collectAsState()" in ui
+assert "viewModel.studentId.ifBlank" in ui
+assert '"Sinh viên TNUT"' in ui
+assert "background(MaterialTheme.colorScheme.primary)" in ui
+assert '"Thời khóa biểu • Học kỳ' in ui
+assert "studentName: StateFlow<String?> = repository.studentName" in ui
+assert "val studentName: StateFlow<String?>" in repo
+assert "authStore.studentName = name" in repo
+assert '@SerialName("ho_ten") val hoTen: String? = null' in profile_models
+assert "var studentName: String?" in auth_store
+assert "lastProfileCheck" in auth_store
+assert (Path("app/src/test/java/com/sv/tnu/ui/TimetableSwipeTest.kt")).exists()
+assert (Path("app/src/test/java/com/sv/tnu/tnut/StudentProfileTest.kt")).exists()
+
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
 assert "if (note.isNotBlank()) {" in ui
