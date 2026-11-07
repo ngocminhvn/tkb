@@ -177,7 +177,6 @@ fun WeekDatePicker(
     todayYmd: String,
     eventDays: Set<String>,
     availableWeeks: List<WeekEntity>,
-    currentWeekNumber: Int?,
     onPickDate: (String, Int) -> Unit,
     onMoveDay: (Int) -> Unit,
 ) {
