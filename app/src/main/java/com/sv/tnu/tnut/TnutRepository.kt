@@ -103,10 +103,12 @@ class TnutRepository(
             // Retrofit/OkHttp still owns HTTP + token refresh. Rust receives the
             // original response bytes, parses the portal wrapper once, and
             // returns compact binary records; no Kotlin JSON round-trip.
-            val raw = api.weeklyTimetable(
-                WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy))
-            ).use { it.bytes() }
-            val data = RustPortalCore.mapTimetable(hocKy, raw)
+            val data = withContext(Dispatchers.IO) {
+                val raw = api.weeklyTimetable(
+                    WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy))
+                ).use { it.bytes() }
+                RustPortalCore.mapTimetable(hocKy, raw)
+            }
             saveToDb(hocKy, data)
             authStore.hocKy = hocKy
             authStore.lastSyncTime = System.currentTimeMillis()
@@ -195,11 +197,13 @@ class TnutRepository(
         val maxPages = 50
         var page = 1
         while (true) {
-            val raw = api.exams(
-                ExamRequest.forSemester(hocKy, isGiuaKy, page)
-            ).use { it.bytes() }
-            // Rust rejects invalid portal pages before any Room replacement.
-            val mapped = RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
+            val mapped = withContext(Dispatchers.IO) {
+                val raw = api.exams(
+                    ExamRequest.forSemester(hocKy, isGiuaKy, page)
+                ).use { it.bytes() }
+                // Rust rejects invalid portal pages before any Room replacement.
+                RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
+            }
             all.addAll(mapped.rows)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
