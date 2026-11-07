@@ -614,39 +614,39 @@ fun TimetableScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 UserAvatar(
                     avatarPath = avatarPath,
                     defaultIcon = Icons.Default.Person,
                     modifier = Modifier
-                        .size(56.dp)
-                        .border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape),
-                    iconSize = 28.dp,
+                        .size(42.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), CircleShape),
+                    iconSize = 22.dp,
                     contentDescription = "Ảnh đại diện sinh viên",
                 )
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = studentName?.takeIf { it.isNotBlank() } ?: "Sinh viên TNUT",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = viewModel.studentId.ifBlank { "Chưa có MSSV" }.uppercase(Locale.ROOT),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.94f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
                         maxLines = 1,
                     )
                     Text(
-                        text = "Thời khóa biểu • Học kỳ ${viewModel.hocKy}",
+                        text = "Học kỳ ${viewModel.hocKy}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.78f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
                     )
                 }
                 IconButton(
@@ -655,15 +655,15 @@ fun TimetableScreen(
                 ) {
                     if (refreshing) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 2.dp,
                         )
                     } else {
                         Icon(
                             Icons.Filled.Refresh,
                             contentDescription = "Đồng bộ thời khóa biểu",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onBackground,
                         )
                     }
                 }
@@ -919,13 +919,13 @@ private fun LessonCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
-        border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+        border = if (isToday) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // The pencil replaces the old credits badge. The note editor
             // opens only when the student taps it; the original icon-button
             // style is retained (no newly added Liquid Glass buttons).
@@ -941,48 +941,50 @@ private fun LessonCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(
                     onClick = onEditNote,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(32.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = if (note.isBlank()) "Thêm ghi chú" else "Sửa ghi chú",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(5.dp))
 
             // Time & Period pill
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     imageVector = Icons.Default.AccessTime,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = time,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "• Tiết ${lesson.tietBatDau} (${lesson.soTiet} tiết)",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "• T${lesson.tietBatDau} · ${lesson.soTiet} tiết",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    maxLines = 1,
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(7.dp))
 
             // Details info
             Row(
@@ -1002,7 +1004,7 @@ private fun LessonCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1021,7 +1023,7 @@ private fun LessonCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1043,11 +1045,11 @@ private fun LessonCard(
 
             // Only saved notes occupy a row; empty cards show the pencil only.
             if (note.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                         .clickable(onClick = onEditNote)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
