@@ -45,8 +45,9 @@ fun GlassIconButton(
         modifier = modifier
             .size(size)
             .glassEffect(
-                glass = Glass(alpha = if (dark) 0.60f else 0.78f),
+                glass = Glass(alpha = if (dark) 0.60f else 0.78f).interactive(),
                 shape = CircleShape,
+                interactionSource = interactionSource,
             )
             .clickable(
                 enabled = enabled && !loading,
@@ -84,14 +85,22 @@ fun GlassTextButton(
     tint: Color = MaterialTheme.colorScheme.primary,
 ) {
     val dark = LocalGlassConfig.current.dark
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .defaultMinSize(minHeight = 40.dp)
             .glassEffect(
-                glass = Glass(alpha = if (dark) 0.60f else 0.78f),
+                glass = Glass(alpha = if (dark) 0.60f else 0.78f).interactive(),
                 shape = CapsuleShape,
+                interactionSource = interactionSource,
             )
-            .clickable(enabled = enabled && !loading, role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled && !loading,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .padding(horizontal = 16.dp, vertical = 9.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
