@@ -112,6 +112,9 @@ interface TkbDao {
     @Query("SELECT * FROM exams WHERE hocKy = :hocKy ORDER BY ngayThi ASC, gioBatDau ASC")
     fun exams(hocKy: Int): Flow<List<ExamEntity>>
 
+    @Query("SELECT * FROM exams WHERE hocKy = :hocKy")
+    suspend fun examsOnce(hocKy: Int): List<ExamEntity>
+
     @Query("SELECT * FROM lesson_notes ORDER BY updatedAt DESC")
     fun lessonNotes(): Flow<List<LessonNoteEntity>>
 
@@ -186,6 +189,31 @@ interface TkbDao {
     suspend fun replaceExamsByType(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>) {
         deleteExamsByType(hocKy, isGiuaKy)
         insertExams(exams)
+    }
+
+    /**
+     * Older APKs inserted SIX hard-coded demonstration exam rows into the
+     * user's Room DB. Remove ONLY the complete, exact legacy fixture; if even
+     * one row differs, keep everything to avoid deleting real portal data.
+     * This is deliberately not a destructive database migration.
+     */
+    @Transaction
+    suspend fun removeLegacySampleExamsIfExact(hocKy: Int): Boolean {
+        val exams = examsOnce(hocKy)
+        val fixture = setOf(
+            "B103BC1|2026-11-08|14:25|THECHAT|002",
+            "MEC0347|2026-11-12|07:00|DOT1|MEC0347_61TDH8_02",
+            "BAS203|2026-11-15|07:00|DOT1|BAS203_61TDH8_01",
+            "TEE0220|2026-11-18|12:45|DOT1|TEE0220_61TDH8_02",
+            "ELE309|2026-11-25|10:45|DOT1|ELE309_61TDH8_02",
+            "ELE201|2026-11-30|10:45|DOT1|ELE201_61TDH8_02",
+        )
+        if (exams.size != fixture.size || exams.any { exam ->
+                exam.isGiuaKy || exam.isHoanThi ||
+                    "${exam.maMon}|${exam.ngayThi}|${exam.gioBatDau}|${exam.dotThi}|${exam.soBaoDanh}" !in fixture
+            }) return false
+        deleteExams(hocKy)
+        return true
     }
 }
 
