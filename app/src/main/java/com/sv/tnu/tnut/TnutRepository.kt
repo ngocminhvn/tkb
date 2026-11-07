@@ -11,6 +11,8 @@ import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.widget.TimetableWidgetProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -145,7 +147,7 @@ class TnutRepository(
     }
 
     /** Lần đầu mở app chưa có dữ liệu: seed Room từ file JSON mẫu trong assets và seed lịch thi vào SQL. */
-    suspend fun seedFromAssetsIfEmpty(hocKy: Int) {
+    suspend fun seedFromAssetsIfEmpty(hocKy: Int) = withContext(Dispatchers.IO) {
         if (dao.weekCount(hocKy) == 0) {
             try {
                 val text = context.assets.open("sample_tkb_tuan_20261.json")
