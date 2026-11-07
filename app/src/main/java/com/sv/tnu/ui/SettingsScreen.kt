@@ -68,6 +68,10 @@ import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
 import com.sv.tnu.ui.components.UserAvatar
+import com.sv.tnu.ui.glass.Glass
+import com.sv.tnu.ui.glass.GlassIconButton
+import com.sv.tnu.ui.glass.GlassTextButton
+import com.sv.tnu.ui.glass.glassEffect
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -116,36 +120,11 @@ fun SettingsScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .shadow(
-                            elevation = 3.dp,
-                            shape = CircleShape,
-                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
-                        )
-                        .background(
-                            if (isDark) Color.White.copy(alpha = 0.12f)
-                            else Color.White.copy(alpha = 0.65f),
-                            CircleShape,
-                        )
-                        .border(
-                            1.dp,
-                            if (isDark) Color.White.copy(alpha = 0.20f)
-                            else Color.White.copy(alpha = 0.85f),
-                            CircleShape,
-                        )
-                        .clip(CircleShape)
-                        .clickable(onClick = onBack),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Quay lại",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                GlassIconButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Quay lại",
+                    onClick = onBack,
+                )
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = "Cài đặt",
@@ -337,17 +316,14 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        FilledTonalIconButton(
+                        GlassIconButton(
+                            icon = Icons.Default.Remove,
+                            contentDescription = "Giảm số tuần",
                             onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount - 1) },
                             enabled = visibleWeekCount > 1,
-                            modifier = Modifier.size(34.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Remove,
-                                contentDescription = "Giảm",
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
+                            size = 34.dp,
+                            iconSize = 16.dp,
+                        )
 
                         Box(
                             modifier = Modifier.widthIn(min = 28.dp),
@@ -360,17 +336,14 @@ fun SettingsScreen(
                             )
                         }
 
-                        FilledTonalIconButton(
+                        GlassIconButton(
+                            icon = Icons.Default.Add,
+                            contentDescription = "Tăng số tuần",
                             onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount + 1) },
                             enabled = visibleWeekCount < 15,
-                            modifier = Modifier.size(34.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Tăng",
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
+                            size = 34.dp,
+                            iconSize = 16.dp,
+                        )
                     }
                 }
             }
@@ -530,29 +503,33 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Logout Button
-            Button(
-                onClick = { showLogoutDialog = true },
+            // Glass logout action retains a distinct destructive color.
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ),
-                shape = RoundedCornerShape(16.dp),
+                    .height(50.dp)
+                    .glassEffect(
+                        glass = Glass(
+                            tint = MaterialTheme.colorScheme.errorContainer,
+                            alpha = if (isDark) 0.38f else 0.70f,
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                    )
+                    .clickable { showLogoutDialog = true },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Logout,
-                    contentDescription = "Logout",
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Đăng xuất tài khoản",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
@@ -577,23 +554,17 @@ fun SettingsScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(
+                    GlassTextButton(
+                        text = "Đăng xuất",
+                        tint = MaterialTheme.colorScheme.error,
                         onClick = {
                             showLogoutDialog = false
                             onLogout()
                         },
-                    ) {
-                        Text(
-                            text = "Đăng xuất",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        )
-                    }
+                    )
                 },
                 dismissButton = {
-                    TextButton(onClick = { showLogoutDialog = false }) {
-                        Text("Hủy")
-                    }
+                    GlassTextButton(text = "Hủy", onClick = { showLogoutDialog = false })
                 },
             )
         }
@@ -720,9 +691,7 @@ fun SettingsScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showExamDialog = false }) {
-                        Text("Đóng")
-                    }
+                    GlassTextButton(text = "Đóng", onClick = { showExamDialog = false })
                 },
             )
         }
@@ -772,14 +741,14 @@ private fun ActionCard(
     trailing: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .glassEffect(
+                glass = Glass(alpha = if (com.sv.tnu.ui.glass.LocalGlassConfig.current.dark) 0.78f else 0.85f),
+                shape = RoundedCornerShape(16.dp),
+            )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
     ) {
         Row(
             modifier = Modifier
