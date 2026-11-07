@@ -146,12 +146,23 @@ private fun CalendarDay(
                     else -> MaterialTheme.colorScheme.onSurface
                 },
             )
+            // A white dot must sit ON the selected blue circle. Below it
+            // would disappear against the light calendar background.
+            if (hasSchedule && enabled && isSelected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 2.dp)
+                        .size(4.dp)
+                        .background(Color.White, CircleShape),
+                )
+            }
         }
         Box(
             modifier = Modifier
                 .size(4.dp)
                 .background(
-                    if (hasSchedule && enabled) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    if (hasSchedule && enabled && !isSelected) selectedDayColor else Color.Transparent,
                     CircleShape,
                 ),
         )
@@ -174,6 +185,14 @@ fun WeekDatePicker(
     var showMonth by rememberSaveable { mutableStateOf(false) }
     var monthOffset by remember { mutableIntStateOf(0) }
     LaunchedEffect(weekStartYmd) { monthOffset = 0 }
+
+    // Both the seven-day strip and expanded month use this same one-tap
+    // selection path. Close the month only after a valid week is selected.
+    fun pickDate(date: String, week: WeekEntity?) {
+        if (week == null) return
+        onPickDate(date, week.tuanHocKy)
+        showMonth = false
+    }
 
     val selectedAnchor = selectedYmd.ifBlank { todayYmd }
     val monthView = remember(selectedAnchor, monthOffset) { monthDates(selectedAnchor, monthOffset) }
@@ -216,10 +235,8 @@ fun WeekDatePicker(
                     hasSchedule = ymd in eventDays,
                     enabled = true,
                     onClick = {
-                        // Re-tapping today's selected date closes the month view.
-                        if (ymd == selectedYmd && showMonth) showMonth = false
                         val week = availableWeeks.firstOrNull { dateInWeek(ymd, it) }
-                        if (week != null) onPickDate(ymd, week.tuanHocKy)
+                        pickDate(ymd, week)
                     },
                     modifier = Modifier.weight(1f),
                     weekend = index >= 5,
@@ -287,12 +304,7 @@ fun WeekDatePicker(
                                     todayYmd = todayYmd,
                                     hasSchedule = ymd in eventDays,
                                     enabled = week != null,
-                                    onClick = {
-                                        if (week != null) {
-                                            onPickDate(ymd, week.tuanHocKy)
-                                            showMonth = false
-                                        }
-                                    },
+                                    onClick = { pickDate(ymd, week) },
                                     modifier = Modifier.weight(1f),
                                     weekend = dayIndex >= 5,
                                 )

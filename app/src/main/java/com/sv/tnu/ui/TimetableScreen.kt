@@ -546,8 +546,13 @@ fun TimetableScreen(
     }
     var scrollRequest by remember { mutableIntStateOf(0) }
     var lastScrollWeek by remember { mutableStateOf<String?>(null) }
-    // Reopening TKB always returns to today instead of a stale selected week.
-    androidx.compose.runtime.LaunchedEffect(viewModel) { viewModel.focusToday() }
+    // Reopening TKB returns to today. Do not let an asynchronous week
+    // emission overwrite a date explicitly picked by the user.
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        pendingWeek = null
+        selectedDay = todayStr
+        viewModel.focusToday()
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -592,13 +597,9 @@ fun TimetableScreen(
     val endDayYmd = remember(weekInfo) {
         weekInfo?.let { normalizeDateToYmd(it.ngayKetThuc) } ?: ""
     }
-    // Sync the highlighted day with navigation: today in the current week,
-    // otherwise the first day of the manually chosen week. Keep explicit taps.
-    androidx.compose.runtime.LaunchedEffect(weekInfo?.tuanHocKy, todayStr) {
-        if (startDayYmd.isNotBlank() && selectedDay !in startDayYmd..endDayYmd) {
-            selectedDay = if (todayStr in startDayYmd..endDayYmd) todayStr else startDayYmd
-        }
-    }
+    // No week-change LaunchedEffect that rewrites selectedDay: while a
+    // cached week is being selected, the old week might still be emitted by
+    // Room. Rewriting here forced a second tap on dates in another week.
 
     // Dots are driven by real portal data only, not a hard-coded calendar.
     val eventDays = remember(semesterLessons, exams) {

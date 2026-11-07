@@ -220,7 +220,15 @@ assert "ScheduleReminderReceiver" in manifest
 assert "ReminderRescheduleReceiver" in manifest
 assert "weekend = index >= 5" in calendar
 assert "weekend = dayIndex >= 5" in calendar
-assert "if (ymd == selectedYmd && showMonth) showMonth = false" in calendar
+assert "fun pickDate(date: String, week: WeekEntity?)" in calendar
+assert "pickDate(ymd, week)" in calendar
+assert "showMonth = false" in calendar
+assert "LaunchedEffect(weekInfo?.tuanHocKy, todayStr)" not in ui
+assert "selectedDay = todayStr" in ui
+assert "pendingWeek = null" in ui
+assert "hasSchedule && enabled && isSelected" in calendar
+assert ".background(Color.White, CircleShape)" in calendar
+assert "hasSchedule && enabled && !isSelected" in calendar
 assert "scrollRequest++" in ui
 assert "bottom = contentPadding.calculateBottomPadding() + maxHeight" in ui
 assert "displayedGrouped.forEach { (date, dayItems) ->" in ui
