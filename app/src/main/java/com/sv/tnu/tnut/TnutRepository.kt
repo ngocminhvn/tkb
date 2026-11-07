@@ -37,6 +37,8 @@ class TnutRepository(
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
+    private val _studentName = MutableStateFlow<String?>(authStore.studentName)
+    val studentName: StateFlow<String?> = _studentName.asStateFlow()
 
     fun periodsFlow(): Flow<List<PeriodEntity>> = dao.periods()
 
@@ -214,7 +216,14 @@ class TnutRepository(
     suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
         return try {
             val res = api.avatar(maSv)
-            val rawImage = res.data?.thongTinSinhVien?.image?.takeIf { it.isNotBlank() }
+            val profile = res.data?.thongTinSinhVien
+            val name = listOf(profile?.hoTen, profile?.tenSinhVien, profile?.tenSv)
+                .firstOrNull { !it.isNullOrBlank() }?.trim()
+            if (!name.isNullOrBlank()) {
+                authStore.studentName = name
+                _studentName.value = name
+            }
+            val rawImage = profile?.image?.takeIf { it.isNotBlank() }
             if (rawImage != null) {
                 val base64Str = if (rawImage.contains(",")) rawImage.substringAfter(",") else rawImage
                 val bytes = Base64.decode(base64Str, Base64.DEFAULT)
