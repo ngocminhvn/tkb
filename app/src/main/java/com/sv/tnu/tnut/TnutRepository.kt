@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
@@ -32,8 +31,6 @@ class TnutRepository(
 ) {
     /** Học kỳ hiện tại của TNUT, dùng khi chưa lưu học kỳ nào. */
     val defaultHocKy: Int = 20261
-
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
@@ -146,23 +143,15 @@ class TnutRepository(
         TimetableWidgetProvider.updateAll(context)
     }
 
-    /** Lần đầu mở app chưa có dữ liệu: seed Room từ file JSON mẫu trong assets và seed lịch thi vào SQL. */
-    suspend fun seedFromAssetsIfEmpty(hocKy: Int) = withContext(Dispatchers.IO) {
-        if (dao.weekCount(hocKy) == 0) {
-            try {
-                val text = context.assets.open("sample_tkb_tuan_20261.json")
-                    .bufferedReader().use { it.readText() }
-                val wrapper = json.decodeFromString<ApiWrapper<TkbData>>(text)
-                val data = wrapper.data
-                if (data != null) {
-                    saveToDb(hocKy, data)
-                }
-            } catch (_: Exception) {
-                // Không có file mẫu thì thôi, app vẫn chạy, user đăng nhập để tải lịch thật.
-            }
+    /**
+     * Retain only live portal cache on startup. Older releases inserted one
+     * user's demo exam list into all accounts; remove only the exact known
+     * legacy fixture. Never replace genuine saved lessons, exams or notes.
+     */
+    suspend fun prepareOfflineCache(hocKy: Int) = withContext(Dispatchers.IO) {
+        if (dao.removeLegacySampleExamsIfExact(hocKy)) {
+            TimetableWidgetProvider.updateAll(context)
         }
-        // Luôn đảm bảo SQL có dữ liệu lịch thi (không bị rỗng khi mở app offline)
-        seedSampleExamsIfEmpty(hocKy)
     }
 
     private fun normalizeDateToYmd(dateStr: String): String {
@@ -189,115 +178,6 @@ class TnutRepository(
             }
         }
         return clean
-    }
-
-    suspend fun seedSampleExamsIfEmpty(hocKy: Int) {
-        if (dao.examCount(hocKy) > 0) return
-        val defaultExams = listOf(
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 1,
-                maMon = "B103BC1",
-                tenMon = "Bóng chuyền 1",
-                ngayThi = "2026-11-08",
-                gioBatDau = "14:25",
-                soPhut = 90,
-                maPhong = "SVD",
-                diaDiemThi = "Sân thể chất",
-                hinhThucThi = "Thực hành",
-                soBaoDanh = "002",
-                dotThi = "THECHAT",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 2,
-                maMon = "MEC0347",
-                tenMon = "Kỹ thuật cơ khí đại cương",
-                ngayThi = "2026-11-12",
-                gioBatDau = "07:00",
-                soPhut = 90,
-                maPhong = "A10-102",
-                diaDiemThi = "Phòng 102 A10",
-                hinhThucThi = "Tự luận",
-                soBaoDanh = "MEC0347_61TDH8_02",
-                dotThi = "DOT1",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 3,
-                maMon = "BAS203",
-                tenMon = "Kỹ thuật thủy khí",
-                ngayThi = "2026-11-15",
-                gioBatDau = "07:00",
-                soPhut = 90,
-                maPhong = "A16-203",
-                diaDiemThi = "Phòng 203 A16",
-                hinhThucThi = "Vấn đáp",
-                soBaoDanh = "BAS203_61TDH8_01",
-                dotThi = "DOT1",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 4,
-                maMon = "TEE0220",
-                tenMon = "Tin học và trí tuệ nhân tạo ứng dụng",
-                ngayThi = "2026-11-18",
-                gioBatDau = "12:45",
-                soPhut = 60,
-                maPhong = "TVDT-T303",
-                diaDiemThi = "Phòng MT thư viện T1",
-                hinhThucThi = "Trắc nghiệm phòng máy",
-                soBaoDanh = "TEE0220_61TDH8_02",
-                dotThi = "DOT1",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 5,
-                maMon = "ELE309",
-                tenMon = "Vật liệu điện",
-                ngayThi = "2026-11-25",
-                gioBatDau = "10:45",
-                soPhut = 60,
-                maPhong = "TVDT-T303",
-                diaDiemThi = "Phòng MT thư viện T1",
-                hinhThucThi = "Trắc nghiệm phòng máy",
-                soBaoDanh = "ELE309_61TDH8_02",
-                dotThi = "DOT1",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-            ExamEntity(
-                hocKy = hocKy,
-                isGiuaKy = false,
-                soThuTu = 6,
-                maMon = "ELE201",
-                tenMon = "Cơ sở lý thuyết mạch điện 1",
-                ngayThi = "2026-11-30",
-                gioBatDau = "10:45",
-                soPhut = 60,
-                maPhong = "TVDT-T2",
-                diaDiemThi = "Phòng MT thư viện T2",
-                hinhThucThi = "Trắc nghiệm phòng máy",
-                soBaoDanh = "ELE201_61TDH8_02",
-                dotThi = "DOT1",
-                ghiChuSv = "",
-                isHoanThi = false,
-            ),
-        )
-        dao.insertExams(defaultExams)
     }
 
     suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
@@ -330,7 +210,7 @@ class TnutRepository(
             try {
                 val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
                 Log.d("TnutRepository", "fetch exams cuoiky result: code=${resCuoiKy.code}, items=${resCuoiKy.data?.dsLichThi?.size}")
-                if (resCuoiKy.code == 200 || resCuoiKy.result) {
+                if ((resCuoiKy.code == 200 || resCuoiKy.result) && resCuoiKy.data != null) {
                     fetchedCuoiKy = true
                     resCuoiKy.data?.let { data ->
                         data.dsLichThi?.forEach {
@@ -388,7 +268,7 @@ class TnutRepository(
             try {
                 val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
                 Log.d("TnutRepository", "fetch exams giuaky result: code=${resGiuaKy.code}, items=${resGiuaKy.data?.dsLichThi?.size}")
-                if (resGiuaKy.code == 200 || resGiuaKy.result) {
+                if ((resGiuaKy.code == 200 || resGiuaKy.result) && resGiuaKy.data != null) {
                     fetchedGiuaKy = true
                     resGiuaKy.data?.let { data ->
                         data.dsLichThi?.forEach {
@@ -418,17 +298,17 @@ class TnutRepository(
                 Log.e("TnutRepository", "fetch exams giuaky failed", e)
             }
 
-            // Both APIs are independent: a failed response for one exam type
-            // must not erase the cached exams of the other type.
-            // Keep the previous cache when the portal returns no new rows.
-            if (fetchedCuoiKy && finalExams.isNotEmpty()) {
+            // Trust successful portal responses (including an empty exam list).
+            // Only replace the exam type whose endpoint succeeded; keep the
+            // previous offline cache for any type whose request failed.
+            if (fetchedCuoiKy) {
                 dao.replaceExamsByType(hocKy, false, finalExams)
             }
-            if (fetchedGiuaKy && midtermExams.isNotEmpty()) {
+            if (fetchedGiuaKy) {
                 dao.replaceExamsByType(hocKy, true, midtermExams)
             }
-            if (dao.examCount(hocKy) == 0) {
-                seedSampleExamsIfEmpty(hocKy)
+            if (fetchedCuoiKy || fetchedGiuaKy) {
+                TimetableWidgetProvider.updateAll(context)
             }
             Result.success(Unit)
         } catch (e: Exception) {
