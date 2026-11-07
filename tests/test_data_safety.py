@@ -114,7 +114,7 @@ assert "if (note.isNotBlank()) {" in ui
 assert 'text = if (showPastDays)' not in ui
 assert 'text = if (selectedWeek != null) "Tuần $selectedWeek"' not in ui
 assert "fun WeekDatePicker(" in calendar
-assert "private fun monthDates(" in calendar
+assert "internal fun monthDates(" in calendar
 assert "private fun dateInWeek(" in calendar
 assert "detectDragGestures(" in calendar
 assert "selectedYmd = selectedYmd" in calendar
