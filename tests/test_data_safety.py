@@ -181,6 +181,9 @@ profile_models = (root / "tnut/TnutModels.kt").read_text(encoding="utf-8")
 auth_store = (root / "data/AuthStore.kt").read_text(encoding="utf-8")
 assert "internal fun adjacentTimetableDay(" in ui
 assert "detectHorizontalDragGestures(" in ui
+assert "onMoveDay = { direction -> changeSelectedDay(direction) }" in ui
+assert "onMoveDay(if (dx < 0f) 1 else -1)" in calendar
+assert "onMoveWeek(" not in calendar
 assert "changeSelectedDay(if (totalDrag < 0f) 1 else -1)" in ui
 assert "val next = adjacentTimetableDay(selectedDay, direction, weeks)" in ui
 assert "if (selectedWeek != next.second) viewModel.selectWeek(next.second)" in ui
