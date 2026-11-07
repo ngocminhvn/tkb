@@ -20,6 +20,8 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
 ## Dữ liệu thời khóa biểu và lịch thi
 
 - Ứng dụng **không tạo sẵn lịch học hoặc lịch thi của người khác**. Khi đăng nhập, lịch thực tế được lấy từ portal TNUT theo tài khoản và lưu bằng Room để xem offline.
+- Sau mỗi lần **đăng nhập thành công**, màn hình chính tự khởi chạy đồng bộ **cả thời khóa biểu và lịch thi** từ portal, sau đó tự kiểm tra mỗi ngày hoặc khi người dùng nhấn tải lại. Hai API chạy độc lập, vì vậy lỗi lịch học không chặn tải lịch thi.
+- Không có hai chức năng nhập JSON/CSV/TSV bằng tay; nguồn lịch học và lịch thi mới duy nhất là API TNUT theo phiên đăng nhập.
 - Khi đồng bộ lỗi (mạng, HTTP 401), giữ nguyên dữ liệu thật đã tải trước đó; không tạo ra lịch thi giả. Nếu phiên hết hạn, thử đăng nhập lại trong app.
 - Những bản cũ đã từng chèn 6 lịch thi mẫu: bản mới chỉ tự dọn nếu cả 6 dòng trong cache khớp chính xác bộ mẫu; các lịch thi thật và ghi chú không bị xóa.
 - Các ngày đã qua (cả lịch học và lịch thi) được ẩn mặc định. Có thể chạm để hiện lại; bộ lọc ngày được cập nhật khi app quay lại foreground.
@@ -35,6 +37,7 @@ Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn)
   - `POST /api/auth/login` (OAuth2 password grant)
   - `POST /api/sch/w-locdshockytkbuser` (danh sách học kỳ)
   - `POST /api/sch/w-locdstkbtuanusertheohocky` (lịch tuần cả học kỳ)
+  - `POST /api/epm/w-locdslichthisvtheohocky` (lịch thi giữa kỳ/cuối kỳ, phân trang 100 bản ghi)
 
 ## Build
 
