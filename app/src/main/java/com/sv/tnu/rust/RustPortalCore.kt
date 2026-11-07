@@ -8,6 +8,7 @@ import com.sv.tnu.tnut.ExamDataApi
 import com.sv.tnu.tnut.TkbData
 import com.sv.tnu.tnut.TnutApiClient
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 
 /**
  * Android-side transport adapter for business rules in Rust.
@@ -40,6 +41,25 @@ object RustPortalCore {
         isMidterm: Boolean,
         payload: String,
     ): String
+
+    private external fun dedupeExamsNative(payload: String): String
+    private external fun hasNextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Boolean
+    private external fun normalizeNoteNative(value: String): String
+    private external fun normalizeUsernameNative(value: String): String
+
+    fun normalizeNote(value: String): String = normalizeNoteNative(value)
+
+    fun normalizeUsername(value: String): String = normalizeUsernameNative(value)
+
+    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
+        hasNextExamPageNative(page, totalPages ?: -1, rowCount)
+
+    fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> {
+        val codec = TnutApiClient.json()
+        val serializer = ListSerializer(ExamEntity.serializer())
+        val payload = codec.encodeToString(serializer, rows)
+        return codec.decodeFromString(serializer, dedupeExamsNative(payload))
+    }
 
     fun mapTimetable(semester: Int, data: TkbData): TimetableRows {
         val codec = TnutApiClient.json()
