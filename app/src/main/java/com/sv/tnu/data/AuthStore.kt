@@ -92,10 +92,16 @@ class AuthStore(context: Context) {
     }
 
     fun saveTokens(response: LoginResponse) {
-        prefs.edit()
-            .putString(KEY_ACCESS_TOKEN, response.accessToken)
-            .putString(KEY_REFRESH_TOKEN, response.refreshToken)
-            .apply()
+        // The portal may rotate only access_token. An omitted refresh_token
+        // must NOT erase the previously valid one.
+        val editor = prefs.edit().putString(KEY_ACCESS_TOKEN, response.accessToken)
+        response.refreshToken?.takeIf { it.isNotBlank() }?.let {
+            editor.putString(KEY_REFRESH_TOKEN, it)
+        }
+        response.idpc?.takeIf { it.isNotBlank() }?.let {
+            editor.putString(KEY_IDPC, it)
+        }
+        editor.apply()
     }
 
     fun clear() {
