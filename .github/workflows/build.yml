@@ -44,16 +44,23 @@ jobs:
       - name: Locate Android NDK
         shell: bash
         run: |
-          ndk=""
-          if [[ -d "$ANDROID_HOME/ndk" ]]; then
-            ndk="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          # Respect the NDK already selected by the runner; cargo-ndk
+          # must not see conflicting ANDROID_NDK_{HOME,ROOT} values.
+          ndk="${ANDROID_NDK_ROOT:-}"
+          if [[ -z "$ndk" || ! -d "$ndk" ]]; then
+            ndk="${ANDROID_NDK_HOME:-}"
           fi
-          if [[ -z "$ndk" ]]; then
+          if [[ -z "$ndk" || ! -d "$ndk" ]]; then
+            ndk="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ -z "$ndk" || ! -d "$ndk" ]]; then
             sdkmanager --install "ndk;27.2.12479018"
             ndk="$ANDROID_HOME/ndk/27.2.12479018"
           fi
           test -d "$ndk"
           echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ndk" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK=$ndk" >> "$GITHUB_ENV"
 
       - name: Test Rust and compile Android JNI libraries
         run: |
