@@ -89,13 +89,40 @@ assert "LaunchedEffect(timetableViewModel)" in main_screen
 assert "timetableViewModel.refreshIfNeeded()" in main_screen
 assert "viewModel.refreshIfNeeded()" not in ui
 
-# Past days are filtered uniformly across lessons AND exam cards, including
-# when app resumes from the background after a local calendar-day change.
+# Real phone-local today is highlighted, not just the start of week.
+# Both lesson and exam cards are now scoped to the explicitly selected day.
+calendar = (root / "ui/WeekDatePicker.kt").read_text(encoding="utf-8")
+glass = (root / "ui/glass/LiquidGlass.kt").read_text(encoding="utf-8")
 assert "(lessonItems + examItems)" in ui
-assert "allGrouped.filterKeys { date -> date >= todayStr }" in ui
-assert "if (showPastDays)" in ui
+assert "allGrouped.filterKeys { date -> date == selectedDay }" in ui
+assert "var selectedDay by remember { mutableStateOf(todayStr) }" in ui
+assert "if (actualToday != todayStr)" in ui
+assert "viewModel.updateToday()" in ui
 assert "event == Lifecycle.Event.ON_RESUME" in ui
-assert "todayStr = localTodayYmd()" in ui
+assert "nextMidnight - System.currentTimeMillis()" in ui
+assert "private val _todayYmd = MutableStateFlow(localTodayYmd())" in ui
+assert "currentWeekNumber(weekList, today)" in ui
+assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
+assert "WeekDatePicker(" in ui
+assert "eventDays = eventDays" in ui
+assert "val semesterLessons by viewModel.semesterLessons.collectAsState()" in ui
+assert "if (note.isNotBlank()) {" in ui
+assert 'text = if (showPastDays)' not in ui
+assert 'text = if (selectedWeek != null) "Tuần $selectedWeek"' not in ui
+assert "fun WeekDatePicker(" in calendar
+assert "private fun monthDates(" in calendar
+assert "private fun dateInWeek(" in calendar
+assert "detectDragGestures(" in calendar
+assert "selectedYmd = selectedYmd" in calendar
+assert "ymd == todayYmd" in calendar
+assert "hasSchedule = ymd in eventDays" in calendar
+assert "dateInWeek(ymd, it)" in calendar
+# Remove the harsh white rim, keep the sliding lens and native tab selection.
+nav_bar = glass.split("fun GlassTabBar(", 1)[1]
+assert "containerBorderBrush" not in nav_bar
+assert ".border(" not in nav_bar
+assert "lensOffsetAnim.animateTo(" in nav_bar
+assert "currentOnSelected(finalTab)" in nav_bar
 
 # Note editor remains opt-in, but the extra Liquid Glass button migration
 # is completely reverted. Saved notes still live in Room.
