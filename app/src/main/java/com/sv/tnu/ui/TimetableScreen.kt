@@ -261,7 +261,10 @@ class TimetableViewModel(
 
     fun refreshIfNeeded() {
         val now = System.currentTimeMillis()
-        val lastAutomaticCheck = maxOf(authStore.lastSyncTime, authStore.lastAutoSyncAttempt)
+        // saveLogin() resets the automatic attempt marker, so signing in
+        // always fetches both timetable and exams, regardless of earlier cache.
+        // Within an existing session, retain the once-per-local-day policy.
+        val lastAutomaticCheck = authStore.lastAutoSyncAttempt
         if (lastAutomaticCheck == 0L || !isSameLocalDay(lastAutomaticCheck, now)) {
             authStore.lastAutoSyncAttempt = now
             refresh()
