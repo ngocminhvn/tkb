@@ -24,7 +24,7 @@ rustup target add \
 
 mkdir -p "$REPO_ROOT/app/src/main/jniLibs"
 cd "$REPO_ROOT/rust-core"
-cargo ndk -p 24 \
+cargo ndk --platform 24 \
   -t arm64-v8a \
   -t armeabi-v7a \
   -t x86_64 \
