@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sv.tnu.data.WeekEntity
+import com.sv.tnu.rust.RustScheduleCore
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -63,14 +64,7 @@ private fun calendarFor(ymd: String): Calendar? {
 private fun calendarYmd(date: Date): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
 
-internal fun weekDates(start: String): List<String> {
-    val calendar = calendarFor(start) ?: return emptyList()
-    return List(7) {
-        val day = calendarYmd(calendar.time)
-        calendar.add(Calendar.DAY_OF_MONTH, 1)
-        day
-    }
-}
+internal fun weekDates(start: String): List<String> = RustScheduleCore.weekDates(start)
 
 internal fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>> {
     val calendar = calendarFor(anchor) ?: return "" to emptyList()
@@ -96,12 +90,7 @@ private fun dateInWeek(ymd: String, week: WeekEntity): Boolean {
     return ymd in start..end
 }
 
-internal fun normalizePortalDay(value: String): String {
-    val bits = value.split("/")
-    return if (bits.size == 3) {
-        "${bits[2]}-${bits[1].padStart(2, '0')}-${bits[0].padStart(2, '0')}"
-    } else value.take(10)
-}
+internal fun normalizePortalDay(value: String): String = RustScheduleCore.normalizeDate(value)
 
 @Composable
 private fun CalendarDay(
