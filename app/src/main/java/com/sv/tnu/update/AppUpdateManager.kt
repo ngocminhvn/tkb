@@ -79,7 +79,7 @@ object AppUpdateManager {
                 useCaches = false
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("Cache-Control", "no-cache")
-                setRequestProperty("User-Agent", "SvTNU-Updater/$currentName")
+                setRequestProperty("User-Agent", "TKB-SV-Updater/$currentName")
             }
 
             val code = connection.responseCode
@@ -136,7 +136,7 @@ object AppUpdateManager {
                     AppUpdateCheckResult(
                         currentVersionCode = currentCode,
                         currentVersionName = currentName,
-                        error = "Nguồn cập nhật SvTNU không hợp lệ.",
+                        error = "Nguồn cập nhật TKB SV không hợp lệ.",
                     )
 
                 compression !in setOf("none", "xz") ->
@@ -169,7 +169,7 @@ object AppUpdateManager {
                             compression = compression,
                             sha256 = sha256,
                             sizeBytes = sizeBytes,
-                            changelog = changelog.ifBlank { "Bản cập nhật SvTNU mới." },
+                            changelog = changelog.ifBlank { "Bản cập nhật TKB SV mới." },
                         ),
                         currentVersionCode = currentCode,
                         currentVersionName = currentName,
@@ -190,8 +190,8 @@ object AppUpdateManager {
         onProgress: (downloadedBytes: Long, totalBytes: Long?) -> Unit = { _, _ -> },
     ): AppUpdateDownloadResult {
         val safeVersion = update.versionName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val tempFile = File(context.cacheDir, "SvTNU-${safeVersion}.part")
-        val destinationApk = File(context.cacheDir, "SvTNU-${safeVersion}.apk")
+        val tempFile = File(context.cacheDir, "TKB-SV-${safeVersion}.part")
+        val destinationApk = File(context.cacheDir, "TKB-SV-${safeVersion}.apk")
 
         return try {
             tempFile.delete()
@@ -205,7 +205,7 @@ object AppUpdateManager {
                 useCaches = false
                 setRequestProperty("Accept", "application/octet-stream,*/*")
                 setRequestProperty("Cache-Control", "no-cache")
-                setRequestProperty("User-Agent", "SvTNU-Updater/${update.versionName}")
+                setRequestProperty("User-Agent", "TKB-SV-Updater/${update.versionName}")
             }
 
             val code = connection.responseCode
@@ -265,9 +265,9 @@ object AppUpdateManager {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
                     val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, "SvTNU-${safeVersion}.apk")
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, "TKB-SV-${safeVersion}.apk")
                         put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/SvTNU")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/TKB-SV")
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
                     val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -320,7 +320,7 @@ object AppUpdateManager {
             }
         } ?: return "Không tìm thấy file APK để cài đặt."
 
-        val clip = ClipData.newUri(context.contentResolver, "SvTNU update", uri)
+        val clip = ClipData.newUri(context.contentResolver, "TKB-SV update", uri)
         var lastError: String? = null
 
         for (action in listOf(Intent.ACTION_VIEW, Intent.ACTION_INSTALL_PACKAGE)) {
