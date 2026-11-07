@@ -103,7 +103,10 @@ assert "val listState = rememberLazyListState()" in ui
 assert "listState.animateScrollToItem(target)" in ui
 assert "listState.scrollToItem(target)" in ui
 assert "scrollRequest++" in ui
-assert 'item(key = "empty-$date"' in ui
+assert 'item(key = "day-$date", contentType = "day")' in ui
+assert 'DayRail(date = date, isToday = date == todayStr)' in ui
+assert 'dayItems.forEach { item ->' in ui
+assert 'text = "Không có lịch học hoặc lịch thi."' in ui
 assert "var selectedDay by remember { mutableStateOf(todayStr) }" in ui
 assert "if (actualToday != todayStr)" in ui
 assert "viewModel.updateToday()" in ui
