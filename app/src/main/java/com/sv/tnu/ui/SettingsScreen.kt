@@ -393,15 +393,22 @@ fun SettingsScreen(
                     // Công tắc 2 option: [ Sáng | Tối ]
                     Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                            .glassEffect(
+                                glass = Glass(alpha = if (isDark) 0.50f else 0.70f),
+                                shape = RoundedCornerShape(50),
+                            )
                             .padding(3.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (!isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                .glassEffect(
+                                    glass = if (!isDarkMode) Glass(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        alpha = 0.90f,
+                                    ) else Glass(alpha = 0.32f),
+                                    shape = RoundedCornerShape(50),
+                                )
                                 .clickable { authStore.isDarkMode = false }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center,
@@ -424,8 +431,13 @@ fun SettingsScreen(
 
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                .glassEffect(
+                                    glass = if (isDarkMode) Glass(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        alpha = 0.90f,
+                                    ) else Glass(alpha = 0.32f),
+                                    shape = RoundedCornerShape(50),
+                                )
                                 .clickable { authStore.isDarkMode = true }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center,
