@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -639,15 +640,18 @@ fun TimetableScreen(
                     )
                 }
             } else if (displayedGrouped.isNotEmpty()) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(
-                        top = 4.dp,
-                        bottom = contentPadding.calculateBottomPadding() + 16.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        // Leave a viewport of scroll space so Saturday/Sunday
+                        // can also be brought to the top when tapped.
+                        contentPadding = PaddingValues(
+                            top = 4.dp,
+                            bottom = contentPadding.calculateBottomPadding() + maxHeight,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                     displayedGrouped.forEach { (date, dayItems) ->
                         val isToday = date == todayStr
                         item(key = "header-$date", contentType = "header") {
@@ -695,6 +699,7 @@ fun TimetableScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }
