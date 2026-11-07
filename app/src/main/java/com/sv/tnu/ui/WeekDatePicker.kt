@@ -199,9 +199,10 @@ fun WeekDatePicker(
                     onDragStart = { dx = 0f; dy = 0f },
                     onDragEnd = {
                         when {
-                            abs(dx) > abs(dy) && abs(dx) > 65f ->
+                            abs(dx) > abs(dy) && abs(dx) > 65f -> {
                                 if (dx < 0 && canGoForward) onMoveWeek(1)
-                                else if (dx > 0 && canGoBack) onMoveWeek(-1)
+                                if (dx > 0 && canGoBack) onMoveWeek(-1)
+                            }
                             dy > 55f -> showMonth = true
                             dy < -55f -> showMonth = false
                         }
@@ -291,7 +292,10 @@ fun WeekDatePicker(
                                     hasSchedule = ymd in eventDays,
                                     enabled = week != null,
                                     onClick = {
-                                        if (week != null) onPickDate(ymd, week.tuanHocKy)
+                                        if (week != null) {
+                                            onPickDate(ymd, week.tuanHocKy)
+                                            showMonth = false
+                                        }
                                     },
                                     modifier = Modifier.weight(1f),
                                 )
