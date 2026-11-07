@@ -589,8 +589,10 @@ fun TimetableScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .glassEffect(
+                                glass = Glass(alpha = if (isDark) 0.66f else 0.80f),
+                                shape = RoundedCornerShape(50),
+                            )
                             .clickable { showPastDays = !showPastDays }
                             .padding(horizontal = 14.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
