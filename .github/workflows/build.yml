@@ -50,10 +50,11 @@ jobs:
       - name: Decode keystore
         run: base64 -d tkb-release.keystore.b64 > tkb-release.keystore
 
-      - name: Build signed debug APK
+      - name: Test portal JSON and build signed APK
         run: |
+          # Run real Kotlin serialization tests, not only source-code assertions.
           # The committed keystore is PKCS#12, so its private key uses the store password.
-          gradle assembleDebug \
+          gradle testDebugUnitTest assembleDebug \
             -Pandroid.injected.signing.store.file="$PWD/tkb-release.keystore" \
             -Pandroid.injected.signing.store.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias=tkb \
