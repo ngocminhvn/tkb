@@ -17,6 +17,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify data safety and SQLite migrations
+        run: python3 tests/test_data_safety.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
