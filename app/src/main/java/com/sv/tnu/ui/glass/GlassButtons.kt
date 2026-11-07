@@ -5,7 +5,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -81,6 +80,7 @@ fun GlassTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    tint: Color = MaterialTheme.colorScheme.primary,
 ) {
     val dark = LocalGlassConfig.current.dark
     Row(
@@ -97,9 +97,7 @@ fun GlassTextButton(
     ) {
         Text(
             text = text,
-            color = MaterialTheme.colorScheme.primary.copy(
-                alpha = if (enabled) 1f else 0.35f
-            ),
+            color = tint.copy(alpha = if (enabled) 1f else 0.35f),
             style = MaterialTheme.typography.labelLarge,
         )
     }
