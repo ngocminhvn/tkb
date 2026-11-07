@@ -87,6 +87,10 @@ class AuthStore(context: Context) {
             .putString(KEY_PASSWORD, password)
             .putString(KEY_ACCESS_TOKEN, response.accessToken)
             .putString(KEY_REFRESH_TOKEN, response.refreshToken)
+            // Every real login must trigger a fresh portal sync on the main
+            // screen, even if an earlier account synced earlier today.
+            // Preserve the previous Room cache and its last successful timestamp.
+            .putLong(KEY_LAST_AUTO_SYNC_ATTEMPT, 0L)
             .apply()
         response.idpc?.let { idpc = it }
     }
