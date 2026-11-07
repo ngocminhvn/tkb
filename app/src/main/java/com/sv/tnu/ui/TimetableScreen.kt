@@ -690,7 +690,7 @@ fun TimetableScreen(
                     scrollRequest++
                     if (selectedWeek != weekNumber) viewModel.selectWeek(weekNumber)
                 },
-                onMoveWeek = { delta -> viewModel.moveWeek(delta) },
+                onMoveDay = { direction -> changeSelectedDay(direction) },
             )
 
             Spacer(modifier = Modifier.height(10.dp))
