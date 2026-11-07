@@ -6,12 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import com.sv.tnu.update.AppUpdateDownloadResult
 import com.sv.tnu.update.AppUpdateInfo
 import com.sv.tnu.update.AppUpdateManager
-import com.sv.tnu.ui.glass.GlassTextButton
 
 @Composable
 fun UpdateDialog(
@@ -139,32 +142,44 @@ fun UpdateDialog(
         },
         dismissButton = {
             if (!downloading) {
-                GlassTextButton(text = "Để sau", onClick = onDismiss)
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Để sau")
+                }
             }
         },
         confirmButton = {
             when {
                 downloading -> {
-                    GlassTextButton(
-                        text = "${percent ?: 0}%",
+                    FilledTonalButton(
                         enabled = false,
-                        loading = false,
                         onClick = {},
-                    )
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("${percent ?: 0}%")
+                    }
                 }
 
                 downloadResult?.file != null || downloadResult?.uri != null -> {
-                    GlassTextButton(
-                        text = "Cài đặt ngay",
-                        onClick = { AppUpdateManager.installApk(context, downloadResult) },
-                    )
+                    Button(
+                        onClick = {
+                            AppUpdateManager.installApk(context, downloadResult)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Cài đặt ngay")
+                    }
                 }
 
                 else -> {
-                    GlassTextButton(
-                        text = "Cập nhật ngay",
+                    Button(
                         onClick = { onStartDownload(updateInfo) },
-                    )
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Cập nhật ngay")
+                    }
                 }
             }
         },
