@@ -282,125 +282,110 @@ class TnutRepository(
         }
     }
 
-    suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
-        return try {
-            val finalExams = mutableListOf<ExamEntity>()
-            var fetchedCuoiKy = false
-
-            // Lịch thi cuối kỳ
-            try {
-                val resCuoiKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = false)))
-                Log.d("TnutRepository", "fetch exams cuoiky result: code=${resCuoiKy.code}, items=${resCuoiKy.data?.dsLichThi?.size}")
-                if ((resCuoiKy.code == 200 || resCuoiKy.result) && resCuoiKy.data != null) {
-                    fetchedCuoiKy = true
-                    resCuoiKy.data?.let { data ->
-                        data.dsLichThi?.forEach {
-                            finalExams.add(
-                                ExamEntity(
-                                    hocKy = hocKy,
-                                    isGiuaKy = false,
-                                    soThuTu = it.soThuTuInt,
-                                    maMon = it.maMon?.trim() ?: "",
-                                    tenMon = it.tenMon?.trim() ?: "",
-                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                    gioBatDau = it.gioBatDau?.trim() ?: "",
-                                    soPhut = it.soPhutInt,
-                                    maPhong = it.maPhong?.trim() ?: "",
-                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                    dotThi = it.dotThi?.trim() ?: "",
-                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                    isHoanThi = false,
-                                )
-                            )
-                        }
-                        data.dsLichHoanThi?.forEach {
-                            finalExams.add(
-                                ExamEntity(
-                                    hocKy = hocKy,
-                                    isGiuaKy = false,
-                                    soThuTu = it.soThuTuInt,
-                                    maMon = it.maMon?.trim() ?: "",
-                                    tenMon = it.tenMon?.trim() ?: "",
-                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                    gioBatDau = it.gioBatDau?.trim() ?: "",
-                                    soPhut = it.soPhutInt,
-                                    maPhong = it.maPhong?.trim() ?: "",
-                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                    dotThi = it.dotThi?.trim() ?: "",
-                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                    isHoanThi = true,
-                                )
-                            )
-                        }
+    /**
+     * Read every published exam page for one semester/type. The portal expects
+     * filter.is_giua_ky AND additional.paging/ordering even for default values.
+     * A failed page invalidates this batch; caller then keeps the Room cache.
+     */
+    private suspend fun loadPortalExams(hocKy: Int, isGiuaKy: Boolean): List<ExamEntity> {
+        val all = mutableListOf<ExamEntity>()
+        val maxPages = 50
+        var page = 1
+        while (true) {
+            val response = api.exams(ExamRequest.forSemester(hocKy, isGiuaKy, page))
+            if (response.code != 200 || response.data == null) {
+                throw IllegalStateException(
+                    "Portal không trả lịch thi ${if (isGiuaKy) "giữa kỳ" else "cuối kỳ"} " +
+                        "(HTTP/API ${response.code}): ${response.message.orEmpty()}"
+                )
+            }
+            val data = response.data
+            val regular = data.dsLichThi.orEmpty()
+            val postponed = data.dsLichHoanThi.orEmpty()
+            for ((items, hoanThi) in listOf(regular to false, postponed to true)) {
+                items.forEach { item ->
+                    val date = normalizeDateToYmd(item.ngayThi.orEmpty())
+                    if (!hoanThi && (item.maMon.isNullOrBlank() ||
+                            !Regex("""\d{4}-\d{2}-\d{2}""").matches(date))) {
+                        throw IllegalStateException(
+                            "Portal trả buổi thi thiếu mã môn/ngày thi; giữ lịch đã lưu."
+                        )
                     }
+                    all.add(
+                        ExamEntity(
+                            hocKy = hocKy,
+                            isGiuaKy = isGiuaKy,
+                            soThuTu = item.soThuTuInt,
+                            maMon = item.maMon?.trim().orEmpty(),
+                            tenMon = (item.tenMon ?: item.tenMonEg)?.trim().orEmpty(),
+                            ngayThi = date,
+                            gioBatDau = item.gioBatDau?.trim().orEmpty(),
+                            soPhut = item.soPhutInt,
+                            maPhong = item.maPhong?.trim().orEmpty(),
+                            diaDiemThi = item.diaDiemThi?.trim().orEmpty(),
+                            hinhThucThi = (item.hinhThucThi ?: item.ghiChuHtt)?.trim().orEmpty(),
+                            soBaoDanh = (item.soBaoDanh ?: item.toThi)?.trim().orEmpty(),
+                            dotThi = item.dotThi?.trim().orEmpty(),
+                            ghiChuSv = item.ghiChuSv?.trim().orEmpty(),
+                            isHoanThi = hoanThi,
+                        )
+                    )
                 }
-            } catch (e: Exception) {
-                Log.e("TnutRepository", "fetch exams cuoiky failed", e)
             }
-
-            val midtermExams = mutableListOf<ExamEntity>()
-            var fetchedGiuaKy = false
-
-            // Lịch thi giữa kỳ
-            try {
-                val resGiuaKy = api.exams(ExamRequest(filter = ExamFilter(hocKy = hocKy, isGiuaKy = true)))
-                Log.d("TnutRepository", "fetch exams giuaky result: code=${resGiuaKy.code}, items=${resGiuaKy.data?.dsLichThi?.size}")
-                if ((resGiuaKy.code == 200 || resGiuaKy.result) && resGiuaKy.data != null) {
-                    fetchedGiuaKy = true
-                    resGiuaKy.data?.let { data ->
-                        data.dsLichThi?.forEach {
-                            midtermExams.add(
-                                ExamEntity(
-                                    hocKy = hocKy,
-                                    isGiuaKy = true,
-                                    soThuTu = it.soThuTuInt,
-                                    maMon = it.maMon?.trim() ?: "",
-                                    tenMon = it.tenMon?.trim() ?: "",
-                                    ngayThi = normalizeDateToYmd(it.ngayThi ?: ""),
-                                    gioBatDau = it.gioBatDau?.trim() ?: "",
-                                    soPhut = it.soPhutInt,
-                                    maPhong = it.maPhong?.trim() ?: "",
-                                    diaDiemThi = it.diaDiemThi?.trim() ?: "",
-                                    hinhThucThi = (it.hinhThucThi ?: it.ghiChuHtt)?.trim() ?: "",
-                                    soBaoDanh = (it.soBaoDanh ?: it.toThi)?.trim() ?: "",
-                                    dotThi = it.dotThi?.trim() ?: "",
-                                    ghiChuSv = it.ghiChuSv?.trim() ?: "",
-                                    isHoanThi = false,
-                                )
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("TnutRepository", "fetch exams giuaky failed", e)
-            }
-
-            // Trust successful portal responses (including an empty exam list).
-            // Only replace the exam type whose endpoint succeeded; keep the
-            // previous offline cache for any type whose request failed.
-            // A successful-but-empty portal response is NOT proof that the
-            // student's manually imported/offline exam schedule was cancelled.
-            if (fetchedCuoiKy && finalExams.isNotEmpty()) {
-                dao.replaceExamsByType(hocKy, false, finalExams)
-            }
-            if (fetchedGiuaKy && midtermExams.isNotEmpty()) {
-                dao.replaceExamsByType(hocKy, true, midtermExams)
-            }
-            if ((fetchedCuoiKy && finalExams.isNotEmpty()) ||
-                (fetchedGiuaKy && midtermExams.isNotEmpty())) {
-                TimetableWidgetProvider.updateAll(context)
-                Result.success(Unit)
-            } else {
-                Result.failure(IllegalStateException("Portal chưa cung cấp dữ liệu lịch thi. Giữ lịch đã lưu trên máy."))
-            }
-        } catch (e: Exception) {
-            Log.e("TnutRepository", "fetchAndSaveExams error", e)
-            Result.failure(e)
+            // Portal may omit total_pages. In that case a short page means end.
+            // Never commit a partially fetched multi-page schedule.
+            val totalPages = data.totalPages?.takeIf { it > 0 }
+            val rowsOnPage = regular.size + postponed.size
+            val hasNext = if (totalPages != null) page < totalPages
+                else rowsOnPage >= ExamRequest.PAGE_SIZE
+            if (!hasNext) break
+            check(page < maxPages) { "Lịch thi vượt quá $maxPages trang; giữ dữ liệu cũ." }
+            page++
         }
+        return all.distinctBy { item ->
+            listOf(item.isHoanThi.toString(), item.maMon, item.ngayThi,
+                item.gioBatDau, item.soBaoDanh, item.maPhong).joinToString("|")
+        }
+    }
+
+    /**
+     * Each source is independent; update a semester/type only after its entire
+     * fetch succeeds with actual rows. A valid empty result must not delete
+     * manually imported exams or genuine offline cache.
+     */
+    suspend fun fetchAndSaveExams(hocKy: Int): Result<Unit> {
+        var updated = false
+        val failures = mutableListOf<String>()
+        for (isGiuaKy in listOf(false, true)) {
+            try {
+                val exams = loadPortalExams(hocKy, isGiuaKy)
+                if (exams.isNotEmpty()) {
+                    dao.replaceExamsByType(hocKy, isGiuaKy, exams)
+                    updated = true
+                } else {
+                    Log.i("TnutRepository", "Portal returned zero ${if (isGiuaKy) "midterm" else "final"} exams for semester $hocKy")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("TnutRepository", "Could not fetch exam type isGiuaKy=$isGiuaKy", e)
+                failures.add(e.message ?: e.javaClass.simpleName)
+            }
+        }
+        if (updated) {
+            TimetableWidgetProvider.updateAll(context)
+            return Result.success(Unit)
+        }
+        return Result.failure(
+            IllegalStateException(
+                if (failures.isNotEmpty()) {
+                    "Không đồng bộ được lịch thi: ${failures.joinToString("; ")}. Giữ lịch đã lưu."
+                } else {
+                    "Portal trả danh sách thi giữa kỳ và cuối kỳ rỗng cho học kỳ $hocKy. " +
+                        "Không có dữ liệu mới để đồng bộ; lịch đã lưu được giữ nguyên."
+                }
+            )
+        )
     }
 
     fun clearAvatar() {
