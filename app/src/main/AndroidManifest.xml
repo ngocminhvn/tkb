@@ -17,7 +17,7 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="com.sv.tnu.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Tkb">
             <intent-filter>
@@ -37,11 +37,11 @@
         </provider>
 
         <receiver
-            android:name=".notifications.ScheduleReminderReceiver"
+            android:name="com.sv.tnu.notifications.ScheduleReminderReceiver"
             android:exported="false" />
 
         <receiver
-            android:name=".notifications.ReminderRescheduleReceiver"
+            android:name="com.sv.tnu.notifications.ReminderRescheduleReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -52,7 +52,7 @@
         </receiver>
 
         <receiver
-            android:name=".widget.TimetableWidgetProvider"
+            android:name="com.sv.tnu.widget.TimetableWidgetProvider"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
