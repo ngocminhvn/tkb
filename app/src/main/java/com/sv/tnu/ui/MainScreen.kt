@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.tnut.TnutRepository
-import com.sv.tnu.ui.glass.GlassIconButton
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 
@@ -195,11 +196,36 @@ private fun MoreScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlassIconButton(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Quay lại",
-                    onClick = onBack,
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = CircleShape,
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                        )
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.12f)
+                            else Color.White.copy(alpha = 0.65f),
+                            CircleShape,
+                        )
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.20f)
+                            else Color.White.copy(alpha = 0.85f),
+                            CircleShape,
+                        )
+                        .clip(CircleShape)
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = "Thêm",
