@@ -137,7 +137,7 @@ assert "event == Lifecycle.Event.ON_RESUME" in ui
 assert "nextMidnight - System.currentTimeMillis()" in ui
 assert "private val _todayYmd = MutableStateFlow(localTodayYmd())" in ui
 assert "currentWeekNumber(weekList, today)" in ui
-assert "todayYmd >= normalizeDateToYmd(week.ngayBatDau)" in ui
+assert "todayYmd >= start && todayYmd <= end" in ui
 assert "WeekDatePicker(" in ui
 assert "eventDays = eventDays" in ui
 # One Room-backed timetable snapshot selects the week and its cached lessons

@@ -55,13 +55,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -81,6 +80,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -89,6 +89,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -113,6 +114,14 @@ class TimetableViewModel(
     private val _selectedWeek = MutableStateFlow<Int?>(null)
     private val _todayYmd = MutableStateFlow(localTodayYmd())
     private val _refreshing = MutableStateFlow(false)
+    // True from launch until the automatic daily sync has either started or
+    // been skipped; avoids flashing "no timetable" before the first sync begins.
+    private val _awaitingSync = MutableStateFlow(
+        authStore.lastAutoSyncAttempt.let { last ->
+            last == 0L || !isSameLocalDay(last, System.currentTimeMillis())
+        },
+    )
+    val awaitingSync: StateFlow<Boolean> = _awaitingSync.asStateFlow()
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -140,7 +149,8 @@ class TimetableViewModel(
             lessons = if (selected == null) emptyList()
                 else lessonList.filter { it.tuanHocKy == selected },
         )
-    }.map<TimetableSnapshot, TimetableSnapshot?> { it }
+    }.flowOn(Dispatchers.Default)
+        .map<TimetableSnapshot, TimetableSnapshot?> { it }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // The existing settings and navigation APIs reuse that same Room snapshot.
@@ -321,6 +331,7 @@ class TimetableViewModel(
                     }
             } finally {
                 _refreshing.value = false
+                _awaitingSync.value = false
             }
         }
     }
@@ -334,6 +345,8 @@ class TimetableViewModel(
         if (lastAutomaticCheck == 0L || !isSameLocalDay(lastAutomaticCheck, now)) {
             authStore.lastAutoSyncAttempt = now
             refresh()
+        } else {
+            _awaitingSync.value = false
         }
     }
 
@@ -354,16 +367,11 @@ class TimetableViewModel(
     /** Compare normalized local calendar dates, not stale week-flow timestamps. */
     private fun currentWeekNumber(weekList: List<WeekEntity>, todayYmd: String): Int? {
         if (weekList.isEmpty()) return null
-        val ordered = weekList.sortedBy { normalizeDateToYmd(it.ngayBatDau) }
-        return ordered.firstOrNull { week ->
-            todayYmd >= normalizeDateToYmd(week.ngayBatDau) &&
-                todayYmd <= normalizeDateToYmd(week.ngayKetThuc)
-        }?.tuanHocKy
-            ?: if (todayYmd < normalizeDateToYmd(ordered.first().ngayBatDau)) {
-                ordered.first().tuanHocKy
-            } else {
-                ordered.last().tuanHocKy
-            }
+        val ordered = weekList
+            .map { Triple(normalizeDateToYmd(it.ngayBatDau), normalizeDateToYmd(it.ngayKetThuc), it.tuanHocKy) }
+            .sortedBy { it.first }
+        return ordered.firstOrNull { (start, end, _) -> todayYmd >= start && todayYmd <= end }?.third
+            ?: if (todayYmd < ordered.first().first) ordered.first().third else ordered.last().third
     }
 }
 
@@ -457,6 +465,7 @@ fun TimetableScreen(
     val exams by viewModel.exams.collectAsState()
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
+    val awaitingSync by viewModel.awaitingSync.collectAsState()
     val error by viewModel.error.collectAsState()
     val lessonNotes by viewModel.lessonNotes.collectAsState()
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
@@ -582,7 +591,7 @@ fun TimetableScreen(
     val listState = key(startDayYmd) {
         rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
     }
-    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped, listState) {
+    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, startDayYmd, listState) {
         if (selectedDay in displayedGrouped) {
             // Each calendar day is one row: left date rail and right cards.
             val target = displayedGrouped.keys.indexOf(selectedDay)
@@ -711,7 +720,7 @@ fun TimetableScreen(
                 }
             }
 
-            if (timetable == null) {
+            if (timetable == null || (weeks.isEmpty() && (refreshing || awaitingSync))) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -935,34 +944,31 @@ private fun AutoFitSubjectTitle(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-    val style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    BoxWithConstraints(modifier = modifier) {
-        val availablePx = with(density) { maxWidth.roundToPx() }
-        val fittedSize = remember(title, availablePx, style, measurer) {
-            var size = style.fontSize
-            while (size.value > 10f) {
-                val layout = measurer.measure(
-                    text = title,
-                    style = style.copy(fontSize = size),
-                    softWrap = false,
-                    maxLines = 1,
-                )
-                if (layout.size.width <= availablePx && !layout.hasVisualOverflow) break
-                size = (size.value - 0.5f).coerceAtLeast(10f).sp
+    val baseStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+    // Shrink through the real text layout instead of BoxWithConstraints
+    // subcomposition plus repeated TextMeasurer passes while the list scrolls.
+    var fontSize by remember(title, baseStyle.fontSize) { mutableStateOf(baseStyle.fontSize) }
+    var fitted by remember(title, baseStyle.fontSize) { mutableStateOf(false) }
+    val atMinimum = fontSize.value <= 10f
+    Text(
+        text = title,
+        style = baseStyle.copy(fontSize = fontSize),
+        maxLines = 1,
+        softWrap = false,
+        overflow = if (atMinimum) TextOverflow.Ellipsis else TextOverflow.Clip,
+        onTextLayout = { layout ->
+            if (!fitted) {
+                if (layout.didOverflowWidth && !atMinimum) {
+                    fontSize = (fontSize.value - 0.5f).coerceAtLeast(10f).sp
+                } else {
+                    fitted = true
+                }
             }
-            size
-        }
-        Text(
-            text = title,
-            style = style.copy(fontSize = fittedSize),
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .drawWithContent { if (fitted) drawContent() },
+    )
 }
 
 @Composable
