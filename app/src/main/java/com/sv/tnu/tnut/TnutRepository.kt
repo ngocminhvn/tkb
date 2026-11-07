@@ -1,6 +1,7 @@
 package com.sv.tnu.tnut
 
 import android.content.Context
+import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import com.sv.tnu.data.AuthStore
@@ -11,8 +12,10 @@ import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.TkbDao
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.widget.TimetableWidgetProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +34,65 @@ class TnutRepository(
 ) {
     /** Học kỳ hiện tại của TNUT, dùng khi chưa lưu học kỳ nào. */
     val defaultHocKy: Int = 20261
+
+    private val backupJson = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
+
+    private fun readPersonalFile(uri: Uri): String {
+        val stream = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalArgumentException("Không đọc được tệp đã chọn.")
+        return stream.bufferedReader(Charsets.UTF_8).use { reader ->
+            val result = CharArray(2_000_001)
+            val count = reader.read(result)
+            require(count in 1..2_000_000) { "Tệp trống hoặc vượt giới hạn 2 MB." }
+            val tail = reader.read()
+            require(tail == -1) { "Tệp vượt giới hạn 2 MB." }
+            String(result, 0, count)
+        }
+    }
+
+    /**
+     * Restore a timetable backup explicitly selected by this student.
+     * Never ship another student's historical JSON inside the public APK.
+     */
+    suspend fun importPersonalTimetable(uri: Uri, hocKy: Int): Result<Int> =
+        withContext(Dispatchers.IO) {
+            try {
+                val wrapper = backupJson.decodeFromString<ApiWrapper<TkbData>>(readPersonalFile(uri))
+                val data = wrapper.data
+                    ?: throw IllegalArgumentException("Tệp không chứa dữ liệu thời khóa biểu.")
+                val count = data.dsTuanTkb.sumOf { it.dsThoiKhoaBieu.size }
+                require(data.dsTuanTkb.isNotEmpty() && count > 0) {
+                    "Tệp sao lưu không có buổi học nào; không thay thế lịch hiện tại."
+                }
+                saveToDb(hocKy, data)
+                authStore.hocKy = hocKy
+                Result.success(count)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun importPersonalExams(uri: Uri, hocKy: Int): Result<Int> =
+        withContext(Dispatchers.IO) {
+            try {
+                val exams = PersonalExamImporter.parse(readPersonalFile(uri), hocKy)
+                // Replace final exams only after ALL rows pass validation.
+                // Any existing midterm exams and lesson notes are left intact.
+                dao.replaceExamsByType(hocKy, false, exams)
+                TimetableWidgetProvider.updateAll(context)
+                Result.success(exams.size)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
