@@ -165,12 +165,10 @@ class TimetableViewModel(
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
 
-    init {
-        // Populate offline cache only; refreshIfNeeded() owns network sync.
-        // Fetching exams here would duplicate the calls made by refresh().
-        viewModelScope.launch {
-            repository.seedFromAssetsIfEmpty(hocKy)
-        }
+    // Await offline seed before the first network refresh. Otherwise the
+    // example timetable may race with and overwrite freshly downloaded rows.
+    private val seedJob = viewModelScope.launch {
+        repository.seedFromAssetsIfEmpty(hocKy)
     }
 
     fun setShowExamsOnHome(enable: Boolean) {
@@ -193,7 +191,10 @@ class TimetableViewModel(
         _isFetchingExams.value = true
         viewModelScope.launch {
             try {
-                repository.fetchAndSaveExams(hocKy)
+                seedJob.join()
+                if (!_refreshing.value) {
+                    repository.fetchAndSaveExams(hocKy)
+                }
             } catch (_: Exception) {
             } finally {
                 _isFetchingExams.value = false
@@ -220,6 +221,7 @@ class TimetableViewModel(
         _refreshing.value = true
         viewModelScope.launch {
             try {
+                seedJob.join()
                 _error.value = null
                 repository.refresh(hocKy)
                     .onSuccess {
