@@ -43,7 +43,10 @@ jobs:
       - name: Locate Android NDK
         shell: bash
         run: |
-          ndk="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1)"
+          ndk=""
+          if [[ -d "$ANDROID_HOME/ndk" ]]; then
+            ndk="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          fi
           if [[ -z "$ndk" ]]; then
             sdkmanager --install "ndk;27.2.12479018"
             ndk="$ANDROID_HOME/ndk/27.2.12479018"
