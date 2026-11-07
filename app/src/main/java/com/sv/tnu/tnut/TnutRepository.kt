@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.sv.tnu.rust.RustScheduleCore
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
@@ -141,39 +142,10 @@ class TnutRepository(
     }
 
     private suspend fun saveToDb(hocKy: Int, data: TkbData) {
-        val periods = data.dsTietTrongNgay.map {
-            PeriodEntity(tiet = it.tiet, gioBatDau = it.gioBatDau, gioKetThuc = it.gioKetThuc)
-        }
-        val weeks = data.dsTuanTkb.map {
-            WeekEntity(
-                hocKy = hocKy,
-                tuanHocKy = it.tuanHocKy,
-                ngayBatDau = it.ngayBatDau,
-                ngayKetThuc = it.ngayKetThuc,
-                thongTinTuan = it.thongTinTuan,
-            )
-        }
-        val lessons = data.dsTuanTkb.flatMap { week ->
-            week.dsThoiKhoaBieu.map { lesson ->
-                LessonEntity(
-                    idTkb = lesson.idTkb,
-                    hocKy = hocKy,
-                    tuanHocKy = week.tuanHocKy,
-                    ngayHoc = lesson.ngayHoc,
-                    thuKieuSo = lesson.thuKieuSo,
-                    tietBatDau = lesson.tietBatDau,
-                    soTiet = lesson.soTiet,
-                    maMon = lesson.maMon,
-                    tenMon = lesson.tenMon,
-                    soTinChi = lesson.soTinChi,
-                    maPhong = lesson.maPhong,
-                    tenGiangVien = lesson.tenGiangVien,
-                    tenLop = lesson.tenLop,
-                    maNhom = lesson.maNhom,
-                )
-            }
-        }
-        dao.replaceTimetable(hocKy, periods, weeks, lessons)
+        // Rust owns timetable validation and column mapping. Room retains
+        // transactional writes and migration compatibility for existing users.
+        val mapped = RustPortalCore.mapTimetable(hocKy, data)
+        dao.replaceTimetable(hocKy, mapped.periods, mapped.weeks, mapped.lessons)
         TimetableWidgetProvider.updateAll(context)
     }
 
@@ -236,43 +208,14 @@ class TnutRepository(
                         "(HTTP/API ${response.code}): ${response.message.orEmpty()}"
                 )
             }
-            val data = response.data
-            val regular = data.dsLichThi.orEmpty()
-            val postponed = data.dsLichHoanThi.orEmpty()
-            for ((items, hoanThi) in listOf(regular to false, postponed to true)) {
-                items.forEach { item ->
-                    val date = normalizeDateToYmd(item.ngayThi.orEmpty())
-                    if (!hoanThi && (item.maMon.isNullOrBlank() ||
-                            !Regex("""\d{4}-\d{2}-\d{2}""").matches(date))) {
-                        throw IllegalStateException(
-                            "Portal trả buổi thi thiếu mã môn/ngày thi; giữ lịch đã lưu."
-                        )
-                    }
-                    all.add(
-                        ExamEntity(
-                            hocKy = hocKy,
-                            isGiuaKy = isGiuaKy,
-                            soThuTu = item.soThuTuInt,
-                            maMon = item.maMon?.trim().orEmpty(),
-                            tenMon = (item.tenMon ?: item.tenMonEg)?.trim().orEmpty(),
-                            ngayThi = date,
-                            gioBatDau = item.gioBatDau?.trim().orEmpty(),
-                            soPhut = item.soPhutInt,
-                            maPhong = item.maPhong?.trim().orEmpty(),
-                            diaDiemThi = item.diaDiemThi?.trim().orEmpty(),
-                            hinhThucThi = (item.hinhThucThi ?: item.ghiChuHtt)?.trim().orEmpty(),
-                            soBaoDanh = (item.soBaoDanh ?: item.toThi)?.trim().orEmpty(),
-                            dotThi = item.dotThi?.trim().orEmpty(),
-                            ghiChuSv = item.ghiChuSv?.trim().orEmpty(),
-                            isHoanThi = hoanThi,
-                        )
-                    )
-                }
-            }
+            // JSON parsing, validation and record mapping run in the Rust
+            // engine. A malformed page aborts the type-specific batch.
+            val mapped = RustPortalCore.mapExamPage(hocKy, isGiuaKy, response.data)
+            all.addAll(mapped.rows)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
-            val totalPages = data.totalPages?.takeIf { it > 0 }
-            val rowsOnPage = regular.size + postponed.size
+            val totalPages = mapped.totalPages?.takeIf { it > 0 }
+            val rowsOnPage = mapped.rowCount
             val hasNext = if (totalPages != null) page < totalPages
                 else rowsOnPage >= ExamRequest.PAGE_SIZE
             if (!hasNext) break
