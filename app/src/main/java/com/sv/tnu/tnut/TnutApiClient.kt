@@ -112,6 +112,11 @@ object TnutApiClient {
         // logical HTTP-200/code-401 responses must be retried explicitly.
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
+            // This client is only for the official TNUT portal. Never attach
+            // saved credentials to requests redirected to another hostname.
+            if (original.url.scheme != "https" || original.url.host != "portal.tnut.edu.vn") {
+                return@Interceptor chain.proceed(original)
+            }
             val isLogin = original.url.encodedPath.endsWith("auth/login")
             val oldToken = authStore.accessToken?.takeIf { it.isNotBlank() }
             val request = original.newBuilder().apply {
@@ -151,6 +156,8 @@ object TnutApiClient {
         // Actual HTTP 401s are handled inside OkHttp's retry/follow-up chain.
         val authenticator = object : Authenticator {
             override fun authenticate(route: Route?, response: Response): Request? {
+                if (response.request.url.scheme != "https" ||
+                    response.request.url.host != "portal.tnut.edu.vn") return null
                 if (response.request.url.encodedPath.endsWith("auth/login")) return null
                 if (responseCount(response) >= 2) return null
 
