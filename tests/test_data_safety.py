@@ -25,6 +25,10 @@ assert "fetchExamsOnly()" not in initializer
 assert "if (_refreshing.value) return" in ui
 assert "if (_isFetchingExams.value) return" in ui
 assert "withContext(Dispatchers.IO)" in repo
+assert "dao.replaceExamsByType(hocKy, false, finalExams)" in repo
+assert "dao.replaceExamsByType(hocKy, true, midtermExams)" in repo
+assert "suspend fun deleteExamsByType(" in db_source
+assert "suspend fun replaceExamsByType(" in db_source
 
 # Every historical on-disk database must have a non-destructive migration.
 assert "fallbackToDestructiveMigration" not in db_source
