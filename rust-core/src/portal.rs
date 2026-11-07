@@ -1,106 +1,107 @@
 //! Pure TNUT payload validation and mapping. No credentials or network traffic.
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 
 #[derive(Deserialize)]
-struct Timetable {
-    #[serde(rename = "ds_tiet_trong_ngay", default)]
-    periods: Vec<Period>,
-    #[serde(rename = "ds_tuan_tkb", default)]
-    weeks: Vec<Week>,
+struct Timetable<'a> {
+    #[serde(rename = "ds_tiet_trong_ngay", default, borrow)]
+    periods: Vec<Period<'a>>,
+    #[serde(rename = "ds_tuan_tkb", default, borrow)]
+    weeks: Vec<Week<'a>>,
 }
 #[derive(Deserialize)]
-struct Period {
+struct Period<'a> {
     tiet: i32,
-    #[serde(rename = "gio_bat_dau")]
-    start: String,
-    #[serde(rename = "gio_ket_thuc")]
-    end: String,
+    #[serde(rename = "gio_bat_dau", borrow)]
+    start: Cow<'a, str>,
+    #[serde(rename = "gio_ket_thuc", borrow)]
+    end: Cow<'a, str>,
 }
 #[derive(Deserialize)]
-struct Week {
+struct Week<'a> {
     #[serde(rename = "tuan_hoc_ky")]
     number: i32,
-    #[serde(rename = "ngay_bat_dau", default)]
-    start: String,
-    #[serde(rename = "ngay_ket_thuc", default)]
-    end: String,
-    #[serde(rename = "thong_tin_tuan", default)]
-    title: String,
-    #[serde(rename = "ds_thoi_khoa_bieu", default)]
-    lessons: Vec<Lesson>,
+    #[serde(rename = "ngay_bat_dau", default, borrow)]
+    start: Cow<'a, str>,
+    #[serde(rename = "ngay_ket_thuc", default, borrow)]
+    end: Cow<'a, str>,
+    #[serde(rename = "thong_tin_tuan", default, borrow)]
+    title: Cow<'a, str>,
+    #[serde(rename = "ds_thoi_khoa_bieu", default, borrow)]
+    lessons: Vec<Lesson<'a>>,
 }
 #[derive(Deserialize)]
-struct Lesson {
-    #[serde(rename = "id_tkb")]
-    id: String,
+struct Lesson<'a> {
+    #[serde(rename = "id_tkb", borrow)]
+    id: Cow<'a, str>,
     #[serde(rename = "thu_kieu_so")]
     weekday: i32,
     #[serde(rename = "tiet_bat_dau")]
     first_period: i32,
     #[serde(rename = "so_tiet")]
     period_count: i32,
-    #[serde(rename = "ma_mon", default)]
-    course_code: String,
-    #[serde(rename = "ten_mon", default)]
-    title: String,
-    #[serde(rename = "so_tin_chi", default)]
-    credits: String,
-    #[serde(rename = "ma_phong", default)]
-    room: String,
-    #[serde(rename = "ten_giang_vien", default)]
-    teacher: String,
-    #[serde(rename = "ten_lop", default)]
-    class_name: String,
-    #[serde(rename = "ma_nhom", default)]
-    group: String,
-    #[serde(rename = "ngay_hoc", default)]
-    date: String,
+    #[serde(rename = "ma_mon", default, borrow)]
+    course_code: Cow<'a, str>,
+    #[serde(rename = "ten_mon", default, borrow)]
+    title: Cow<'a, str>,
+    #[serde(rename = "so_tin_chi", default, borrow)]
+    credits: Cow<'a, str>,
+    #[serde(rename = "ma_phong", default, borrow)]
+    room: Cow<'a, str>,
+    #[serde(rename = "ten_giang_vien", default, borrow)]
+    teacher: Cow<'a, str>,
+    #[serde(rename = "ten_lop", default, borrow)]
+    class_name: Cow<'a, str>,
+    #[serde(rename = "ma_nhom", default, borrow)]
+    group: Cow<'a, str>,
+    #[serde(rename = "ngay_hoc", default, borrow)]
+    date: Cow<'a, str>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PeriodRow {
+struct PeriodRow<'a> {
     tiet: i32,
-    gio_bat_dau: String,
-    gio_ket_thuc: String,
+    gio_bat_dau: Cow<'a, str>,
+    gio_ket_thuc: Cow<'a, str>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct WeekRow {
+struct WeekRow<'a> {
     hoc_ky: i32,
     tuan_hoc_ky: i32,
-    ngay_bat_dau: String,
-    ngay_ket_thuc: String,
-    thong_tin_tuan: String,
+    ngay_bat_dau: Cow<'a, str>,
+    ngay_ket_thuc: Cow<'a, str>,
+    thong_tin_tuan: Cow<'a, str>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LessonRow {
-    id_tkb: String,
+struct LessonRow<'a> {
+    id_tkb: Cow<'a, str>,
     hoc_ky: i32,
     tuan_hoc_ky: i32,
-    ngay_hoc: String,
+    ngay_hoc: Cow<'a, str>,
     thu_kieu_so: i32,
     tiet_bat_dau: i32,
     so_tiet: i32,
-    ma_mon: String,
-    ten_mon: String,
-    so_tin_chi: String,
-    ma_phong: String,
-    ten_giang_vien: String,
-    ten_lop: String,
-    ma_nhom: String,
+    ma_mon: Cow<'a, str>,
+    ten_mon: Cow<'a, str>,
+    so_tin_chi: Cow<'a, str>,
+    ma_phong: Cow<'a, str>,
+    ten_giang_vien: Cow<'a, str>,
+    ten_lop: Cow<'a, str>,
+    ma_nhom: Cow<'a, str>,
 }
 #[derive(Serialize)]
-struct TimetableRows {
-    periods: Vec<PeriodRow>,
-    weeks: Vec<WeekRow>,
-    lessons: Vec<LessonRow>,
+struct TimetableRows<'a> {
+    periods: Vec<PeriodRow<'a>>,
+    weeks: Vec<WeekRow<'a>>,
+    lessons: Vec<LessonRow<'a>>,
 }
 
 /// Return entity-shaped JSON after verifying a complete semester timetable.
 /// Reject empty data before a transaction can replace the offline cache.
-fn timetable_rows(semester: i32, source: Timetable) -> Result<TimetableRows, String> {
+fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableRows<'a>, String> {
     if source.weeks.is_empty() || source.weeks.iter().all(|week| week.lessons.is_empty()) {
         return Err(format!("Portal trả lịch học rỗng (học kỳ {semester}). Dữ liệu đã lưu được giữ nguyên."));
     }
@@ -131,7 +132,7 @@ fn timetable_rows(semester: i32, source: Timetable) -> Result<TimetableRows, Str
 
 /// Public JSON mapper kept for Rust regression fixtures; Android uses binary.
 pub fn map_timetable(semester: i32, payload: &str) -> Result<String, String> {
-    let source: Timetable = serde_json::from_str(payload)
+    let source: Timetable<'_> = serde_json::from_str(payload)
         .map_err(|error| format!("Invalid TNUT timetable: {error}"))?;
     serde_json::to_string(&timetable_rows(semester, source)?)
         .map_err(|error| format!("Cannot encode timetable rows: {error}"))
@@ -313,8 +314,8 @@ struct PortalEnvelope<T> {
     message: Option<String>,
     data: Option<T>,
 }
-fn parse_envelope<T: for<'de> Deserialize<'de>>(
-    input: &[u8],
+fn parse_envelope<'a, T: Deserialize<'a>>(
+    input: &'a [u8],
     section: &str,
 ) -> Result<T, String> {
     if input.len() > MAX_WIRE_PAYLOAD {
@@ -351,7 +352,7 @@ fn binary_header(kind: u8) -> Vec<u8> {
     out.push(kind);
     out
 }
-fn pack_timetable(rows: TimetableRows) -> Result<Vec<u8>, String> {
+fn pack_timetable(rows: TimetableRows<'_>) -> Result<Vec<u8>, String> {
     let mut out = binary_header(b'T');
     binary_count(&mut out, rows.periods.len())?;
     for row in rows.periods {
@@ -414,7 +415,7 @@ fn pack_exams(page: ExamPageRows) -> Result<Vec<u8>, String> {
 
 /// Receives exactly the network JSON bytes; does not reserialize Kotlin DTOs.
 pub fn map_timetable_wire(semester: i32, bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let data: Timetable = parse_envelope(bytes, "thời khóa biểu")?;
+    let data: Timetable<'_> = parse_envelope(bytes, "thời khóa biểu")?;
     pack_timetable(timetable_rows(semester, data)?)
 }
 pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Vec<u8>, String> {
@@ -484,5 +485,12 @@ mod tests {
     fn refuses_missing_required_exam_data() {
         let input = r#"{"ds_lich_thi":[{"ngay_thi":"07/11/2026"}]}"#;
         assert!(map_exam_page(20261, false, input).is_err());
+    }
+    #[test]
+    fn timetable_wire_handles_escaped_strings() {
+        let payload = r#"{"code":200,"data":{"ds_tuan_tkb":[{"tuan_hoc_ky":1,"ds_thoi_khoa_bieu":[{"id_tkb":"a","thu_kieu_so":2,"tiet_bat_dau":1,"so_tiet":1,"ten_mon":"Gi\u1ea3i \"t\u00edch\""}]}]}}"#;
+        let packed = map_timetable_wire(1, payload.as_bytes()).unwrap();
+        let needle = "Giải \"tích\"".as_bytes();
+        assert!(packed.windows(needle.len()).any(|v| v == needle));
     }
 }
