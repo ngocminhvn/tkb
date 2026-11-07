@@ -227,7 +227,13 @@ class TimetableViewModel(
                     .onSuccess {
                         _lastSyncTime.value = authStore.lastSyncTime
                     }
-                    .onFailure { _error.value = "Không tải được lịch mới: ${it.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu." }
+                    .onFailure { cause ->
+                        _error.value = if (cause is retrofit2.HttpException && cause.code() == 401) {
+                            "Phiên đăng nhập TNUT đã hết hạn. Vào Cài đặt → Đăng xuất và đăng nhập lại để đồng bộ. Lịch đã lưu vẫn được giữ."
+                        } else {
+                            "Không tải được lịch mới: ${cause.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu."
+                        }
+                    }
             } finally {
                 _refreshing.value = false
             }
