@@ -189,7 +189,8 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .height(64.dp)
+                    .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -601,7 +602,7 @@ fun SettingsScreen(
             ActionCard(
                 icon = Icons.Default.Info,
                 title = "Thông tin ứng dụng",
-                subtitle = "SvTNU • Phiên bản ${appUpdateViewModel.currentVersionName}",
+                subtitle = "TKB SV • Phiên bản ${appUpdateViewModel.currentVersionName}",
                 onClick = { appUpdateViewModel.checkForUpdate(manual = true) },
             )
 
