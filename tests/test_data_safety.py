@@ -33,16 +33,30 @@ assert "sample_tkb_tuan_20261.json" not in repo
 assert "dao.removeLegacySampleExamsIfExact(hocKy)" in repo
 assert "suspend fun removeLegacySampleExamsIfExact(hocKy: Int)" in db_source
 
-# The two exam APIs update independently; an empty successful portal response
-# must clear obsolete cache for its type, but a failed response must keep it.
-assert "if (fetchedCuoiKy)" in repo
-assert "if (fetchedGiuaKy)" in repo
+# Empty portal payloads must not wipe real or imported offline exams.
+assert "if (fetchedCuoiKy && finalExams.isNotEmpty())" in repo
+assert "if (fetchedGiuaKy && midtermExams.isNotEmpty())" in repo
+assert "incomingLessons == 0" in repo
+assert "Dữ liệu đã lưu được giữ nguyên" in repo
+assert "return Result.failure(" in repo
 assert "dao.replaceExamsByType(hocKy, false, finalExams)" in repo
 assert "dao.replaceExamsByType(hocKy, true, midtermExams)" in repo
 assert "suspend fun deleteExamsByType(" in db_source
 assert "suspend fun replaceExamsByType(" in db_source
 assert "resCuoiKy.data != null" in repo
 assert "resGiuaKy.data != null" in repo
+assert "suspend fun importPersonalTimetable(uri: Uri, hocKy: Int)" in repo
+assert "suspend fun importPersonalExams(uri: Uri, hocKy: Int)" in repo
+assert "dao.replaceExamsByType(hocKy, false, exams)" in repo
+assert "saveToDb(hocKy, data)" in repo
+assert "PersonalExamImporter.parse(" in repo
+parser = (root / "tnut/PersonalExamImporter.kt").read_text(encoding="utf-8")
+assert "class PersonalExamImporter" in parser or "object PersonalExamImporter" in parser
+assert "val normalizedDate" in parser
+assert "require(maMon.isNotBlank() && tenMon.isNotBlank())" in parser
+settings = (root / "ui/SettingsScreen.kt").read_text(encoding="utf-8")
+assert "Khôi phục thời khóa biểu từ JSON" in settings
+assert "Nhập lịch thi từ Excel (CSV/TSV)" in settings
 
 # Past days are filtered uniformly across lessons AND exam cards, including
 # when app resumes from the background after a local calendar-day change.
