@@ -571,9 +571,8 @@ fun TimetableScreen(
             .toSortedMap()
     }
 
-    // Render the whole seven-day week. The selected day controls scroll
-    // position, not which classes are hidden. This also makes empty dates
-    // selectable and visible without losing adjacent lessons.
+    // Keep populated days in the week list; an empty selected day gets a
+    // dedicated centered empty state without showing other empty day headers.
     fun changeSelectedDay(direction: Int) {
         val next = adjacentTimetableDay(selectedDay, direction, weeks) ?: return
         selectedDay = next.first
@@ -585,13 +584,15 @@ fun TimetableScreen(
         if (startDayYmd.isBlank()) emptyMap()
         else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
     }
-    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, displayedGrouped) {
-        if (selectedDay in displayedGrouped) {
-            // Each date contributes a header and at least one row. Jump close
-            // to distant targets before the short animation: animating through
-            // all seven days creates unnecessary Compose list work/jank.
-            val target = displayedGrouped.entries.takeWhile { it.key != selectedDay }
-                .sumOf { 1 + it.value.size.coerceAtLeast(1) }
+    val populatedDays = remember(displayedGrouped) {
+        displayedGrouped.filterValues { it.isNotEmpty() }
+    }
+    val selectedDayIsEmpty = selectedDay in displayedGrouped && displayedGrouped[selectedDay].isNullOrEmpty()
+    androidx.compose.runtime.LaunchedEffect(selectedDay, scrollRequest, populatedDays) {
+        if (selectedDay in populatedDays) {
+            // Only populated days contribute a header and lesson/exam rows.
+            val target = populatedDays.entries.takeWhile { it.key != selectedDay }
+                .sumOf { 1 + it.value.size }
             if (!hasAutoScrolled) {
                 listState.scrollToItem(target)
                 hasAutoScrolled = true
@@ -731,7 +732,22 @@ fun TimetableScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     )
                 }
-            } else if (displayedGrouped.isNotEmpty()) {
+            } else if (selectedDayIsEmpty) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(bottom = contentPadding.calculateBottomPadding()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Không có lịch học hoặc lịch thi.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else if (populatedDays.isNotEmpty()) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     LazyColumn(
                         state = listState,
@@ -762,21 +778,11 @@ fun TimetableScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                    displayedGrouped.forEach { (date, dayItems) ->
+                    populatedDays.forEach { (date, dayItems) ->
                         val isToday = date == todayStr
                         item(key = "header-$date", contentType = "header") {
                             DayHeader(date = date, isToday = isToday)
                         }
-                        if (dayItems.isEmpty()) {
-                            item(key = "empty-$date", contentType = "empty") {
-                                Text(
-                                    text = "Không có lịch học hoặc lịch thi.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
-                                    modifier = Modifier.padding(start = 12.dp, bottom = 14.dp),
-                                )
-                            }
-                        } else {
                             items(
                                 items = dayItems,
                                 key = { item ->
@@ -807,7 +813,6 @@ fun TimetableScreen(
                                     )
                                 }
                             }
-                        }
                     }
                 }
                 }
