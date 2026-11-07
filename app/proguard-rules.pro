@@ -1,4 +1,4 @@
-# ProGuard / R8 rules for SvTNU
+# ProGuard / R8 rules for TKB SV
 
 # Preserve line numbers and source file names for crash reporting
 -keepattributes SourceFile,LineNumberTable
