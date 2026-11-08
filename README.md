@@ -1,70 +1,143 @@
-# TKB SV
+# TKB SV — Thời khóa biểu TNUT (Android)
 
-Ứng dụng thời khóa biểu mã nguồn mở cho sinh viên ĐH Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
+Ứng dụng Android mã nguồn mở để xem **thời khóa biểu, lịch thi và ghi chú môn học** cho sinh viên Đại học Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
 
-Lấy lịch trực tiếp từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn) bằng tài khoản sinh viên của bạn — **không qua máy chủ trung gian nào**.
+- Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
+- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi.
+- Giao diện **Kotlin + Jetpack Compose (Material 3)**; một phần xử lý dữ liệu lịch chạy bằng **Rust** qua JNI.
+- **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 
-## Tính năng (v1)
+> **Dành cho AI/code agent:** Đọc [AGENTS.md](AGENTS.md) trước khi sửa. File này xác định nơi chịu trách nhiệm cho từng tính năng, luồng dữ liệu, các bất biến về Room/JNI và bộ test bắt buộc.
 
-- Đăng nhập bằng tài khoản portal TNUT
-- Xem thời khóa biểu dạng tuần (chuyển tuần trước/sau, tự nhảy về tuần hiện tại)
-- Mỗi buổi học hiện: tên môn, tiết + giờ, phòng, giảng viên, lớp, nhóm, số tín chỉ
-- Lưu lịch vào Room (SQLite) trên máy: mất mạng vẫn xem được lịch đã tải
-- Tải lại lịch từ portal bất cứ lúc nào
+## Tính năng hiện có
 
-## Bảo mật
+- Đăng nhập TNUT, làm mới phiên/token; thông báo rõ khi phiên không còn hợp lệ.
+- Lịch học theo học kỳ, tuần/ngày; chọn ngày, chuyển tuần, xem ngày trong tháng.
+- Xem môn, tiết/giờ, phòng, giảng viên, lớp/nhóm và ghi chú riêng cho buổi học.
+- Đồng bộ lịch học và lịch thi; xem lịch thi giữa kỳ/cuối kỳ, phân trang dữ liệu portal.
+- Lưu lịch học, lịch thi, ghi chú trên thiết bị, sử dụng lại khi không có mạng.
+- Nhắc lịch hôm nay/ngày mai theo thiết lập người dùng; widget thời khóa biểu.
+- Chế độ giao diện sáng/tối và kiểm tra/cài đặt bản cập nhật ứng dụng.
 
-- Tài khoản + token chỉ lưu trên máy, mã hóa bằng EncryptedSharedPreferences. App không gửi tài khoản của bạn đi đâu ngoài `portal.tnut.edu.vn`.
-- Dữ liệu thời khóa biểu lưu trong Room trên máy, không đồng bộ lên đâu.
+## Sơ đồ kiến trúc
 
-## Dữ liệu thời khóa biểu và lịch thi
+```text
+Android UI (Compose)
+  ├─ MainActivity → SchoolRegistry → SchoolSession
+  ├─ LoginScreen / TimetableViewModel / SettingsScreen
+  └─ quan sát SchoolRepository (Flow)
+                      │
+       ┌──────────────┴──────────────┐
+       │                             │
+TNUT HTTP/Authentication        Room/SQLite
+Retrofit + OkHttp               tkb.db (schema v4)
+TnutApiClient                   cache, lịch thi, ghi chú
+TnutApi / TnutRepository             ▲
+       │                             │
+       └─ HTTP response bytes ─→ RustPortalCore (JNI)
+                                  └─ rust-core/src/portal.rs
+                                     kiểm tra + ánh xạ
+                                     └─ binary TKB1 → Room entities
 
-- Ứng dụng **không tạo sẵn lịch học hoặc lịch thi của người khác**. Khi đăng nhập, lịch thực tế được lấy từ portal TNUT theo tài khoản và lưu bằng Room để xem offline.
-- Sau mỗi lần **đăng nhập thành công**, màn hình chính tự khởi chạy đồng bộ **cả thời khóa biểu và lịch thi** từ portal, sau đó tự kiểm tra mỗi ngày hoặc khi người dùng nhấn tải lại. Hai API chạy độc lập, vì vậy lỗi lịch học không chặn tải lịch thi.
-- Không có hai chức năng nhập JSON/CSV/TSV bằng tay; nguồn lịch học và lịch thi mới duy nhất là API TNUT theo phiên đăng nhập.
-- Khi đồng bộ lỗi (mạng, HTTP 401), giữ nguyên dữ liệu thật đã tải trước đó; không tạo ra lịch thi giả. Nếu phiên hết hạn, thử đăng nhập lại trong app.
-- Những bản cũ đã từng chèn 6 lịch thi mẫu: bản mới chỉ tự dọn nếu cả 6 dòng trong cache khớp chính xác bộ mẫu; các lịch thi thật và ghi chú không bị xóa.
-- Màn hình chính hiển thị đủ bảy ngày trong tuần; mở vào ngày hôm nay và tự cuộn đến mục tương ứng, chạm ngày khác để cuộn đến ngày đó. Dải lịch hỗ trợ xem lịch tháng; chạm lại ngày đã chọn để thu gọn. Ngày hiện tại được cập nhật sau nửa đêm.
-- Nhắc lịch **hôm nay** và **ngày mai** độc lập trong Cài đặt, mặc định tắt. Người dùng chọn giờ cho từng loại, Android xin quyền thông báo khi cần; lịch nhắc được lên lại sau khi khởi động máy hoặc đổi giờ/múi giờ.
-- Thông báo tổng hợp các buổi học/thi từ Room trong học kỳ hiện tại, không gọi mạng nền liên tục. Android có thể giao nhắc muộn hơn thời điểm chọn khi tiết kiệm pin.
-- Nếu chưa từng đồng bộ thành công, ứng dụng không thể biết lịch thi chính xác từ một ảnh bảng lịch dùng chung; cần đăng nhập để tải dữ liệu riêng từ portal.
-
-## Kỹ thuật
-
-- Android (không iOS): Kotlin + Jetpack Compose (Material 3) giữ nguyên giao diện; Rust qua JNI xử lý ngày/tuần, ánh xạ và kiểm tra dữ liệu TKB/lịch thi, phân trang/chống trùng, chuẩn hóa MSSV và ghi chú; minSdk 24, targetSdk 35
-- Android application ID `com.tkb.sv`, tên hiển thị **TKB SV**. Namespace Kotlin nội bộ vẫn là `com.sv.tnu` để giữ nguyên các lớp hiện có.
-- **Lưu ý nâng cấp:** Android xem `com.tkb.sv` là ứng dụng khác `com.sv.tnu`; không thể cài đè trực tiếp hoặc tự chuyển dữ liệu Room/đăng nhập/ghi chú từ bản cũ.
-- Room (SQLite) cho lịch tuần, EncryptedSharedPreferences cho tài khoản/token
-- App không cố định một trường: phần chung (UI, Room, đăng nhập) ở `com.sv.tnu`, phần lấy lịch của từng trường nằm trong thư mục riêng — hiện tại chỉ có `com.sv.tnu.schools.tnut` (TNUT). Thêm trường khác = thêm 1 thư mục như `tnut/` rồi đổi điểm gắn trong `MainActivity`.
-- Retrofit + kotlinx-serialization gọi API portal (mã TNUT trong `tnut/`):
-  - `POST /api/auth/login` (OAuth2 password grant)
-  - `POST /api/sch/w-locdshockytkbuser` (danh sách học kỳ)
-  - `POST /api/sch/w-locdstkbtuanusertheohocky` (lịch tuần cả học kỳ)
-  - `POST /api/epm/w-locdslichthisvtheohocky` (lịch thi giữa kỳ/cuối kỳ, phân trang 100 bản ghi)
-
-## Build
-
-```bash
-# Cài Rust, Android NDK và cargo-ndk trước.
-cargo install cargo-ndk --locked
-cargo test --manifest-path rust-core/Cargo.toml
-bash scripts/build-rust-android.sh
-gradle testDebugUnitTest assembleDebug
+RustScheduleCore (JNI) → rust-core/src/lib.rs
+  tính toán ngày/tuần, thời gian và chuẩn hóa dữ liệu
 ```
 
-**Trạng thái chuyển đổi:** Nghiệp vụ chuyển đổi lịch học/lịch thi và một số quy tắc dữ liệu đang chạy qua Rust. HTTP/refresh token, giao dịch Room và quản lý SQLite vẫn là lớp Kotlin/Android; chưa đạt mục tiêu loại bỏ hoàn toàn Kotlin khỏi phần nghiệp vụ. Không đổi cấu trúc `tkb.db` hay ghi chú hiện có.
+**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android và chuyển dữ liệu portal thành các bản ghi dùng được cho Room. **Chưa phải ứng dụng 100% Rust.**
 
-Phần Rust JNI phải được biên dịch trước khi tạo APK. Gradle sẽ báo lỗi nếu thiếu `libtkb_core.so` cho một trong bốn ABI. GitHub Actions tự build Rust và kiểm tra các thư viện trong APK. Xem `rust-core/README.md` để biết phạm vi Rust đã chuyển và phần Kotlin còn lại (API, Room, thông báo, giao diện). Bản phát hành được build tự động khi push lên `main`.
+## Bản đồ thư mục (đọc trước khi sửa)
 
-## Tải APK
+| Đường dẫn | Trách nhiệm chính | Khi nào cần mở? |
+| --- | --- | --- |
+| `app/` | Module Android, cấu hình build, mã Kotlin/Compose, resources và test JVM | Sửa APK, giao diện, Android integration |
+| `app/src/main/java/com/sv/tnu/` | Mã nguồn ứng dụng; `MainActivity.kt` là điểm tạo DB, session và điều hướng | Luồng khởi động/đăng nhập/điều hướng |
+| `.../data/` | `AppDatabase.kt`: Entity/DAO/migration Room; `AuthStore.kt`: token, tài khoản và cài đặt cục bộ | SQLite, offline, lưu ghi chú, thiết lập |
+| `.../schools/` | Contract chung `SchoolProvider.kt` và danh sách `SchoolRegistry.kt` | Thêm/chỉnh cách tích hợp trường |
+| `.../schools/tnut/` | API TNUT, OkHttp/Retrofit, model, đăng nhập, refresh và đồng bộ lịch vào Room | Lỗi portal, token, lịch học/lịch thi |
+| `.../rust/` | Adapter Kotlin ↔ Rust JNI; giải mã nhị phân `TKB1` thành Room Entity | Thay đổi kiểu dữ liệu / giao thức JNI |
+| `.../ui/` | Compose, ViewModel, lịch tuần/ngày, login, cài đặt, chọn ngày, dialog cập nhật | Giao diện, cuộn/chuyển ngày, trạng thái tải |
+| `.../ui/components/` | Thành phần giao diện dùng lại, ví dụ avatar | Sửa UI tái sử dụng |
+| `.../ui/glass/` | Hiệu ứng Liquid Glass trong UI | Sửa hiệu ứng hiển thị |
+| `.../ui/theme/` | Theme và màu Compose | Sáng/tối, màu sắc |
+| `.../notifications/` | Lên lịch và hiển thị nhắc lịch, receiver khởi động lại | Thông báo hôm nay/ngày mai |
+| `.../widget/` | Widget Android/RemoteViews, chuyển ngày, đọc dữ liệu Room | Widget ngoài màn hình chính |
+| `.../update/` | Kiểm tra, tải, xác thực và cài APK cập nhật | Cơ chế cập nhật ứng dụng |
+| `app/src/main/res/` | Drawable, XML widget/layout, string, color, theme Android | Tài nguyên đồ họa/XML |
+| `app/src/test/` | Unit test Kotlin/Android host JVM theo tính năng | Test giao diện, dữ liệu, ngày, reminders |
+| `rust-core/` | Rust crate, Cargo manifest/lock và nghiệp vụ độc lập Android | Thay đổi xử lý dữ liệu Rust |
+| `rust-core/src/lib.rs` | Ngày tháng, lịch tuần, giờ học/thi, helper thuần Rust | Logic thời gian |
+| `rust-core/src/portal.rs` | Kiểm tra và ánh xạ JSON TNUT, phân trang/chống trùng, tạo binary `TKB1` | Sai dữ liệu lịch, lịch thi |
+| `rust-core/src/android.rs` | Hàm JNI export cho ứng dụng Android | Chữ ký hàm JNI, giao tiếp native |
+| `scripts/` | `build-rust-android.sh` tạo thư viện `libtkb_core.so` cho 4 ABI | Biên dịch thư viện Rust Android |
+| `tests/` | Kiểm tra hồi quy Python về an toàn Room, auth và release (offline) | Trước khi merge/sửa code |
+| `.github/workflows/` | CI Rust, kiểm thử/build APK release và triển khai GitHub Pages | Build Actions, đóng gói, phát hành |
+| `gradle/` | Gradle wrapper và version catalog `libs.versions.toml` | Thay phiên bản dependencies |
+| `docs/` | Tài liệu hướng dẫn kiến trúc mở rộng, hiện có `ADDING_SCHOOL.md` | Thêm trường mới |
+| `AGENTS.md` | Chỉ dẫn cho AI: bản đồ file, ràng buộc, chuỗi phụ thuộc, test | **Đọc trước mọi thay đổi** |
 
-https://ngocminhvn.github.io/tkb/TKB-SV.apk
+`.../` trong bảng là viết tắt của `app/src/main/java/com/sv/tnu/`. Sơ đồ trên phản ánh **mã nguồn hiện tại**, không phải kiến trúc dự kiến.
 
+## Tra nhanh: sửa tính năng nào ở đâu?
 
-## Cấu trúc đa trường
+| Mục tiêu | File nên đọc/sửa trước |
+| --- | --- |
+| Cuộn ngày, chuyển tuần, chọn ngày trên lịch | `ui/TimetableScreen.kt`, `ui/WeekDatePicker.kt` |
+| Dữ liệu hiển thị và trạng thái đồng bộ trên màn hình chính | `ui/TimetableScreen.kt` (TimetableViewModel), `ui/MainScreen.kt` |
+| Đăng nhập, token hết hạn / HTTP 401 | `schools/tnut/TnutApiClient.kt`, `TnutSchoolProvider.kt`, `ui/LoginScreen.kt`, `data/AuthStore.kt` |
+| Dữ liệu lịch học/lịch thi trả sai hoặc trùng | `schools/tnut/TnutRepository.kt`, `rust/RustPortalCore.kt`, `rust-core/src/portal.rs` |
+| Tải chậm, parser, thời gian/ngày tháng | `rust-core/src/lib.rs`, `portal.rs`, `ui/TimetableScreen.kt` |
+| Ghi chú, lịch offline, migration | `data/AppDatabase.kt`, `schools/tnut/TnutRepository.kt` |
+| Nhắc lịch hoặc widget | `notifications/ScheduleReminders.kt`, `widget/TimetableWidgetProvider.kt` |
+| Giao diện, màu, hiệu ứng | `ui/`, `ui/glass/`, `ui/theme/`, `res/` |
+| Cập nhật APK / GitHub Pages | `update/`, `.github/workflows/build.yml` |
 
-`schools/SchoolProvider.kt` là interface chung, `schools/tnut/` chứa API và
-repository riêng TNUT. Xem `docs/ADDING_SCHOOL.md`.
+Các đường dẫn rút gọn trong bảng tính từ `app/src/main/java/com/sv/tnu/`, trừ `rust-core/` và `.github/`.
 
-Hiện chỉ hỗ trợ **TNUT**. Chưa bật chuyển trường vì cache SQLite cần được tách
-theo trường và tài khoản trước để tránh ghi đè lịch/ghi chú hiện có.
+## Lưu ý kỹ thuật không được phá vỡ
+
+1. `applicationId = com.tkb.sv`, namespace Kotlin `com.sv.tnu`; minSdk 24, targetSdk 35. Đổi ID hoặc chữ ký sẽ ảnh hưởng khả năng cập nhật APK.
+2. Room dùng `tkb.db`, **schema version 4**, có migration 1→2→3→4. Không dùng destructive migration, không xóa ghi chú/cache người dùng khi đồng bộ lỗi.
+3. Kiểm tra dữ liệu portal **trước** transaction thay lịch. Hai nguồn lịch học và lịch thi độc lập; lỗi một nguồn không được xóa dữ liệu nguồn kia.
+4. Android dùng JNI Rust với kết quả nhị phân `TKB1` (không còn vòng JSON → Rust → JSON); nếu sửa encoder/decoder phải cập nhật **cả hai phía**.
+5. Trường thứ hai chưa được bật vì cache/tài khoản chưa tách theo trường và sinh viên. Đọc [docs/ADDING_SCHOOL.md](docs/ADDING_SCHOOL.md).
+6. Không đưa mật khẩu, token, thông tin sinh viên hoặc keystore lên log, issue hay tài liệu.
+
+## Build và kiểm thử
+
+Yêu cầu: JDK 17, Android SDK/NDK tương thích, Rust toolchain và `cargo-ndk`. Đứng tại thư mục gốc repository:
+
+```bash
+# Chạy guard tests không cần thiết bị Android
+python3 tests/test_data_safety.py
+python3 tests/test_auth_refresh.py
+
+# Kiểm tra core Rust
+cargo test --manifest-path rust-core/Cargo.toml
+cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
+
+# Biên dịch thư viện Rust cho arm64-v8a, armeabi-v7a, x86_64, x86
+cargo install cargo-ndk --locked
+bash scripts/build-rust-android.sh
+
+# Kiểm thử JVM và build APK debug
+./gradlew testDebugUnitTest assembleDebug
+```
+
+`app/build.gradle.kts` **chặn build** nếu thiếu `app/src/main/jniLibs/<ABI>/libtkb_core.so`. Thư mục `jniLibs` chứa đầu ra được tạo từ script, không phải nguồn Rust cần sửa trực tiếp. Xem thêm [rust-core/README.md](rust-core/README.md).
+
+### CI/phát hành
+
+- [`build.yml`](.github/workflows/build.yml): chạy khi push `main` hoặc bấm chạy tay; test dữ liệu/auth, build Rust, test Kotlin, build Release có R8, kiểm tra chữ ký, xuất APK và dữ liệu cập nhật, deploy GitHub Pages.
+- [`rust-core.yml`](.github/workflows/rust-core.yml): chạy Rust test/clippy khi Rust core/workflow liên quan thay đổi.
+
+**APK hiện được cấu hình phát hành tại:** https://ngocminhvn.github.io/tkb/TKB-SV.apk
+
+**Chú ý:** sửa tài liệu rồi push `main` cũng kích hoạt workflow `build.yml` theo cấu hình hiện tại. Không mặc định coi build thành công khi chưa kiểm tra Actions.
+
+## Bảo mật và giới hạn
+
+Ứng dụng sử dụng portal TNUT làm nguồn dữ liệu tài khoản; credentials/token nằm trong bộ nhớ được bảo vệ trên thiết bị qua `EncryptedSharedPreferences`, lịch và ghi chú nằm trong Room. Không có dịch vụ trung gian do dự án vận hành để sao chép dữ liệu lịch. Việc mở rộng sang trường khác cần thiết kế cách ly tài khoản, cache và migration trước khi cho phép chuyển trường.
+
+## Đóng góp / giao việc cho AI
+
+Khi nhờ AI chỉnh repo, đưa yêu cầu cụ thể và yêu cầu đọc [AGENTS.md](AGENTS.md). AI cần chỉ rõ **đường đi dữ liệu, file dự định sửa, test liên quan, rủi ro đối với cache/login/JNI và kết quả build thực tế**; tránh đổi kiến trúc hoặc viết lại hàng loạt nếu chỉ cần sửa một hành vi.
