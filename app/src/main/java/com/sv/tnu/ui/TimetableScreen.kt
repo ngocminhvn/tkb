@@ -56,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -855,19 +856,21 @@ fun TimetableScreen(
     // resistance, then springs back. No labels or progress indicators.
     val edgeThresholdPx = with(LocalDensity.current) { 144.dp.toPx() }
     val haptic = LocalHapticFeedback.current
-    val edgeOffset = remember { Animatable(0f) }
+    var edgeOffsetPx by remember { mutableFloatStateOf(0f) }
     val edgeScope = rememberCoroutineScope()
     val edgeRecovery = remember { arrayOfNulls<Job>(1) }
     fun springBackAtEdge() {
         edgeRecovery[0]?.cancel()
+        val from = edgeOffsetPx
+        if (from == 0f) return
         edgeRecovery[0] = edgeScope.launch {
-            edgeOffset.animateTo(
+            Animatable(from).animateTo(
                 0f,
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow,
                 ),
-            )
+            ) { edgeOffsetPx = value }
         }
     }
 
@@ -1013,11 +1016,11 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { translationY = edgeOffset.value }
+                            .graphicsLayer { translationY = edgeOffsetPx }
                             .pointerInput(listState, selectedWeek, weeks, edgeThresholdPx) {
                                 awaitEachGesture {
                                     edgeRecovery[0]?.cancel()
-                                    edgeOffset.stop()
+                                    edgeOffsetPx = 0f
                                     val down = awaitFirstDown(requireUnconsumed = false)
                                     var previous = down.position
                                     var distance = 0f
@@ -1038,7 +1041,6 @@ fun TimetableScreen(
                                                 distance, edgeThresholdPx, direction, hasAdjacent,
                                             )
                                             if (confirmed != null) changeWeekAtBoundary(confirmed)
-                                            springBackAtEdge()
                                             break
                                         }
                                         val delta = change.position - previous
@@ -1075,8 +1077,8 @@ fun TimetableScreen(
                                             }
                                             distance = if (direction == 0) 0f else kotlin.math.abs(delta.y)
                                         }
-                                        edgeOffset.snapTo(
-                                            elasticEdgeOffsetPx(distance, edgeThresholdPx, direction)
+                                        edgeOffsetPx = elasticEdgeOffsetPx(
+                                            distance, edgeThresholdPx, direction,
                                         )
                                         if (distance >= edgeThresholdPx && direction != 0 && !vibrated) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
