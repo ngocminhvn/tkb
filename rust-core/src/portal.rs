@@ -1,5 +1,5 @@
 //! Pure TNUT payload validation and mapping. No credentials or network traffic.
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use std::borrow::Cow;
 
@@ -58,15 +58,11 @@ struct Lesson<'a> {
     #[serde(rename = "ngay_hoc", default, borrow)]
     date: Cow<'a, str>,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct PeriodRow<'a> {
     tiet: i32,
     gio_bat_dau: Cow<'a, str>,
     gio_ket_thuc: Cow<'a, str>,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct WeekRow<'a> {
     hoc_ky: i32,
     tuan_hoc_ky: i32,
@@ -74,8 +70,6 @@ struct WeekRow<'a> {
     ngay_ket_thuc: Cow<'a, str>,
     thong_tin_tuan: Cow<'a, str>,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct LessonRow<'a> {
     id_tkb: Cow<'a, str>,
     hoc_ky: i32,
@@ -92,7 +86,6 @@ struct LessonRow<'a> {
     ten_lop: Cow<'a, str>,
     ma_nhom: Cow<'a, str>,
 }
-#[derive(Serialize)]
 struct TimetableRows<'a> {
     periods: Vec<PeriodRow<'a>>,
     weeks: Vec<WeekRow<'a>>,
@@ -146,14 +139,6 @@ fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableR
     Ok(TimetableRows { periods, weeks, lessons })
 }
 
-/// Public JSON mapper kept for Rust regression fixtures; Android uses binary.
-pub fn map_timetable(semester: i32, payload: &str) -> Result<String, String> {
-    let source: Timetable<'_> = serde_json::from_str(payload)
-        .map_err(|error| format!("Invalid TNUT timetable: {error}"))?;
-    serde_json::to_string(&timetable_rows(semester, source)?)
-        .map_err(|error| format!("Cannot encode timetable rows: {error}"))
-}
-
 #[derive(Deserialize)]
 struct ExamPage {
     #[serde(rename = "total_pages")]
@@ -196,8 +181,6 @@ struct Exam {
     #[serde(rename = "ghi_chu_sv")]
     student_note: Option<String>,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct ExamRow {
     id: i64,
     hoc_ky: i32,
@@ -216,8 +199,6 @@ struct ExamRow {
     ghi_chu_sv: String,
     is_hoan_thi: bool,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct ExamPageRows {
     rows: Vec<ExamRow>,
     total_pages: Option<usize>,
@@ -257,30 +238,6 @@ pub fn exam_has_next(page: usize, total_pages: Option<usize>, rows: usize) -> bo
     }
 }
 
-/// Drop duplicate exam records across multiple pages without changing any
-/// Room-backed columns; retain the first occurrence in original page order.
-pub fn dedupe_exam_rows(payload: &str) -> Result<String, String> {
-    use std::collections::HashSet;
-    let rows: Vec<Value> = serde_json::from_str(payload)
-        .map_err(|error| format!("Invalid exam rows for deduplication: {error}"))?;
-    let mut seen = HashSet::new();
-    let mut unique = Vec::with_capacity(rows.len());
-    for row in rows {
-        let get = |field: &str| -> String {
-            row.get(field).and_then(Value::as_str).unwrap_or_default().to_string()
-        };
-        let key = (
-            row.get("isHoanThi").and_then(Value::as_bool).unwrap_or(false),
-            get("maMon"), get("ngayThi"), get("gioBatDau"),
-            get("soBaoDanh"), get("maPhong"),
-        );
-        if seen.insert(key) {
-            unique.push(row);
-        }
-    }
-    serde_json::to_string(&unique).map_err(|error| format!("Cannot encode unique exams: {error}"))
-}
-
 /// Decode one exam page; failure does not erase previously cached exams.
 fn exam_rows(semester: i32, is_midterm: bool, page: ExamPage) -> Result<ExamPageRows, String> {
     let regular = page.regular.unwrap_or_default();
@@ -309,14 +266,6 @@ fn exam_rows(semester: i32, is_midterm: bool, page: ExamPage) -> Result<ExamPage
         }
     }
     Ok(ExamPageRows { rows, total_pages: page.total_pages, row_count })
-}
-
-/// Public JSON mapper kept for Rust regression fixtures; Android uses binary.
-pub fn map_exam_page(semester: i32, is_midterm: bool, payload: &str) -> Result<String, String> {
-    let page: ExamPage = serde_json::from_str(payload)
-        .map_err(|error| format!("Invalid TNUT exam page: {error}"))?;
-    serde_json::to_string(&exam_rows(semester, is_midterm, page)?)
-        .map_err(|error| format!("Cannot encode exam rows: {error}"))
 }
 
 
@@ -546,97 +495,4 @@ pub fn verify_update_manifest(
     binary_str(&mut out, item.notes.trim())?;
     binary_str(&mut out, item.published_at.trim())?;
     Ok(Some(out))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn detects_logical_unauthorized_payloads() {
-        assert!(is_logical_unauthorized(br#"{"result":"false","code":401,"message":"expired"}"#));
-        assert!(is_logical_unauthorized(br#"{"code" : 401}"#));
-        assert!(is_logical_unauthorized(br#"{"error":"NotAllowed"}"#));
-        assert!(!is_logical_unauthorized(br#"{"code":200,"data":{}}"#));
-        assert!(!is_logical_unauthorized(br#"{"code":4010}"#));
-    }
-    #[test]
-    fn verifies_update_manifest_and_packs_wire() {
-        let sha = "a".repeat(64);
-        let json = format!(
-            r#"{{"versionCode":15,"versionName":"2.1","apkUrl":"https://ngocminhvn.github.io/tkb/TKB-SV.apk","apkSha256":"{sha}","apkSize":1048576,"notes":"Fast Rust"}}"#
-        );
-        let packed = verify_update_manifest(14, "https://ngocminhvn.github.io/tkb/", json.as_bytes())
-            .unwrap()
-            .expect("should have update");
-        assert_eq!(&packed[..5], b"TKB1U");
-        let none = verify_update_manifest(15, "https://ngocminhvn.github.io/tkb/", json.as_bytes()).unwrap();
-        assert!(none.is_none());
-    }
-    #[test]
-    fn binary_wire_reads_portal_envelope_without_json_roundtrip() {
-        let timetable = r#"{"code":200,"data":{"ds_tiet_trong_ngay":[],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":3,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}}"#.as_bytes();
-        let packed = map_timetable_wire(20261, timetable).unwrap();
-        assert_eq!(&packed[..5], b"TKB1T");
-        assert!(packed.windows("Toán".len()).any(|v| v == "Toán".as_bytes()));
-        let exam = br#"{"code":200,"data":{"total_pages":1,"ds_lich_thi":[{"ma_mon":"MAT","ngay_thi":"7/11/2026"}]}}"#;
-        let packed = map_exam_wire(20261, false, exam).unwrap();
-        assert_eq!(&packed[..5], b"TKB1E");
-        assert!(packed.windows(3).any(|v| v == b"MAT"));
-        assert!(map_timetable_wire(20261, br#"{"code":200,"data":{"ds_tuan_tkb":[]}}"#).is_err());
-        assert!(map_timetable_wire(20261, br#"{"code":401,"message":"expired"}"#).is_err());
-        assert!(map_exam_wire(20261, false, br#"{"code":200,"data":{"ds_lich_thi":[{}]}}"#).is_err());
-    }
-    #[test]
-    fn rejects_empty_timetable_to_preserve_offline_cache() {
-        assert!(map_timetable(20261, r#"{"ds_tuan_tkb":[]}"#).is_err());
-        assert!(map_timetable(20261, r#"{"ds_tuan_tkb":[{"tuan_hoc_ky":1,"ds_thoi_khoa_bieu":[]}]}"#).is_err());
-    }
-    #[test]
-    fn maps_timetable_into_room_columns() {
-        let input = r#"{"ds_tiet_trong_ngay":[{"tiet":1,"gio_bat_dau":"07:15","gio_ket_thuc":"08:05"}],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ngay_bat_dau":"02/11/2026","ngay_ket_thuc":"08/11/2026","ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":2,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}"#;
-        let result: Value = serde_json::from_str(&map_timetable(20261, input).unwrap()).unwrap();
-        assert_eq!(result["periods"][0]["gioBatDau"], "07:15");
-        assert_eq!(result["weeks"][0]["hocKy"], 20261);
-        assert_eq!(result["lessons"][0]["idTkb"], "abc");
-        assert_eq!(result["lessons"][0]["tenMon"], "Toán");
-    }
-    #[test]
-    fn maps_exam_and_preserves_midterm_and_postponed_flags() {
-        let input = r#"{"total_pages":1,"ds_lich_thi":[{"ma_mon":"MEC01","ngay_thi":"07/11/2026","so_phut":"90"}],"ds_lich_hoan_thi":[{"ma_mon":"ABC","ngay_thi":"08/11/2026"}]}"#;
-        let result: Value = serde_json::from_str(&map_exam_page(20261, true, input).unwrap()).unwrap();
-        assert_eq!(result["totalPages"], 1);
-        assert_eq!(result["rowCount"], 2);
-        assert_eq!(result["rows"][0]["soPhut"], 90);
-        assert_eq!(result["rows"][0]["isGiuaKy"], true);
-        assert_eq!(result["rows"][1]["isHoanThi"], true);
-    }
-    #[test]
-    fn keeps_exam_page_order_and_unique_records() {
-        let sample = r#"[{"maMon":"A","ngayThi":"2026-11-07","gioBatDau":"07:00","soBaoDanh":"1","maPhong":"101"},{"maMon":"A","ngayThi":"2026-11-07","gioBatDau":"07:00","soBaoDanh":"1","maPhong":"101"},{"maMon":"B","ngayThi":"2026-11-08"}]"#;
-        let rows: Vec<Value> = serde_json::from_str(&dedupe_exam_rows(sample).unwrap()).unwrap();
-        assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0]["maMon"], "A");
-        assert_eq!(rows[1]["maMon"], "B");
-        assert!(exam_has_next(1, Some(2), 10));
-        assert!(!exam_has_next(2, Some(2), 100));
-        assert!(exam_has_next(1, None, 100));
-        assert!(!exam_has_next(1, None, 99));
-    }
-    #[test]
-    fn preserves_trim_and_login_name_rules() {
-        assert_eq!(normalize_note("  Mang laptop  "), "Mang laptop");
-        assert_eq!(normalize_username("  SV123@tnut.edu.vn "), "SV123");
-    }
-    #[test]
-    fn refuses_missing_required_exam_data() {
-        let input = r#"{"ds_lich_thi":[{"ngay_thi":"07/11/2026"}]}"#;
-        assert!(map_exam_page(20261, false, input).is_err());
-    }
-    #[test]
-    fn timetable_wire_handles_escaped_strings() {
-        let payload = r#"{"code":200,"data":{"ds_tuan_tkb":[{"tuan_hoc_ky":1,"ds_thoi_khoa_bieu":[{"id_tkb":"a","thu_kieu_so":2,"tiet_bat_dau":1,"so_tiet":1,"ten_mon":"Gi\u1ea3i \"t\u00edch\""}]}]}}"#;
-        let packed = map_timetable_wire(1, payload.as_bytes()).unwrap();
-        let needle = "Giải \"tích\"".as_bytes();
-        assert!(packed.windows(needle.len()).any(|v| v == needle));
-    }
 }

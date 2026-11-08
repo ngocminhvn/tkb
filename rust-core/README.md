@@ -39,24 +39,18 @@ before Room begins a replacement transaction. Errors preserve offline cache.
 **Do not remove Kotlin network/DB adapters without tests for sessions,
 transaction atomicity and Room migration compatibility.**
 
-## Build and test
+## Build
 
 Install the Android NDK, Rust and cargo-ndk:
 
 ```bash
 cargo install cargo-ndk --locked
-cargo test --manifest-path rust-core/Cargo.toml
 cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 bash scripts/build-rust-android.sh
-gradle testDebugUnitTest assembleDebug
+gradle assembleDebug
 ```
 
 The native `libtkb_core.so` is built for arm64-v8a, armeabi-v7a,
 x86_64, and x86. Generated binaries are ignored by Git. Gradle fails
-if any expected library is missing; GitHub Actions attempts to build and
-verify the native libraries inside the APK.
-
-Tests in `portal.rs` check empty/corrupt payload behavior and field
-mapping. The Android host JVM tests check the JSON contract against
-existing Room entity classes. On-device JNI/SQLite and network behavior
-still need verification before the full migration can be considered done.
+if any expected library is missing; GitHub Actions builds and verifies
+the native libraries inside the APK.

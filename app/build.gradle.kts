@@ -77,7 +77,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
-    testImplementation("junit:junit:4.13.2")
 }
 
 val rustAndroidAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")

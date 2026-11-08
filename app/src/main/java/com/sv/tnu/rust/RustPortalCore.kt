@@ -14,14 +14,8 @@ import java.nio.charset.StandardCharsets
  * Kotlin JSON decoding, encoding, or JSON JNI round-trip occurs.
  */
 object RustPortalCore {
-    private val nativeReady: Boolean = try {
+    init {
         System.loadLibrary("tkb_core")
-        true
-    } catch (error: UnsatisfiedLinkError) {
-        val androidRuntime = System.getProperty("java.vm.name", "")
-            .contains("Dalvik", ignoreCase = true)
-        if (androidRuntime) throw error
-        false
     }
 
     private external fun mapTimetableBytesNative(semester: Int, responseBody: ByteArray): ByteArray
@@ -50,31 +44,21 @@ object RustPortalCore {
     ): PortalBinaryDecoder.ExamPageRows =
         PortalBinaryDecoder.decodeExams(mapExamBytesNative(semester, isMidterm, rawResponse))
 
-    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean {
-        if (nativeReady) return hasNextExamPageNative(page, totalPages ?: -1, rowCount)
-        val total = totalPages?.takeIf { it > 0 }
-        return if (total != null) page < total else rowCount >= 100
-    }
+    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
+        hasNextExamPageNative(page, totalPages ?: -1, rowCount)
 
-    fun normalizeNote(value: String): String =
-        if (nativeReady) normalizeNoteNative(value) else value.trim()
+    fun normalizeNote(value: String): String = normalizeNoteNative(value)
 
-    fun normalizeUsername(value: String): String =
-        if (nativeReady) normalizeUsernameNative(value) else value.trim().substringBefore("@")
+    fun normalizeUsername(value: String): String = normalizeUsernameNative(value)
 
-    fun isLogicalUnauthorized(rawPreview: ByteArray): Boolean {
-        if (nativeReady) return isLogicalUnauthorizedNative(rawPreview)
-        val text = String(rawPreview, StandardCharsets.UTF_8)
-        return Regex("""\"code\"\s*:\s*401\b""").containsMatchIn(text) ||
-            text.contains("notallowed", ignoreCase = true)
-    }
+    fun isLogicalUnauthorized(rawPreview: ByteArray): Boolean =
+        isLogicalUnauthorizedNative(rawPreview)
 
     fun verifyUpdateManifest(
         currentVersionCode: Int,
         allowedPrefix: String,
         rawManifest: ByteArray,
     ): PortalBinaryDecoder.UpdateManifest? {
-        if (!nativeReady) return null
         val bytes = verifyUpdateManifestNative(currentVersionCode, allowedPrefix, rawManifest)
         if (bytes.isEmpty()) return null
         return PortalBinaryDecoder.decodeUpdateManifest(bytes)

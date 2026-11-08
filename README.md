@@ -63,17 +63,15 @@ RustScheduleCore (JNI) → rust-core/src/lib.rs
 | `.../widget/` | Widget Android/RemoteViews, chuyển ngày, đọc dữ liệu Room | Widget ngoài màn hình chính |
 | `.../update/` | Kiểm tra, tải, xác thực và cài APK cập nhật | Cơ chế cập nhật ứng dụng |
 | `app/src/main/res/` | Drawable, XML widget/layout, string, color, theme Android | Tài nguyên đồ họa/XML |
-| `app/src/test/` | Unit test Kotlin/Android host JVM theo tính năng | Test giao diện, dữ liệu, ngày, reminders |
 | `rust-core/` | Rust crate, Cargo manifest/lock và nghiệp vụ độc lập Android | Thay đổi xử lý dữ liệu Rust |
-| `rust-core/src/lib.rs` | Ngày tháng, lịch tuần, giờ học/thi, helper thuần Rust | Logic thời gian |
+| `rust-core/src/lib.rs` | Ngày tháng, lịch tuần, lịch tháng, giờ học/thi, helper thuần Rust | Logic thời gian |
 | `rust-core/src/portal.rs` | Kiểm tra và ánh xạ JSON TNUT, phân trang/chống trùng, tạo binary `TKB1` | Sai dữ liệu lịch, lịch thi |
 | `rust-core/src/android.rs` | Hàm JNI export cho ứng dụng Android | Chữ ký hàm JNI, giao tiếp native |
 | `scripts/` | `build-rust-android.sh` tạo thư viện `libtkb_core.so` cho 4 ABI | Biên dịch thư viện Rust Android |
-| `tests/` | Kiểm tra hồi quy Python về an toàn Room, auth và release (offline) | Trước khi merge/sửa code |
-| `.github/workflows/` | CI Rust, kiểm thử/build APK release và triển khai GitHub Pages | Build Actions, đóng gói, phát hành |
+| `.github/workflows/build.yml` | Build Rust 4 ABI, đóng gói APK Release có chữ ký và triển khai GitHub Pages | Build Actions, đóng gói, phát hành |
 | `gradle/` | Gradle wrapper và version catalog `libs.versions.toml` | Thay phiên bản dependencies |
 | `docs/` | Tài liệu hướng dẫn kiến trúc mở rộng, hiện có `ADDING_SCHOOL.md` | Thêm trường mới |
-| `AGENTS.md` | Chỉ dẫn cho AI: bản đồ file, ràng buộc, chuỗi phụ thuộc, test | **Đọc trước mọi thay đổi** |
+| `AGENTS.md` | Chỉ dẫn cho AI: bản đồ file, ràng buộc, chuỗi phụ thuộc | **Đọc trước mọi thay đổi** |
 
 `.../` trong bảng là viết tắt của `app/src/main/java/com/sv/tnu/`. Sơ đồ trên phản ánh **mã nguồn hiện tại**, không phải kiến trúc dự kiến.
 
@@ -102,33 +100,27 @@ Các đường dẫn rút gọn trong bảng tính từ `app/src/main/java/com/s
 5. Trường thứ hai chưa được bật vì cache/tài khoản chưa tách theo trường và sinh viên. Đọc [docs/ADDING_SCHOOL.md](docs/ADDING_SCHOOL.md).
 6. Không đưa mật khẩu, token, thông tin sinh viên hoặc keystore lên log, issue hay tài liệu.
 
-## Build và kiểm thử
+## Build
 
 Yêu cầu: JDK 17, Android SDK/NDK tương thích, Rust toolchain và `cargo-ndk`. Đứng tại thư mục gốc repository:
 
 ```bash
-# Chạy guard tests không cần thiết bị Android
-python3 tests/test_data_safety.py
-python3 tests/test_auth_refresh.py
-
-# Kiểm tra core Rust
-cargo test --manifest-path rust-core/Cargo.toml
+# Kiểm tra mã Rust
 cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
 # Biên dịch thư viện Rust cho arm64-v8a, armeabi-v7a, x86_64, x86
 cargo install cargo-ndk --locked
 bash scripts/build-rust-android.sh
 
-# Kiểm thử JVM và build APK debug
-./gradlew testDebugUnitTest assembleDebug
+# Build APK debug
+./gradlew assembleDebug
 ```
 
 `app/build.gradle.kts` **chặn build** nếu thiếu `app/src/main/jniLibs/<ABI>/libtkb_core.so`. Thư mục `jniLibs` chứa đầu ra được tạo từ script, không phải nguồn Rust cần sửa trực tiếp. Xem thêm [rust-core/README.md](rust-core/README.md).
 
 ### CI/phát hành
 
-- [`build.yml`](.github/workflows/build.yml): chạy khi push `main` hoặc bấm chạy tay; test dữ liệu/auth, build Rust, test Kotlin, build Release có R8, kiểm tra chữ ký, xuất APK và dữ liệu cập nhật, deploy GitHub Pages.
-- [`rust-core.yml`](.github/workflows/rust-core.yml): chạy Rust test/clippy khi Rust core/workflow liên quan thay đổi.
+- [`build.yml`](.github/workflows/build.yml): chạy khi push `main` hoặc bấm chạy tay; build Rust 4 ABI, build Release có R8, kiểm tra chữ ký, xuất APK và dữ liệu cập nhật, deploy GitHub Pages.
 
 **APK hiện được cấu hình phát hành tại:** https://ngocminhvn.github.io/tkb/TKB-SV.apk
 

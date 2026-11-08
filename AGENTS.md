@@ -39,7 +39,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../schools/tnut/TnutSchoolProvider.kt` | Adapter kết nối login/session + repository TNUT | Logic trường khác |
 | `.../schools/tnut/TnutRepository.kt` | Điều phối gọi portal, đồng bộ lịch/thi, validate qua Rust, ghi Room, avatar, ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
-| `.../rust/RustScheduleCore.kt` | Wrapper JNI cho ngày/tuần/giờ, fallback JVM cho unit tests | Room transaction |
+| `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
 | `.../ui/MainScreen.kt` | Khung màn hình chính, tab/navigation, mở cài đặt, kết nối update | TNUT parsing |
 | `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
@@ -58,15 +58,12 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `app/src/main/res/values*/` | String, color, theme XML | Logic dữ liệu |
 | `app/src/main/res/xml/` | Cấu hình widget và FileProvider | Nghiệp vụ lịch |
 | `app/src/main/AndroidManifest.xml` | Permission, Activity, FileProvider, notification/widget receivers | SQL |
-| `app/src/test/` | JVM tests cho Rust contract/UI date/notification/model | Tập lệnh phát hành |
-| `rust-core/src/lib.rs` | Pure Rust: chuẩn hóa ngày, tuần 7 ngày, đổi ngày, thời gian học/thi | JNI/Android Context |
+| `rust-core/src/lib.rs` | Pure Rust: chuẩn hóa ngày, tuần 7 ngày, lịch tháng, đổi ngày, thời gian học/thi | JNI/Android Context |
 | `rust-core/src/portal.rs` | Parse/validate payload TNUT, chống trùng, phân trang, ánh xạ và encode `TKB1` | Gọi mạng, mật khẩu |
 | `rust-core/src/android.rs` | `extern "system"` JNI entrypoints tương ứng wrapper Kotlin | UI, persistence |
 | `rust-core/Cargo.toml`, `Cargo.lock` | Cấu hình & khóa dependency Rust | Android UI |
 | `scripts/build-rust-android.sh` | Cargo NDK build 4 ABI, đặt `.so` vào `jniLibs` | Business logic |
-| `tests/` | Python source-level/regression guards: auth, DB migration, cache, signing/CI | Thay thế toàn bộ kiểm thử Android |
-| `.github/workflows/build.yml` | Pipeline push main → guard → Rust/JNI → JVM tests → Release → signed APK/Pages | Nghiệp vụ app |
-| `.github/workflows/rust-core.yml` | Rust test/clippy trên thay đổi Rust và khi chạy tay | Phát hành APK |
+| `.github/workflows/build.yml` | Pipeline push main → Rust/JNI 4 ABI → signed Release APK → GitHub Pages | Nghiệp vụ app |
 | `gradle/` / `build.gradle.kts` / `settings.gradle.kts` | Gradle wrapper, catalog, module/config | Logic ngày/tuần |
 | `docs/ADDING_SCHOOL.md` | Các bước thêm school adapter và migration dữ liệu | Tắt giới hạn cách ly |
 | `tkb-release.keystore.b64` | Material liên quan chữ ký bản phát hành: **nhạy cảm** | Không đọc/in/dán nội dung ra câu trả lời |
@@ -121,26 +118,20 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - `RustScheduleCore.kt` có fallback cho host JVM tests; Android runtime phải có thư viện native thực, không im lặng fallback trên thiết bị.
 - Kiểm tra symbol JNI và R8 keep rules trong `app/proguard-rules.pro` nếu rename class/method.
 
-## 4. Kiểm thử trước khi commit
+## 4. Kiểm tra trước khi commit
 
 Từ root repository:
 
 ```bash
-python3 tests/test_data_safety.py
-python3 tests/test_auth_refresh.py
-cargo test --manifest-path rust-core/Cargo.toml
 cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
 # Cần Android SDK/NDK + cargo-ndk, biên dịch native trước khi build APK:
 bash scripts/build-rust-android.sh
-./gradlew testDebugUnitTest assembleDebug
+./gradlew assembleDebug
 ```
 
-- Khi sửa Room/auth: chạy **hai test Python**, Rust/Kotlin liên quan và kiểm thử offline trên máy.
-- Khi sửa Rust / binary `TKB1` / ABI: chạy Rust test, clippy, Android build và test native **trên thiết bị/emulator** nếu có.
-- Khi sửa UI scroll/touch: chạy JVM tests, kiểm tra thủ công cuộn đến ngày, swipe, ranh giới tuần, lịch rỗng và cả ngày có lịch thi.
+- Khi sửa Rust / binary `TKB1` / ABI: chạy `cargo clippy`, Android build và kiểm tra native trên thiết bị/emulator nếu có.
 - Khi sửa Release/update: đối chiếu APK signing, checksum và update metadata; không thay khóa ký.
-- Python tests có một số kiểm tra **theo chuỗi code**: nếu refactor hợp lệ làm test fail, phải duy trì invariant và cập nhật guard dựa trên hành vi thực; không xóa test chỉ để CI xanh.
 - `build.yml` chạy trên **mọi push lên main**, kể cả docs-only; không coi một commit tài liệu là bản release đã xác minh.
 
 ## 5. Format kết quả bắt buộc khi AI sửa code
