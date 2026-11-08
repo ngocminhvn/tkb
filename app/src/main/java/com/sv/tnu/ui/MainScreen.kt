@@ -73,6 +73,7 @@ fun MainScreen(
     val firstLoginRenderEpoch by timetableViewModel.firstLoginRenderEpoch.collectAsState()
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
+    val syncStatus by timetableViewModel.syncStatus.collectAsState()
     val showUpdateDialog by appUpdateViewModel.showDialog.collectAsState()
     val updateInfo by appUpdateViewModel.updateInfo.collectAsState()
     val downloading by appUpdateViewModel.downloading.collectAsState()
@@ -169,7 +170,13 @@ fun MainScreen(
             }
         }
 
-        if (showUpdateDialog && updateInfo != null) {
+        // Show sync results over any optional app-update prompt, on every tab.
+        if (syncStatus != null) {
+            TimetableSyncDialog(
+                status = syncStatus!!,
+                onDismiss = { timetableViewModel.dismissSyncStatus() },
+            )
+        } else if (showUpdateDialog && updateInfo != null) {
             UpdateDialog(
                 updateInfo = updateInfo,
                 currentVersionName = appUpdateViewModel.currentVersionName,

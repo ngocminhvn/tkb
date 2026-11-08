@@ -41,6 +41,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -53,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -60,6 +62,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -105,6 +109,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+internal fun confirmedEdgeWeekDirection(distancePx: Float, thresholdPx: Float, direction: Int, hasAdjacentWeek: Boolean): Int? =
+    direction.takeIf { (it == 1 || it == -1) && hasAdjacentWeek && thresholdPx > 0f && distancePx >= thresholdPx }
+
 /** One coherent offline screen state; never expose a partly loaded week/lesson pair. */
 data class TimetableSnapshot(
     val weeks: List<WeekEntity>,
@@ -143,6 +150,12 @@ internal fun preferJustSyncedCache(
     return CachedTimetable(observedWeeks, observedLessons)
 }
 
+sealed interface TimetableSyncStatus {
+    data object Loading : TimetableSyncStatus
+    data class Success(val examWarning: String?) : TimetableSyncStatus
+    data class Failure(val detail: String) : TimetableSyncStatus
+}
+
 class TimetableViewModel(
     private val repository: SchoolRepository,
     private val authStore: AuthStore,
@@ -166,6 +179,12 @@ class TimetableViewModel(
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    private val _syncStatus = MutableStateFlow<TimetableSyncStatus?>(null)
+    val syncStatus: StateFlow<TimetableSyncStatus?> = _syncStatus.asStateFlow()
+
+    fun dismissSyncStatus() {
+        if (_syncStatus.value !is TimetableSyncStatus.Loading) _syncStatus.value = null
+    }
 
     private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
     private val _justSyncedCache = MutableStateFlow<CachedTimetable?>(null)
@@ -394,33 +413,25 @@ class TimetableViewModel(
     fun refresh() {
         if (_refreshing.value) return
         _refreshing.value = true
+        _syncStatus.value = TimetableSyncStatus.Loading
         viewModelScope.launch {
             try {
                 cacheReadyJob.join()
                 _error.value = null
                 repository.refresh(hocKy)
                     .onSuccess {
-                        // After the first login the initial Room snapshot is empty.
-                        // Read committed rows directly so the TKB tab refreshes
-                        // even when its Room collectors have not caught up yet.
+                        // Preserve the working first-login UI remount from version 319.
                         try {
                             val committed = repository.cachedTimetable(hocKy)
                             _justSyncedCache.value = committed
-                            // A clean install opens TKB before any Room rows
-                            // exist. Compose can retain that first empty layout
-                            // even after the async snapshot updates. Recreate
-                            // only its local UI once, just like switching tabs
-                            // manually, after the first sync has actual weeks.
                             if (shouldRecreateTimetableAfterFirstSync(
                                     hadCachedWeeksAtLaunch = !initialSnapshot?.weeks.isNullOrEmpty(),
                                     committedWeeks = committed.weeks,
                                     alreadyRecreated = _firstLoginRenderEpoch.value != 0,
                                 )
                             ) {
-                                Log.i(
-                                    "TimetableViewModel",
-                                    "First sync committed: weeks=${committed.weeks.size}, lessons=${committed.lessons.size}; rebuilding TKB tab",
-                                )
+                                Log.i("TimetableViewModel",
+                                    "First sync committed: weeks=${committed.weeks.size}, lessons=${committed.lessons.size}; rebuilding TKB tab")
                                 _firstLoginRenderEpoch.value += 1
                             }
                         } catch (e: CancellationException) {
@@ -429,14 +440,25 @@ class TimetableViewModel(
                             Log.w("TimetableViewModel", "Could not read just-synced timetable", e)
                         }
                         _lastSyncTime.value = authStore.lastSyncTime
+                        _syncStatus.value = TimetableSyncStatus.Success(repository.lastSyncWarning.value)
                     }
                     .onFailure { cause ->
-                        _error.value = if (cause is retrofit2.HttpException && cause.code() == 401) {
-                            "Phiên đăng nhập ${repository.schoolName} đã hết hạn. Vào Cài đặt → Đăng xuất và đăng nhập lại để đồng bộ. Lịch đã lưu vẫn được giữ."
+                        val issue = if (cause is retrofit2.HttpException && cause.code() == 401) {
+                            "Phiên đăng nhập ${repository.schoolName} đã hết hạn. Vào Cài đặt → Đăng xuất và đăng nhập lại để đồng bộ."
                         } else {
-                            "Không tải được lịch mới: ${cause.message ?: "lỗi mạng"}. Đang hiện lịch đã lưu."
+                            describeTimetableSyncError(cause)
                         }
+                        val warning = repository.lastSyncWarning.value
+                        val detail = if (warning.isNullOrBlank()) issue else "$issue\nLịch thi: $warning"
+                        _error.value = "$detail Lịch đã lưu vẫn được giữ."
+                        _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
                     }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val detail = describeTimetableSyncError(e)
+                _error.value = "$detail Lịch đã lưu vẫn được giữ."
+                _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
             } finally {
                 _refreshing.value = false
                 _awaitingSync.value = false
@@ -819,7 +841,11 @@ fun TimetableScreen(
     // effect (which can consume the remaining delta first). This observer
     // never consumes touch input, so normal LazyColumn scrolling and horizontal
     // day swipes keep working.
-    val edgeThresholdPx = with(LocalDensity.current) { 76.dp.toPx() }
+    // Telegram-style: pull firmly beyond the week and RELEASE to commit.
+    val edgeThresholdPx = with(LocalDensity.current) { 144.dp.toPx() }
+    val haptic = LocalHapticFeedback.current
+    var edgePullDirection by remember { mutableIntStateOf(0) }
+    var edgePullProgress by remember { mutableFloatStateOf(0f) }
 
     Scaffold(
         topBar = {
@@ -967,51 +993,73 @@ fun TimetableScreen(
                                 awaitEachGesture {
                                     val down = awaitFirstDown(requireUnconsumed = false)
                                     var previous = down.position
-                                    var pastStart = 0f
-                                    var pastEnd = 0f
-                                    var switched = false
-
-                                    // Final pass lets LazyColumn consume the
-                                    // gesture before we check whether it has
-                                    // actually reached either scroll boundary.
+                                    var distance = 0f
+                                    var direction = 0
+                                    var vibrated = false
+                                    val currentIndex = weeks.indexOfFirst { it.tuanHocKy == selectedWeek }
+                                    // Observe post-scroll without consuming LazyColumn or day-swipe gestures.
                                     while (true) {
                                         val event = awaitPointerEvent(PointerEventPass.Final)
-                                        val change = event.changes.firstOrNull { it.id == down.id }
-                                            ?: break
-                                        if (!change.pressed) break
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) {
+                                            val hasAdjacent = when (direction) {
+                                                1 -> currentIndex in 0 until weeks.lastIndex
+                                                -1 -> currentIndex > 0
+                                                else -> false
+                                            }
+                                            val confirmed = confirmedEdgeWeekDirection(
+                                                distance, edgeThresholdPx, direction, hasAdjacent,
+                                            )
+                                            edgePullDirection = 0
+                                            edgePullProgress = 0f
+                                            if (confirmed != null) changeWeekAtBoundary(confirmed)
+                                            break
+                                        }
                                         val delta = change.position - previous
                                         previous = change.position
-                                        if (switched) continue
-                                        // Ignore sideways gestures; those change
-                                        // the selected day, not the week.
                                         if (kotlin.math.abs(delta.x) > kotlin.math.abs(delta.y)) {
-                                            pastStart = 0f
-                                            pastEnd = 0f
-                                            continue
+                                            direction = 0
+                                            distance = 0f
+                                            vibrated = false
+                                        } else if (direction != 0) {
+                                            val atBoundary = if (direction == 1) {
+                                                !listState.canScrollForward
+                                            } else {
+                                                !listState.canScrollBackward
+                                            }
+                                            if (!atBoundary) {
+                                                direction = 0
+                                                distance = 0f
+                                                vibrated = false
+                                            } else {
+                                                val outwardDelta = if (direction == 1) -delta.y else delta.y
+                                                distance = (distance + outwardDelta).coerceAtLeast(0f)
+                                                if (distance == 0f) {
+                                                    direction = 0
+                                                    vibrated = false
+                                                }
+                                            }
+                                        } else {
+                                            direction = when {
+                                                delta.y < 0f && !listState.canScrollForward &&
+                                                    currentIndex in 0 until weeks.lastIndex -> 1
+                                                delta.y > 0f && !listState.canScrollBackward &&
+                                                    currentIndex > 0 -> -1
+                                                else -> 0
+                                            }
+                                            distance = if (direction == 0) 0f else kotlin.math.abs(delta.y)
                                         }
-                                        when {
-                                            delta.y < 0f && !listState.canScrollForward -> {
-                                                pastStart = 0f
-                                                pastEnd -= delta.y
-                                                if (pastEnd >= edgeThresholdPx) {
-                                                    switched = true
-                                                    changeWeekAtBoundary(1)
-                                                }
-                                            }
-                                            delta.y > 0f && !listState.canScrollBackward -> {
-                                                pastEnd = 0f
-                                                pastStart += delta.y
-                                                if (pastStart >= edgeThresholdPx) {
-                                                    switched = true
-                                                    changeWeekAtBoundary(-1)
-                                                }
-                                            }
-                                            else -> {
-                                                pastStart = 0f
-                                                pastEnd = 0f
-                                            }
+                                        edgePullDirection = direction
+                                        edgePullProgress = (distance / edgeThresholdPx).coerceIn(0f, 1f)
+                                        if (edgePullProgress >= 1f && !vibrated) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            vibrated = true
+                                        } else if (edgePullProgress < 1f) {
+                                            vibrated = false
                                         }
                                     }
+                                    edgePullDirection = 0
+                                    edgePullProgress = 0f
                                 }
                             }
                             .pointerInput(selectedDay, weeks, selectedWeek) {
@@ -1031,9 +1079,7 @@ fun TimetableScreen(
                                     onDragCancel = { totalDrag = 0f },
                                 )
                             },
-                        // Keep a small, usable footer instead of reserving an
-                        // entire blank viewport. Overscrolling the real end
-                        // now opens the next week; the start opens the previous.
+                        // Compact footer: extra edge pull + finger release confirms change.
                         contentPadding = PaddingValues(
                             top = 4.dp,
                             bottom = contentPadding.calculateBottomPadding() + 16.dp,
@@ -1098,6 +1144,33 @@ fun TimetableScreen(
                                 }
                             }
                         }
+                    }
+                }
+                if (edgePullDirection != 0 && edgePullProgress > 0f) {
+                    Column(
+                        modifier = Modifier
+                            .align(if (edgePullDirection < 0) Alignment.TopCenter else Alignment.BottomCenter)
+                            .padding(top = 10.dp, bottom = 12.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Text(
+                            text = if (edgePullProgress >= 1f) {
+                                if (edgePullDirection > 0) "Thả tay để sang tuần sau"
+                                else "Thả tay để về tuần trước"
+                            } else {
+                                if (edgePullDirection > 0) "Kéo thêm để sang tuần sau"
+                                else "Kéo thêm để về tuần trước"
+                            },
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        LinearProgressIndicator(
+                            progress = { edgePullProgress },
+                            modifier = Modifier.width(168.dp),
+                        )
                     }
                 }
                 }

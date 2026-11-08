@@ -28,6 +28,8 @@ interface SchoolRepository {
     val defaultHocKy: Int
     val avatarPath: StateFlow<String?>
     val studentName: StateFlow<String?>
+    /** Report independent exam-sync warnings without losing a successful timetable save. */
+    val lastSyncWarning: StateFlow<String?>
     fun periodsFlow(): Flow<List<PeriodEntity>>
     fun weeksFlow(hocKy: Int): Flow<List<WeekEntity>>
     fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>>

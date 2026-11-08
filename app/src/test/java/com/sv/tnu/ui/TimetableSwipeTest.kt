@@ -6,6 +6,16 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TimetableSwipeTest {
+    @Test
+    fun edgeNavigationIsOnlyConfirmedAfterFullPullAndValidNeighbor() {
+        assertEquals(null, confirmedEdgeWeekDirection(143f, 144f, 1, true))
+        assertEquals(1, confirmedEdgeWeekDirection(144f, 144f, 1, true))
+        assertEquals(-1, confirmedEdgeWeekDirection(185f, 144f, -1, true))
+        assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 1, false))
+        assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 0, true))
+        assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 2, true))
+    }
+
     private val weeks = listOf(
         WeekEntity(20261, 9, "26/10/2026", "01/11/2026", "Tuần 9"),
         WeekEntity(20261, 10, "02/11/2026", "08/11/2026", "Tuần 10"),

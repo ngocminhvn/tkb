@@ -43,6 +43,8 @@ class TnutRepository(
     override val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
     private val _studentName = MutableStateFlow<String?>(authStore.studentName)
     override val studentName: StateFlow<String?> = _studentName.asStateFlow()
+    private val _lastSyncWarning = MutableStateFlow<String?>(null)
+    override val lastSyncWarning: StateFlow<String?> = _lastSyncWarning.asStateFlow()
 
     override fun periodsFlow(): Flow<List<PeriodEntity>> = dao.periods()
 
@@ -94,6 +96,7 @@ class TnutRepository(
      * cache. Both run concurrently, but each uses its own transactional write.
      */
     override suspend fun refresh(hocKy: Int): Result<Unit> = coroutineScope {
+        _lastSyncWarning.value = null
         val examSync = async {
             try {
                 fetchAndSaveExams(hocKy)
@@ -136,6 +139,7 @@ class TnutRepository(
 
         examSync.await().onFailure { error ->
             Log.w("TnutRepository", "Exam sync failed independently of timetable", error)
+            _lastSyncWarning.value = error.message ?: error.javaClass.simpleName
         }
         timetableResult
     }

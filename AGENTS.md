@@ -75,9 +75,9 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 
 | Yêu cầu người dùng | Bắt đầu ở | Kiểm tra kéo theo |
 | --- | --- | --- |
-| Cuộn đến ngày nào thì thanh tuần chọn ngày đó, kéo qua ranh giới tuần, đổi tuần | `ui/TimetableScreen.kt` (`TimetableScreen`, state/gesture/scroll), `ui/WeekDatePicker.kt` | `TimetableSwipeTest.kt`, `WeekDatePickerTest.kt`; kiểm thử tay cả đầu/cuối tuần và danh sách rỗng |
+| Cuộn đến ngày nào thì thanh tuần chọn ngày đó, kéo qua ranh giới tuần, đổi tuần | `ui/TimetableScreen.kt` (`TimetableScreen`, state/gesture/scroll), `ui/WeekDatePicker.kt` | `TimetableSwipeTest.kt`, `WeekDatePickerTest.kt`; kéo ở mép >144dp, thả tay xác nhận; kéo ngược hủy; kiểm thử tay cả đầu/cuối tuần và danh sách rỗng |
 | Sửa màn đầu không hiện lịch, lag khi mở, chuyển tab mới hiện | `ui/TimetableScreen.kt` (`TimetableViewModel`, `cachedTimetable`, `timetable StateFlow`), `data/AppDatabase.kt` | Mất mạng, lần mở đầu, cold start, cache cũ, quay lại tab |
-| Sửa login / HTTP 401 / refresh token | `schools/tnut/TnutApiClient.kt`, `TnutSchoolProvider.kt`, `data/AuthStore.kt`, `ui/LoginScreen.kt` | `tests/test_auth_refresh.py`; 401 thật và logical 401, token rotate, offline |
+| Sửa lỗi đồng bộ và hộp thoại trạng thái | `ui/TimetableScreen.kt` (ViewModel), `ui/TimetableSyncDialog.kt`, `ui/MainScreen.kt`, `schools/tnut/TnutRepository.kt` | Auto/manual sync hiển thị Loading/Success/Failure; cảnh báo lịch thi; giữ Room cache và lần login đầu đã sửa |\n| Sửa login / HTTP 401 / refresh token | `schools/tnut/TnutApiClient.kt`, `TnutSchoolProvider.kt`, `data/AuthStore.kt`, `ui/LoginScreen.kt` | `tests/test_auth_refresh.py`; 401 thật và logical 401, token rotate, offline |
 | API trả lịch sai/thi thiếu/trùng/trang tiếp theo | `schools/tnut/TnutApi.kt`, `TnutRepository.kt`, `rust-core/src/portal.rs`, `rust/RustPortalCore.kt` | Rust unit tests, `RustPortalModelsTest.kt`, model/request tests, cache lỗi |
 | Tối ưu JSON/JNI/CPU khi load lịch | `rust-core/src/portal.rs`, `rust-core/src/android.rs`, `rust/RustPortalCore.kt` | Kiểm tra định dạng `TKB1`, 4 ABI, APK/JNI và so sánh output trước/sau |
 | Sửa lưu ghi chú, offline, DB migration | `data/AppDatabase.kt`, `schools/tnut/TnutRepository.kt` | `tests/test_data_safety.py` và dữ liệu giả lập upgrade v1→v4 |
