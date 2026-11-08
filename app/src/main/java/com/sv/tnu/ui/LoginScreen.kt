@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,8 +107,11 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
 
-    if (state is LoginUiState.Success) {
-        onLoggedIn()
+    // Navigation is a side-effect, not work to do during composition.
+    // A login on a clean install must create the main screen only after
+    // this composition has completed.
+    LaunchedEffect(state) {
+        if (state is LoginUiState.Success) onLoggedIn()
     }
 
     Scaffold(

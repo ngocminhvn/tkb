@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -69,6 +70,7 @@ fun MainScreen(
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    val firstLoginRenderEpoch by timetableViewModel.firstLoginRenderEpoch.collectAsState()
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     val showUpdateDialog by appUpdateViewModel.showDialog.collectAsState()
@@ -101,10 +103,15 @@ fun MainScreen(
         // Tab content
         when (NavigationTab.entries[selectedIndex]) {
             NavigationTab.TIMETABLE -> {
-                TimetableScreen(
-                    viewModel = timetableViewModel,
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                )
+                // Equivalent to leaving and reopening this tab once after the
+                // first successful sync; preserves the ViewModel and Room data.
+                // The epoch does not change on subsequent cached app starts.
+                key(firstLoginRenderEpoch) {
+                    TimetableScreen(
+                        viewModel = timetableViewModel,
+                        contentPadding = PaddingValues(bottom = 96.dp),
+                    )
+                }
             }
             NavigationTab.MORE -> {
                 MoreScreen(

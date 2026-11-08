@@ -118,6 +118,16 @@ data class TimetableSnapshot(
  * when the transactional sync has already committed. Prefer the freshly read
  * SQLite rows until Room catches up; normal cached starts still use Room.
  */
+/**
+ * Refresh the first-time TKB composition only when real weeks have been
+ * committed. Never remount on a failed/empty sync or a normal cached launch.
+ */
+internal fun shouldRecreateTimetableAfterFirstSync(
+    hadCachedWeeksAtLaunch: Boolean,
+    committedWeeks: List<WeekEntity>,
+    alreadyRecreated: Boolean,
+): Boolean = !hadCachedWeeksAtLaunch && committedWeeks.isNotEmpty() && !alreadyRecreated
+
 internal fun preferJustSyncedCache(
     observedWeeks: List<WeekEntity>,
     observedLessons: List<LessonEntity>,
@@ -159,6 +169,8 @@ class TimetableViewModel(
 
     private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
     private val _justSyncedCache = MutableStateFlow<CachedTimetable?>(null)
+    private val _firstLoginRenderEpoch = MutableStateFlow(0)
+    val firstLoginRenderEpoch: StateFlow<Int> = _firstLoginRenderEpoch.asStateFlow()
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
     // A SINGLE observable snapshot is the source of truth for first render.
@@ -392,7 +404,25 @@ class TimetableViewModel(
                         // Read committed rows directly so the TKB tab refreshes
                         // even when its Room collectors have not caught up yet.
                         try {
-                            _justSyncedCache.value = repository.cachedTimetable(hocKy)
+                            val committed = repository.cachedTimetable(hocKy)
+                            _justSyncedCache.value = committed
+                            // A clean install opens TKB before any Room rows
+                            // exist. Compose can retain that first empty layout
+                            // even after the async snapshot updates. Recreate
+                            // only its local UI once, just like switching tabs
+                            // manually, after the first sync has actual weeks.
+                            if (shouldRecreateTimetableAfterFirstSync(
+                                    hadCachedWeeksAtLaunch = !initialSnapshot?.weeks.isNullOrEmpty(),
+                                    committedWeeks = committed.weeks,
+                                    alreadyRecreated = _firstLoginRenderEpoch.value != 0,
+                                )
+                            ) {
+                                Log.i(
+                                    "TimetableViewModel",
+                                    "First sync committed: weeks=${committed.weeks.size}, lessons=${committed.lessons.size}; rebuilding TKB tab",
+                                )
+                                _firstLoginRenderEpoch.value += 1
+                            }
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {

@@ -28,6 +28,26 @@ class TimetableInitialSyncTest {
     )
 
     @Test
+    fun recreateTheFirstEmptyTabOnlyAfterSuccessfulCommit() {
+        assertEquals(
+            true,
+            shouldRecreateTimetableAfterFirstSync(false, weeks, false),
+        )
+        assertEquals(
+            false,
+            shouldRecreateTimetableAfterFirstSync(false, emptyList(), false),
+        )
+        assertEquals(
+            false,
+            shouldRecreateTimetableAfterFirstSync(true, weeks, false),
+        )
+        assertEquals(
+            false,
+            shouldRecreateTimetableAfterFirstSync(false, weeks, true),
+        )
+    }
+
+    @Test
     fun firstLoginDisplaysCommittedRowsWhileRoomStillEmitsEmptyLists() {
         val saved = CachedTimetable(weeks, lessons)
         assertEquals(saved, preferJustSyncedCache(emptyList(), emptyList(), saved))
