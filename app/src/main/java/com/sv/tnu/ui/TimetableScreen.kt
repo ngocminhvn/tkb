@@ -75,6 +75,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.data.CachedTimetable
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
@@ -112,6 +113,26 @@ data class TimetableSnapshot(
     val lessons: List<LessonEntity>,
 )
 
+/**
+ * After a first login, Room's collectors may still hold an empty snapshot
+ * when the transactional sync has already committed. Prefer the freshly read
+ * SQLite rows until Room catches up; normal cached starts still use Room.
+ */
+internal fun preferJustSyncedCache(
+    observedWeeks: List<WeekEntity>,
+    observedLessons: List<LessonEntity>,
+    justSynced: CachedTimetable?,
+): CachedTimetable {
+    if (justSynced != null && (
+            (observedWeeks.isEmpty() && justSynced.weeks.isNotEmpty()) ||
+            (observedLessons.isEmpty() && justSynced.lessons.isNotEmpty())
+        )
+    ) {
+        return justSynced
+    }
+    return CachedTimetable(observedWeeks, observedLessons)
+}
+
 class TimetableViewModel(
     private val repository: SchoolRepository,
     private val authStore: AuthStore,
@@ -137,6 +158,7 @@ class TimetableViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private val _lastSyncTime = MutableStateFlow(authStore.lastSyncTime)
+    private val _justSyncedCache = MutableStateFlow<CachedTimetable?>(null)
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
     // A SINGLE observable snapshot is the source of truth for first render.
@@ -181,8 +203,10 @@ class TimetableViewModel(
         repository.semesterLessonsFlow(hocKy),
         _selectedWeek,
         _todayYmd,
-    ) { weekList, lessonList, manual, today ->
-        buildSnapshot(weekList, lessonList, manual, today)
+        _justSyncedCache,
+    ) { weekList, lessonList, manual, today, justSynced ->
+        val cache = preferJustSyncedCache(weekList, lessonList, justSynced)
+        buildSnapshot(cache.weeks, cache.lessons, manual, today)
     }.flowOn(Dispatchers.Default)
         // Room's replaceTimetable() is transactional. Never pin a previous
         // semester forever when the DB legitimately becomes empty.
@@ -364,6 +388,16 @@ class TimetableViewModel(
                 _error.value = null
                 repository.refresh(hocKy)
                     .onSuccess {
+                        // After the first login the initial Room snapshot is empty.
+                        // Read committed rows directly so the TKB tab refreshes
+                        // even when its Room collectors have not caught up yet.
+                        try {
+                            _justSyncedCache.value = repository.cachedTimetable(hocKy)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w("TimetableViewModel", "Could not read just-synced timetable", e)
+                        }
                         _lastSyncTime.value = authStore.lastSyncTime
                     }
                     .onFailure { cause ->
