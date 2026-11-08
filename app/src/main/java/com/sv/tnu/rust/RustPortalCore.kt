@@ -14,8 +14,14 @@ import java.nio.charset.StandardCharsets
  * Kotlin JSON decoding, encoding, or JSON JNI round-trip occurs.
  */
 object RustPortalCore {
-    init {
+    private val nativeReady: Boolean = try {
         System.loadLibrary("tkb_core")
+        true
+    } catch (error: UnsatisfiedLinkError) {
+        val androidRuntime = System.getProperty("java.vm.name", "")
+            .contains("Dalvik", ignoreCase = true)
+        if (androidRuntime) throw error
+        false
     }
 
     private external fun mapTimetableBytesNative(semester: Int, responseBody: ByteArray): ByteArray
@@ -27,6 +33,12 @@ object RustPortalCore {
     private external fun hasNextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Boolean
     private external fun normalizeNoteNative(value: String): String
     private external fun normalizeUsernameNative(value: String): String
+    private external fun isLogicalUnauthorizedNative(responseBody: ByteArray): Boolean
+    private external fun verifyUpdateManifestNative(
+        currentVersionCode: Int,
+        allowedPrefix: String,
+        responseBody: ByteArray,
+    ): ByteArray
 
     fun mapTimetable(semester: Int, rawResponse: ByteArray): PortalBinaryDecoder.TimetableRows =
         PortalBinaryDecoder.decodeTimetable(mapTimetableBytesNative(semester, rawResponse))
@@ -38,12 +50,35 @@ object RustPortalCore {
     ): PortalBinaryDecoder.ExamPageRows =
         PortalBinaryDecoder.decodeExams(mapExamBytesNative(semester, isMidterm, rawResponse))
 
-    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
-        hasNextExamPageNative(page, totalPages ?: -1, rowCount)
+    fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean {
+        if (nativeReady) return hasNextExamPageNative(page, totalPages ?: -1, rowCount)
+        val total = totalPages?.takeIf { it > 0 }
+        return if (total != null) page < total else rowCount >= 100
+    }
 
-    fun normalizeNote(value: String): String = normalizeNoteNative(value)
+    fun normalizeNote(value: String): String =
+        if (nativeReady) normalizeNoteNative(value) else value.trim()
 
-    fun normalizeUsername(value: String): String = normalizeUsernameNative(value)
+    fun normalizeUsername(value: String): String =
+        if (nativeReady) normalizeUsernameNative(value) else value.trim().substringBefore("@")
+
+    fun isLogicalUnauthorized(rawPreview: ByteArray): Boolean {
+        if (nativeReady) return isLogicalUnauthorizedNative(rawPreview)
+        val text = String(rawPreview, StandardCharsets.UTF_8)
+        return Regex("""\"code\"\s*:\s*401\b""").containsMatchIn(text) ||
+            text.contains("notallowed", ignoreCase = true)
+    }
+
+    fun verifyUpdateManifest(
+        currentVersionCode: Int,
+        allowedPrefix: String,
+        rawManifest: ByteArray,
+    ): PortalBinaryDecoder.UpdateManifest? {
+        if (!nativeReady) return null
+        val bytes = verifyUpdateManifestNative(currentVersionCode, allowedPrefix, rawManifest)
+        if (bytes.isEmpty()) return null
+        return PortalBinaryDecoder.decodeUpdateManifest(bytes)
+    }
 
     // Cross-page dedup is linear and tiny. Do it once on already decoded Room
     // rows instead of turning all records back into JSON for another JNI call.
@@ -74,6 +109,19 @@ object PortalBinaryDecoder {
         val rows: List<ExamEntity>,
         val totalPages: Int?,
         val rowCount: Int,
+    )
+
+    data class UpdateManifest(
+        val versionCode: Int,
+        val versionName: String,
+        val apkUrl: String,
+        val apkSha256: String,
+        val apkSize: Long,
+        val compressedApkUrl: String,
+        val compressedApkSha256: String,
+        val compressedApkSize: Long,
+        val notes: String,
+        val publishedAt: String,
     )
 
     private class Reader(bytes: ByteArray, type: Byte) {
@@ -185,5 +233,23 @@ object PortalBinaryDecoder {
         reader.finish()
         require(rowCount == rows.size) { "Rust exam page row count mismatch" }
         return ExamPageRows(rows, totalPages, rowCount)
+    }
+
+    fun decodeUpdateManifest(bytes: ByteArray): UpdateManifest {
+        val reader = Reader(bytes, 'U'.code.toByte())
+        val manifest = UpdateManifest(
+            versionCode = reader.int(),
+            versionName = reader.string(),
+            apkUrl = reader.string(),
+            apkSha256 = reader.string(),
+            apkSize = reader.long(),
+            compressedApkUrl = reader.string(),
+            compressedApkSha256 = reader.string(),
+            compressedApkSize = reader.long(),
+            notes = reader.string(),
+            publishedAt = reader.string(),
+        )
+        reader.finish()
+        return manifest
     }
 }

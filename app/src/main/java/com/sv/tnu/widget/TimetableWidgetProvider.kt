@@ -16,7 +16,7 @@ import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
-import java.text.SimpleDateFormat
+import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -69,8 +69,13 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             try {
                 val dao = AppDatabase.get(context).tkbDao()
                 val todayCalendar = Calendar.getInstance()
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                val date = dateFormat.format(todayCalendar.time)
+                val date = String.format(
+                    Locale.US,
+                    "%04d-%02d-%02d",
+                    todayCalendar.get(Calendar.YEAR),
+                    todayCalendar.get(Calendar.MONTH) + 1,
+                    todayCalendar.get(Calendar.DAY_OF_MONTH),
+                )
                 val preferences = widgetPreferences(context)
                 val storedOffset = preferences.let {
                     val key = offsetKey(appWidgetId)
@@ -78,16 +83,14 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
                 val periods = dao.periodsOnce()
                 val offset: Int
-                val selectedDay: Calendar
+                val targetDate: String
                 val lessons: List<LessonEntity>
                 val exams: List<ExamEntity>
 
                 if (storedOffset != null) {
                     offset = storedOffset.coerceIn(MIN_OFFSET, MAX_OFFSET)
-                    selectedDay = if (offset == 0) todayCalendar else (todayCalendar.clone() as Calendar).apply {
-                        add(Calendar.DAY_OF_YEAR, offset)
-                    }
-                    val targetDate = dateFormat.format(selectedDay.time)
+                    targetDate = if (offset == 0) date
+                        else RustScheduleCore.addCalendarDays(date, offset) ?: date
                     lessons = dao.lessonsOn(targetDate)
                     exams = dao.examsOn(targetDate)
                 } else {
@@ -96,15 +99,14 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                     val autoOffset = if ((todayLessons.isEmpty() && todayExams.isEmpty()) || isDayFinished(todayLessons, todayExams, periods)) 1 else 0
                     if (autoOffset == 0) {
                         offset = 0
-                        selectedDay = todayCalendar
+                        targetDate = date
                         lessons = todayLessons
                         exams = todayExams
                     } else {
                         offset = 1
-                        selectedDay = (todayCalendar.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
-                        val tomorrowDate = dateFormat.format(selectedDay.time)
-                        lessons = dao.lessonsOn(tomorrowDate)
-                        exams = dao.examsOn(tomorrowDate)
+                        targetDate = RustScheduleCore.addCalendarDays(date, 1) ?: date
+                        lessons = dao.lessonsOn(targetDate)
+                        exams = dao.examsOn(targetDate)
                     }
                 }
 
@@ -138,7 +140,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 }
 
                 val schedule = WidgetSchedule(
-                    title = scheduleTitle(selectedDay, offset, isSquare),
+                    title = scheduleTitle(targetDate, offset, isSquare),
                     items = examItems + lessonItems,
                     offset = offset,
                 )
@@ -362,8 +364,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         return nowMinutes >= latestEnd
     }
 
-    private fun scheduleTitle(day: Calendar, offset: Int, isSquare: Boolean): String {
-        val date = SimpleDateFormat("dd/MM", Locale("vi", "VN")).format(day.time)
+    private fun scheduleTitle(targetDate: String, offset: Int, isSquare: Boolean): String {
+        val date = RustScheduleCore.formatDm(targetDate)
         return when (offset) {
             -1 -> if (isSquare) "Hôm qua" else "Hôm qua • $date"
             0 -> if (isSquare) "Hôm nay" else "Hôm nay • $date"
@@ -372,20 +374,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String {
-        if (soPhut <= 0) return ""
-        return try {
-            val parts = gioBatDau.split(":")
-            val hour = parts[0].trim().toInt()
-            val minute = parts[1].trim().toInt()
-            val totalMinutes = hour * 60 + minute + soPhut
-            val endHour = (totalMinutes / 60) % 24
-            val endMinute = totalMinutes % 60
-            String.format(Locale.getDefault(), "%02d:%02d", endHour, endMinute)
-        } catch (_: Exception) {
-            ""
-        }
-    }
+    private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
+        RustScheduleCore.examEndTime(gioBatDau, soPhut)
 
     private fun navigationPendingIntent(
         context: Context,
@@ -431,13 +421,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     private fun offsetKey(appWidgetId: Int) = "day_offset_$appWidgetId"
 
-    private fun String?.toMinutesOrNull(): Int? {
-        val parts = this?.trim()?.split(":") ?: return null
-        if (parts.size < 2) return null
-        val hour = parts[0].toIntOrNull() ?: return null
-        val minute = parts[1].take(2).toIntOrNull() ?: return null
-        return hour * 60 + minute
-    }
+    private fun String?.toMinutesOrNull(): Int? =
+        this?.let { RustScheduleCore.parseHhMmMinutes(it) }
 
     private fun lessonTime(lesson: LessonEntity, periods: List<PeriodEntity>): String {
         val start = periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau

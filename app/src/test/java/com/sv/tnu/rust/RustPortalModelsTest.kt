@@ -89,4 +89,30 @@ class RustPortalModelsTest {
     fun refusesWrongBinaryProtocolBeforeUsingRoom() {
         PortalBinaryDecoder.decodeExams("JSON instead of native records".toByteArray())
     }
+
+    @Test
+    fun updateManifestReadsFromCompactBinary() {
+        val sha = "a".repeat(64)
+        val bytes = ByteArrayOutputStream().also { buffer ->
+            DataOutputStream(buffer).use { out ->
+                out.write("TKB1U".toByteArray(Charsets.US_ASCII))
+                out.writeInt(15)
+                out.utf8("2.1")
+                out.utf8("https://ngocminhvn.github.io/tkb/TKB-SV.apk")
+                out.utf8(sha)
+                out.writeLong(1048576L)
+                out.utf8("")
+                out.utf8("")
+                out.writeLong(0L)
+                out.utf8("Fast Rust")
+                out.utf8("2026-11-08")
+            }
+        }.toByteArray()
+
+        val manifest = PortalBinaryDecoder.decodeUpdateManifest(bytes)
+        assertEquals(15, manifest.versionCode)
+        assertEquals("2.1", manifest.versionName)
+        assertEquals(sha, manifest.apkSha256)
+        assertEquals("Fast Rust", manifest.notes)
+    }
 }

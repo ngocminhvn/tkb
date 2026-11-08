@@ -1,6 +1,7 @@
 package com.sv.tnu.schools.tnut
 
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.schools.SchoolSessionTokens
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -49,11 +50,18 @@ object TnutApiClient {
 
     private fun isLogicalUnauthorized(response: Response): Boolean {
         if (!response.isSuccessful) return false
-        val body = try {
-            response.peekBody(4096).string()
+        val preview = try {
+            response.peekBody(4096)
         } catch (_: Exception) {
             return false
         }
+        val rawBytes = try {
+            preview.bytes()
+        } catch (_: Exception) {
+            return false
+        }
+        if (RustPortalCore.isLogicalUnauthorized(rawBytes)) return true
+        val body = String(rawBytes, Charsets.UTF_8)
         return portalUnauthorized.containsMatchIn(body) ||
             body.contains("notallowed", ignoreCase = true)
     }

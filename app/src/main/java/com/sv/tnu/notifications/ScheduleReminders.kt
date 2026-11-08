@@ -16,7 +16,7 @@ import androidx.core.content.ContextCompat
 import com.sv.tnu.MainActivity
 import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
-import java.text.SimpleDateFormat
+import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -106,9 +106,19 @@ object ScheduleReminders {
 
         val date = Calendar.getInstance()
         val isTomorrow = kind == ACTION_TOMORROW
-        if (isTomorrow) date.add(Calendar.DAY_OF_YEAR, 1)
-        val target = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date.time)
-        val displayDate = SimpleDateFormat("dd/MM/yyyy", Locale("vi", "VN")).format(date.time)
+        val todayYmd = String.format(
+            Locale.US,
+            "%04d-%02d-%02d",
+            date.get(Calendar.YEAR),
+            date.get(Calendar.MONTH) + 1,
+            date.get(Calendar.DAY_OF_MONTH),
+        )
+        val target = if (isTomorrow) {
+            RustScheduleCore.addCalendarDays(todayYmd, 1) ?: todayYmd
+        } else {
+            todayYmd
+        }
+        val displayDate = RustScheduleCore.formatDmy(target)
         val dao = AppDatabase.get(context).tkbDao()
         // Never synthesize a semester: only notify for one the portal stored.
         val semester = store.hocKy.takeIf { it != 0 } ?: return

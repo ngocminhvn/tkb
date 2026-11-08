@@ -77,6 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.notifications.ScheduleReminders
+import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
@@ -179,8 +180,10 @@ fun SettingsScreen(
         }
     }
 
-    val totalSubjects = lessons.map { it.maMon }.distinct().size
-    val totalCredits = lessons.distinctBy { it.maMon }.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
+    val (totalSubjects, totalCredits) = remember(lessons) {
+        val uniqueByCourse = lessons.distinctBy { it.maMon }
+        uniqueByCourse.size to uniqueByCourse.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
+    }
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     Scaffold(
@@ -765,10 +768,7 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.height(6.dp))
 
                                         // Ngày & giờ thi
-                                        val dayDisplay = try {
-                                            val parts = exam.ngayThi.split("-")
-                                            if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else exam.ngayThi
-                                        } catch (_: Exception) { exam.ngayThi }
+                                        val dayDisplay = RustScheduleCore.formatDmy(exam.ngayThi)
 
                                         Text(
                                             text = "Ngày: $dayDisplay • Giờ: ${exam.gioBatDau}${if (exam.soPhut > 0) " (${exam.soPhut}p)" else ""}${if (exam.isGiuaKy) " • Giữa kỳ" else ""}",

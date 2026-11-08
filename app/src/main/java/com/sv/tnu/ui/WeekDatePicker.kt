@@ -40,47 +40,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.rust.RustScheduleCore
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
 private val weekdayLabels = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
 
-/** Parse a date from TNUT as a strict local calendar day. */
-private fun calendarFor(ymd: String): Calendar? {
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-    val parsed = runCatching { format.parse(ymd) }.getOrNull() ?: return null
-    return Calendar.getInstance().apply {
-        time = parsed
-        set(Calendar.HOUR_OF_DAY, 12)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
-}
-
-private fun calendarYmd(date: Date): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date)
+private data class WeekDateBounds(
+    val week: WeekEntity,
+    val start: String,
+    val end: String,
+)
 
 internal fun weekDates(start: String): List<String> = RustScheduleCore.weekDates(start)
 
 internal fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>> {
-    val calendar = calendarFor(anchor) ?: return "" to emptyList()
-    calendar.set(Calendar.DAY_OF_MONTH, 1)
-    calendar.add(Calendar.MONTH, offset)
-    val title = SimpleDateFormat("'Tháng' MM/yyyy", Locale("vi", "VN")).format(calendar.time)
-    val leadingBlanks = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday first
-    val days = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-    val total = ((leadingBlanks + days + 6) / 7) * 7
-    val grid = List(total) { index ->
-        val dayOfMonth = index - leadingBlanks + 1
-        if (dayOfMonth !in 1..days) null
-        else calendarFor(calendarYmd(calendar.time))?.apply {
-            set(Calendar.DAY_OF_MONTH, dayOfMonth)
-        }?.let { calendarYmd(it.time) }
-    }
+    val (month, year, grid) = RustScheduleCore.monthDates(anchor, offset)
+        ?: return "" to emptyList()
+    val title = String.format(Locale.US, "Tháng %02d/%04d", month, year)
     return title to grid
 }
 
@@ -181,6 +157,15 @@ fun WeekDatePicker(
     onMoveDay: (Int) -> Unit,
 ) {
     val dates = remember(weekStartYmd) { weekDates(weekStartYmd) }
+    val weekBounds = remember(availableWeeks) {
+        availableWeeks.map { w ->
+            WeekDateBounds(
+                week = w,
+                start = normalizePortalDay(w.ngayBatDau.substringBefore(" ").trim()),
+                end = normalizePortalDay(w.ngayKetThuc.substringBefore(" ").trim()),
+            )
+        }
+    }
     val selectedDayColor = MaterialTheme.colorScheme.primary
     var showMonth by rememberSaveable { mutableStateOf(false) }
     var monthOffset by remember { mutableIntStateOf(0) }
@@ -235,7 +220,7 @@ fun WeekDatePicker(
                     hasSchedule = ymd in eventDays,
                     enabled = true,
                     onClick = {
-                        val week = availableWeeks.firstOrNull { dateInWeek(ymd, it) }
+                        val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
                         pickDate(ymd, week)
                     },
                     modifier = Modifier.weight(1f),
@@ -296,7 +281,7 @@ fun WeekDatePicker(
                             if (ymd == null) {
                                 Spacer(modifier = Modifier.weight(1f))
                             } else {
-                                val week = availableWeeks.firstOrNull { dateInWeek(ymd, it) }
+                                val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
                                 CalendarDay(
                                     ymd = ymd,
                                     weekday = null,

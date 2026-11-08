@@ -520,19 +520,19 @@ class TimetableViewModel(
 private fun normalizeDateToYmd(dateStr: String): String =
     RustScheduleCore.normalizeDate(dateStr)
 
-private fun localTodayYmd(): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-
-private fun mondayOfLocalWeek(ymd: String): String {
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-    val date = runCatching { format.parse(ymd) }.getOrNull() ?: return ymd
-    val calendar = Calendar.getInstance().apply {
-        time = date
-        val offset = (get(Calendar.DAY_OF_WEEK) + 5) % 7
-        add(Calendar.DAY_OF_MONTH, -offset)
-    }
-    return format.format(calendar.time)
+private fun localTodayYmd(): String {
+    val cal = Calendar.getInstance()
+    return String.format(
+        Locale.US,
+        "%04d-%02d-%02d",
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH) + 1,
+        cal.get(Calendar.DAY_OF_MONTH),
+    )
 }
+
+private fun mondayOfLocalWeek(ymd: String): String =
+    RustScheduleCore.mondayOfWeek(ymd) ?: ymd
 
 /**
  * Swipe one CALENDAR DAY, even across a week boundary. Bounds come from

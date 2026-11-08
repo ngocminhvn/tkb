@@ -6,14 +6,14 @@ existing `com.tkb.sv` application ID.
 
 ## Rust code now used by the Android app
 
-- Calendar date normalization, next/previous day, seven-day week generation.
-- Exam end time.
-- Timetable payload validation, and conversion of TNUT period/week/lesson
+- Calendar date normalization, next/previous day, arbitrary day offsets, Monday-of-week resolution, seven-day week generation, full Monday-aligned month calendar grid (`month_calendar_grid`), Vietnamese weekday/date formatting (`day_rail`, `day_label_vi`, `format_dmy`, `format_dm`), and human-readable byte formatting (`format_bytes`).
+- Exam end time and `HH:mm` clock minute parsing (`parse_hhmm_minutes`, `is_day_schedule_finished`).
+- Timetable payload validation, pre-normalized week/lesson ISO dates, and conversion of TNUT period/week/lesson
   responses into the original Room entity columns.
 - Each TNUT exam page: validation of required course/date fields, conversion
   into original exam columns, preserved postponed and midterm flags.
 - Exam pagination decision and duplicate filtering across fetched pages.
-- Student-ID normalization at login and lesson-note whitespace normalization.
+- Student-ID normalization at login, lesson-note whitespace normalization, logical HTTP-200 unauthorized detection (`is_logical_unauthorized`), and update manifest verification (`verify_update_manifest` / `TKB1U`).
 
 The Rust engine is called via `RustPortalCore` and `RustScheduleCore`.
 The JNI bridge now takes the **original HTTP response bytes** and returns

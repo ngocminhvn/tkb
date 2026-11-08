@@ -108,17 +108,33 @@ fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableR
     let periods = source.periods.into_iter().map(|period| PeriodRow {
         tiet: period.tiet, gio_bat_dau: period.start, gio_ket_thuc: period.end,
     }).collect();
-    let mut weeks = Vec::new();
-    let mut lessons = Vec::new();
+    let total_lessons: usize = source.weeks.iter().map(|w| w.lessons.len()).sum();
+    let mut weeks = Vec::with_capacity(source.weeks.len());
+    let mut lessons = Vec::with_capacity(total_lessons);
     for week in source.weeks {
+        let start_date = if week.start.is_empty() {
+            week.start
+        } else {
+            Cow::Owned(crate::normalize_date(&week.start))
+        };
+        let end_date = if week.end.is_empty() {
+            week.end
+        } else {
+            Cow::Owned(crate::normalize_date(&week.end))
+        };
         weeks.push(WeekRow {
-            hoc_ky: semester, tuan_hoc_ky: week.number, ngay_bat_dau: week.start,
-            ngay_ket_thuc: week.end, thong_tin_tuan: week.title,
+            hoc_ky: semester, tuan_hoc_ky: week.number, ngay_bat_dau: start_date,
+            ngay_ket_thuc: end_date, thong_tin_tuan: week.title,
         });
         for lesson in week.lessons {
+            let lesson_date = if lesson.date.is_empty() {
+                lesson.date
+            } else {
+                Cow::Owned(crate::normalize_date(&lesson.date))
+            };
             lessons.push(LessonRow {
                 id_tkb: lesson.id, hoc_ky: semester, tuan_hoc_ky: week.number,
-                ngay_hoc: lesson.date, thu_kieu_so: lesson.weekday,
+                ngay_hoc: lesson_date, thu_kieu_so: lesson.weekday,
                 tiet_bat_dau: lesson.first_period, so_tiet: lesson.period_count,
                 ma_mon: lesson.course_code, ten_mon: lesson.title,
                 so_tin_chi: lesson.credits, ma_phong: lesson.room,
@@ -423,9 +439,139 @@ pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Ve
     pack_exams(exam_rows(semester, is_midterm, data)?)
 }
 
+/// Fast native inspection of a peeked HTTP 200 portal body to detect logical 401
+/// or `"notallowed"` responses without allocating regexes on the JVM.
+pub fn is_logical_unauthorized(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    if text.as_bytes().windows(10).any(|w| w.eq_ignore_ascii_case(b"notallowed")) {
+        return true;
+    }
+    // Match `"code"\s*:\s*401\b`
+    let mut rest = text;
+    while let Some(idx) = rest.find("\"code\"") {
+        rest = &rest[idx + 6..];
+        let trimmed = rest.trim_start();
+        if let Some(after_colon) = trimmed.strip_prefix(':') {
+            let after_ws = after_colon.trim_start();
+            if let Some(after_401) = after_ws.strip_prefix("401") {
+                let next_byte = after_401.as_bytes().first().copied();
+                if !matches!(next_byte, Some(b'0'..=b'9')) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateManifestPayload {
+    version_code: i32,
+    #[serde(default)]
+    version_name: String,
+    #[serde(default)]
+    apk_url: String,
+    #[serde(default)]
+    apk_sha256: String,
+    #[serde(default)]
+    apk_size: i64,
+    #[serde(default)]
+    compressed_apk_url: String,
+    #[serde(default)]
+    compressed_apk_sha256: String,
+    #[serde(default)]
+    compressed_apk_size: i64,
+    #[serde(default)]
+    notes: String,
+    #[serde(default)]
+    published_at: String,
+}
+
+fn valid_sha256_hex(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.len() == 64 && trimmed.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// Parse and verify an `update.json` manifest in Rust. Returns `Ok(None)` when
+/// the remote version is not newer than `current_version_code` or fails safety checks.
+pub fn verify_update_manifest(
+    current_version_code: i32,
+    allowed_prefix: &str,
+    payload: &[u8],
+) -> Result<Option<Vec<u8>>, String> {
+    if payload.len() > 256 * 1024 {
+        return Err("Update manifest exceeds 256 KiB".into());
+    }
+    let item: UpdateManifestPayload = serde_json::from_slice(payload)
+        .map_err(|e| format!("Invalid update manifest: {e}"))?;
+    if item.version_code <= current_version_code {
+        return Ok(None);
+    }
+    let apk_url = item.apk_url.trim();
+    let apk_sha = item.apk_sha256.trim().to_ascii_lowercase();
+    if !apk_url.starts_with(allowed_prefix) || !valid_sha256_hex(&apk_sha) {
+        return Ok(None);
+    }
+    let comp_url = item.compressed_apk_url.trim();
+    let comp_sha = item.compressed_apk_sha256.trim().to_ascii_lowercase();
+    let has_valid_compressed = comp_url.is_empty()
+        || (comp_url.starts_with(allowed_prefix)
+            && comp_url.ends_with(".xz")
+            && valid_sha256_hex(&comp_sha));
+    let (final_comp_url, final_comp_sha, final_comp_size) = if has_valid_compressed {
+        (comp_url, comp_sha.as_str(), item.compressed_apk_size.max(0))
+    } else {
+        ("", "", 0)
+    };
+    let version_name = {
+        let v = item.version_name.trim();
+        if v.is_empty() {
+            item.version_code.to_string()
+        } else {
+            v.to_string()
+        }
+    };
+    let mut out = binary_header(b'U');
+    binary_i32(&mut out, item.version_code);
+    binary_str(&mut out, &version_name)?;
+    binary_str(&mut out, apk_url)?;
+    binary_str(&mut out, &apk_sha)?;
+    binary_i64(&mut out, item.apk_size.max(0));
+    binary_str(&mut out, final_comp_url)?;
+    binary_str(&mut out, final_comp_sha)?;
+    binary_i64(&mut out, final_comp_size);
+    binary_str(&mut out, item.notes.trim())?;
+    binary_str(&mut out, item.published_at.trim())?;
+    Ok(Some(out))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn detects_logical_unauthorized_payloads() {
+        assert!(is_logical_unauthorized(br#"{"result":"false","code":401,"message":"expired"}"#));
+        assert!(is_logical_unauthorized(br#"{"code" : 401}"#));
+        assert!(is_logical_unauthorized(br#"{"error":"NotAllowed"}"#));
+        assert!(!is_logical_unauthorized(br#"{"code":200,"data":{}}"#));
+        assert!(!is_logical_unauthorized(br#"{"code":4010}"#));
+    }
+    #[test]
+    fn verifies_update_manifest_and_packs_wire() {
+        let sha = "a".repeat(64);
+        let json = format!(
+            r#"{{"versionCode":15,"versionName":"2.1","apkUrl":"https://ngocminhvn.github.io/tkb/TKB-SV.apk","apkSha256":"{sha}","apkSize":1048576,"notes":"Fast Rust"}}"#
+        );
+        let packed = verify_update_manifest(14, "https://ngocminhvn.github.io/tkb/", json.as_bytes())
+            .unwrap()
+            .expect("should have update");
+        assert_eq!(&packed[..5], b"TKB1U");
+        let none = verify_update_manifest(15, "https://ngocminhvn.github.io/tkb/", json.as_bytes()).unwrap();
+        assert!(none.is_none());
+    }
     #[test]
     fn binary_wire_reads_portal_envelope_without_json_roundtrip() {
         let timetable = r#"{"code":200,"data":{"ds_tiet_trong_ngay":[],"ds_tuan_tkb":[{"tuan_hoc_ky":2,"ds_thoi_khoa_bieu":[{"id_tkb":"abc","thu_kieu_so":3,"tiet_bat_dau":1,"so_tiet":2,"ten_mon":"Toán"}]}]}}"#.as_bytes();

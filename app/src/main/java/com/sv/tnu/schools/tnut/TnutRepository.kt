@@ -165,8 +165,8 @@ class TnutRepository(
         }
     }
 
-    override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> {
-        return try {
+    override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> = withContext(Dispatchers.IO) {
+        try {
             val res = api.avatar(maSv)
             val profile = res.data?.thongTinSinhVien
             val name = listOf(profile?.hoTen, profile?.tenSinhVien, profile?.tenSv)
@@ -188,6 +188,8 @@ class TnutRepository(
             } else {
                 Result.success(null)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -267,5 +269,6 @@ class TnutRepository(
 
     override fun clearAvatar() {
         _avatarPath.value = null
+        _studentName.value = null
     }
 }

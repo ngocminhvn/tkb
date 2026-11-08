@@ -25,6 +25,14 @@ object RustScheduleCore {
     private external fun moveCalendarDayNative(date: String, direction: Int): String
     private external fun weekDatesNative(start: String): String
     private external fun dayRailNative(date: String): String
+    private external fun mondayOfWeekNative(date: String): String
+    private external fun monthDatesNative(anchor: String, monthOffset: Int): String
+    private external fun dayLabelViNative(date: String): String
+    private external fun formatDmyNative(date: String): String
+    private external fun formatDmNative(date: String): String
+    private external fun addCalendarDaysNative(date: String, deltaDays: Int): String
+    private external fun parseHhMmMinutesNative(clock: String): Int
+    private external fun formatBytesNative(bytes: Long): String
 
     fun normalizeDate(value: String): String {
         if (nativeReady) return normalizeDateNative(value)
@@ -86,7 +94,7 @@ object RustScheduleCore {
             return if (parts.size == 2) parts[0] to parts[1] else null
         }
         val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-        val parsed = runCatching { format.parse(date) }.getOrNull() ?: return null
+        val parsed = runCatching { format.parse(normalizeDate(date)) }.getOrNull() ?: return null
         val calendar = Calendar.getInstance().apply { time = parsed }
         val label = when (calendar.get(Calendar.DAY_OF_WEEK)) {
             Calendar.MONDAY -> "T2"
@@ -98,5 +106,134 @@ object RustScheduleCore {
             else -> "CN"
         }
         return calendar.get(Calendar.DAY_OF_MONTH).toString() to label
+    }
+
+    /** Monday (`yyyy-MM-dd`) of the week containing `date`. */
+    fun mondayOfWeek(date: String): String? {
+        if (nativeReady) return mondayOfWeekNative(date).ifBlank { null }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val parsed = runCatching { format.parse(normalizeDate(date)) }.getOrNull() ?: return null
+        val calendar = Calendar.getInstance().apply { time = parsed }
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val offsetToMonday = if (dayOfWeek == Calendar.SUNDAY) -6 else Calendar.MONDAY - dayOfWeek
+        calendar.add(Calendar.DAY_OF_MONTH, offsetToMonday)
+        return format.format(calendar.time)
+    }
+
+    /** Add or subtract `deltaDays` calendar days from `date`. */
+    fun addCalendarDays(date: String, deltaDays: Int): String? {
+        if (nativeReady) return addCalendarDaysNative(date, deltaDays).ifBlank { null }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val parsed = runCatching { format.parse(normalizeDate(date)) }.getOrNull() ?: return null
+        return Calendar.getInstance().apply {
+            time = parsed
+            add(Calendar.DAY_OF_MONTH, deltaDays)
+        }.let { format.format(it.time) }
+    }
+
+    /** Format any portal or ISO date string as `dd/MM/yyyy`. */
+    fun formatDmy(date: String): String {
+        if (nativeReady) return formatDmyNative(date)
+        val iso = normalizeDate(date)
+        val parts = iso.split("-")
+        return if (parts.size == 3 && parts[0].length == 4) {
+            "${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}"
+        } else {
+            date.trim()
+        }
+    }
+
+    /** Format any portal or ISO date string as `dd/MM`. */
+    fun formatDm(date: String): String {
+        if (nativeReady) return formatDmNative(date)
+        val iso = normalizeDate(date)
+        val parts = iso.split("-")
+        return if (parts.size == 3 && parts[0].length == 4) {
+            "${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}"
+        } else {
+            date.trim()
+        }
+    }
+
+    /** Full Vietnamese weekday and date label, e.g. `"Thứ 2, 09/11"`. */
+    fun dayLabelVi(date: String): String? {
+        if (nativeReady) return dayLabelViNative(date).ifBlank { null }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val parsed = runCatching { format.parse(normalizeDate(date)) }.getOrNull() ?: return null
+        val calendar = Calendar.getInstance().apply { time = parsed }
+        val weekday = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> "Thứ 2"
+            Calendar.TUESDAY -> "Thứ 3"
+            Calendar.WEDNESDAY -> "Thứ 4"
+            Calendar.THURSDAY -> "Thứ 5"
+            Calendar.FRIDAY -> "Thứ 6"
+            Calendar.SATURDAY -> "Thứ 7"
+            else -> "Chủ nhật"
+        }
+        val dm = SimpleDateFormat("dd/MM", Locale.US).format(calendar.time)
+        return "$weekday, $dm"
+    }
+
+    /** Parse `HH:mm` into minutes since midnight (`0..1439`), or `null` if invalid. */
+    fun parseHhMmMinutes(clock: String): Int? {
+        if (nativeReady) return parseHhMmMinutesNative(clock).takeIf { it >= 0 }
+        val parts = clock.trim().split(":")
+        if (parts.size != 2) return null
+        val h = parts[0].trim().toIntOrNull() ?: return null
+        val m = parts[1].trim().toIntOrNull() ?: return null
+        if (h !in 0..23 || m !in 0..59) return null
+        return h * 60 + m
+    }
+
+    /** Format byte size as human-readable `KB` or `MB`. */
+    fun formatBytes(bytes: Long): String {
+        if (nativeReady) return formatBytesNative(bytes)
+        val clamped = bytes.coerceAtLeast(0L)
+        val mb = clamped / (1024.0 * 1024.0)
+        return if (mb >= 1.0) {
+            String.format(Locale.US, "%.1f MB", mb)
+        } else {
+            String.format(Locale.US, "%.0f KB", (clamped / 1024.0).coerceAtLeast(1.0))
+        }
+    }
+
+    /**
+     * Build the Monday-aligned month grid for `anchor` shifted by `monthOffset` months.
+     * Returns `(month, year, cells)` where empty cells are `null` and active days are `yyyy-MM-dd`.
+     */
+    fun monthDates(anchor: String, monthOffset: Int): Triple<Int, Int, List<String?>>? {
+        if (nativeReady) {
+            val raw = monthDatesNative(anchor, monthOffset)
+            if (raw.isBlank()) return null
+            val parts = raw.split("|", limit = 3)
+            if (parts.size != 3) return null
+            val month = parts[0].toIntOrNull() ?: return null
+            val year = parts[1].toIntOrNull() ?: return null
+            val cells = parts[2].split(",").map { it.ifEmpty { null } }
+            return Triple(month, year, cells)
+        }
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
+        val parsed = runCatching { format.parse(normalizeDate(anchor)) }.getOrNull() ?: return null
+        val cal = Calendar.getInstance().apply {
+            time = parsed
+            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.MONTH, monthOffset)
+        }
+        val month = cal.get(Calendar.MONTH) + 1
+        val year = cal.get(Calendar.YEAR)
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val firstDow = cal.get(Calendar.DAY_OF_WEEK)
+        val leadingBlanks = if (firstDow == Calendar.SUNDAY) 6 else firstDow - Calendar.MONDAY
+        val totalCells = ((leadingBlanks + daysInMonth + 6) / 7) * 7
+        val cells = List(totalCells) { index ->
+            val day = index - leadingBlanks + 1
+            if (day in 1..daysInMonth) {
+                cal.set(Calendar.DAY_OF_MONTH, day)
+                format.format(cal.time)
+            } else {
+                null
+            }
+        }
+        return Triple(month, year, cells)
     }
 }

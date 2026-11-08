@@ -1,21 +1,73 @@
 //! Platform-independent schedule operations for TKB SV.
 //! No Android Context, network access, credentials, or UI dependencies.
 
+/// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
+#[inline]
+fn valid_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes[0..4].iter().all(u8::is_ascii_digit)
+        && bytes[5..7].iter().all(u8::is_ascii_digit)
+        && bytes[8..10].iter().all(u8::is_ascii_digit)
+}
+
 /// Normalize portal date strings to YYYY-MM-DD. Unrecognized input is returned
 /// unchanged so callers can decide how to handle malformed server data.
 pub fn normalize_date(input: &str) -> String {
-    let clean = input.trim().split([' ', 'T']).next().unwrap_or("");
-    let separator = if clean.contains('/') { '/' } else { '-' };
-    let parts: Vec<_> = clean.split(separator).collect();
-    if parts.len() != 3 {
+    let trimmed = input.trim();
+    if valid_iso_date(trimmed) {
+        return trimmed.to_string();
+    }
+    let clean = trimmed.split([' ', 'T']).next().unwrap_or("");
+    if valid_iso_date(clean) {
         return clean.to_string();
     }
-    let (year, month, day) = if separator == '/' || parts[0].len() != 4 {
-        (parts[2], parts[1], parts[0])
+    let separator = if clean.contains('/') { '/' } else { '-' };
+    let mut parts = clean.split(separator);
+    let (Some(p0), Some(p1), Some(p2), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return clean.to_string();
+    };
+    let (year, month, day) = if separator == '/' || p0.len() != 4 {
+        (p2, p1, p0)
     } else {
-        (parts[0], parts[1], parts[2])
+        (p0, p1, p2)
     };
     format!("{year}-{month:0>2}-{day:0>2}")
+}
+
+/// Format any portal or ISO date string as `dd/MM/yyyy` for Vietnamese UI display.
+pub fn format_dmy(input: &str) -> String {
+    let iso = normalize_date(input);
+    if valid_iso_date(&iso) {
+        format!("{}/{}/{}", &iso[8..10], &iso[5..7], &iso[0..4])
+    } else {
+        input.trim().to_string()
+    }
+}
+
+/// Format any portal or ISO date string as `dd/MM` for compact UI badges.
+pub fn format_dm(input: &str) -> String {
+    let iso = normalize_date(input);
+    if valid_iso_date(&iso) {
+        format!("{}/{}", &iso[8..10], &iso[5..7])
+    } else {
+        input.trim().to_string()
+    }
+}
+
+/// Parse an `HH:mm` clock string into minutes since midnight (`0..1440`).
+pub fn parse_hhmm_minutes(clock: &str) -> Option<i32> {
+    let mut parts = clock.trim().split(':');
+    let hour: i32 = parts.next()?.trim().parse().ok()?;
+    let minute: i32 = parts.next()?.trim().parse().ok()?;
+    if parts.next().is_some() || !(0..24).contains(&hour) || !(0..60).contains(&minute) {
+        return None;
+    }
+    Some(hour * 60 + minute)
 }
 
 /// End time of an exam, wrapping at midnight. Invalid input yields None.
@@ -23,13 +75,8 @@ pub fn exam_end_time(start: &str, duration_minutes: i32) -> Option<String> {
     if duration_minutes <= 0 {
         return None;
     }
-    let mut parts = start.split(':');
-    let hour: i32 = parts.next()?.trim().parse().ok()?;
-    let minute: i32 = parts.next()?.trim().parse().ok()?;
-    if parts.next().is_some() || !(0..24).contains(&hour) || !(0..60).contains(&minute) {
-        return None;
-    }
-    let total = (hour * 60 + minute + duration_minutes).rem_euclid(1440);
+    let start_mins = parse_hhmm_minutes(start)?;
+    let total = (start_mins + duration_minutes).rem_euclid(1440);
     Some(format!("{:02}:{:02}", total / 60, total % 60))
 }
 
@@ -49,11 +96,9 @@ pub fn lesson_time_range(periods: &[(i32, String, String)], start_period: i32, c
 }
 
 
-use chrono::{Days, NaiveDate};
+use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 
 pub mod portal;
-
-#[cfg(target_os = "android")]
 mod android;
 
 /// Move one calendar date; semester constraints stay with the Android repository.
@@ -61,7 +106,8 @@ pub fn move_calendar_day(ymd: &str, direction: i32) -> Option<String> {
     if direction == 0 {
         return None;
     }
-    let date = NaiveDate::parse_from_str(ymd, "%Y-%m-%d").ok()?;
+    let iso = normalize_date(ymd);
+    let date = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
     let next = if direction > 0 {
         date.checked_add_days(Days::new(1))?
     } else {
@@ -70,9 +116,31 @@ pub fn move_calendar_day(ymd: &str, direction: i32) -> Option<String> {
     Some(next.format("%Y-%m-%d").to_string())
 }
 
+/// Add or subtract an arbitrary number of calendar days from a date.
+pub fn add_calendar_days(ymd: &str, delta_days: i32) -> Option<String> {
+    let iso = normalize_date(ymd);
+    let date = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
+    let shifted = if delta_days >= 0 {
+        date.checked_add_days(Days::new(delta_days as u64))?
+    } else {
+        date.checked_sub_days(Days::new(delta_days.unsigned_abs() as u64))?
+    };
+    Some(shifted.format("%Y-%m-%d").to_string())
+}
+
+/// Monday (`YYYY-MM-DD`) of the ISO week containing `ymd`.
+pub fn monday_of_week(ymd: &str) -> Option<String> {
+    let iso = normalize_date(ymd);
+    let date = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
+    let days_from_monday = date.weekday().num_days_from_monday() as u64;
+    let monday = date.checked_sub_days(Days::new(days_from_monday))?;
+    Some(monday.format("%Y-%m-%d").to_string())
+}
+
 /// Seven consecutive ISO dates. Calendar arithmetic is independent of DST.
 pub fn calendar_week_dates(start: &str) -> Vec<String> {
-    let Some(first) = NaiveDate::parse_from_str(start, "%Y-%m-%d").ok() else {
+    let iso = normalize_date(start);
+    let Some(first) = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok() else {
         return Vec::new();
     };
     (0..7)
@@ -84,8 +152,8 @@ pub fn calendar_week_dates(start: &str) -> Vec<String> {
 /// Day-of-month and Vietnamese weekday label ("T2".."T7", "CN") for a date rail.
 /// Replaces two Java SimpleDateFormat constructions per list item.
 pub fn day_rail(ymd: &str) -> Option<(u32, &'static str)> {
-    use chrono::{Datelike, Weekday};
-    let date = NaiveDate::parse_from_str(ymd, "%Y-%m-%d").ok()?;
+    let iso = normalize_date(ymd);
+    let date = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
     let label = match date.weekday() {
         Weekday::Mon => "T2",
         Weekday::Tue => "T3",
@@ -98,6 +166,91 @@ pub fn day_rail(ymd: &str) -> Option<(u32, &'static str)> {
     Some((date.day(), label))
 }
 
+/// Full Vietnamese weekday and date title, e.g. `"Thứ 2, 09/11"` or `"Chủ nhật, 08/11"`.
+pub fn day_label_vi(ymd: &str) -> Option<String> {
+    let iso = normalize_date(ymd);
+    let date = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
+    let weekday = match date.weekday() {
+        Weekday::Mon => "Thứ 2",
+        Weekday::Tue => "Thứ 3",
+        Weekday::Wed => "Thứ 4",
+        Weekday::Thu => "Thứ 5",
+        Weekday::Fri => "Thứ 6",
+        Weekday::Sat => "Thứ 7",
+        Weekday::Sun => "Chủ nhật",
+    };
+    Some(format!("{weekday}, {:02}/{:02}", date.day(), date.month()))
+}
+
+/// Build the month calendar grid (Monday-aligned rows of 7 cells) for `anchor_ymd`
+/// shifted by `month_offset` months. Returns `(month, year, cells)` where empty
+/// leading/trailing cells are empty strings and active days are `YYYY-MM-DD`.
+pub fn month_calendar_grid(anchor_ymd: &str, month_offset: i32) -> Option<(u32, i32, Vec<String>)> {
+    let iso = normalize_date(anchor_ymd);
+    let anchor = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok()?;
+    let first_of_anchor = anchor.with_day(1)?;
+    let target_first = if month_offset >= 0 {
+        first_of_anchor.checked_add_months(Months::new(month_offset as u32))?
+    } else {
+        first_of_anchor.checked_sub_months(Months::new(month_offset.unsigned_abs()))?
+    };
+    let year = target_first.year();
+    let month = target_first.month();
+    let next_month_first = target_first.checked_add_months(Months::new(1))?;
+    let days_in_month = next_month_first
+        .signed_duration_since(target_first)
+        .num_days() as u32;
+    let leading_blanks = target_first.weekday().num_days_from_monday() as usize;
+    let total_cells = (leading_blanks + days_in_month as usize).div_ceil(7) * 7;
+    let mut cells = Vec::with_capacity(total_cells);
+    for _ in 0..leading_blanks {
+        cells.push(String::new());
+    }
+    for day in 1..=days_in_month {
+        cells.push(format!("{year:04}-{month:02}-{day:02}"));
+    }
+    while cells.len() < total_cells {
+        cells.push(String::new());
+    }
+    Some((month, year, cells))
+}
+
+/// Determine whether all lessons and exams on a day have finished at `now_minutes`
+/// (`hour * 60 + minute`), used by the home screen widget to auto-advance to tomorrow.
+pub fn is_day_schedule_finished(
+    last_lesson_end_hhmm: Option<&str>,
+    fallback_period_end_minutes: Option<i32>,
+    exams: &[(&str, i32)],
+    now_minutes: i32,
+) -> bool {
+    let last_lesson_end = last_lesson_end_hhmm
+        .and_then(parse_hhmm_minutes)
+        .or(fallback_period_end_minutes)
+        .unwrap_or(0);
+    let last_exam_end = exams
+        .iter()
+        .filter_map(|(start, duration)| {
+            let start_min = parse_hhmm_minutes(start)?;
+            Some(start_min + (*duration).max(60))
+        })
+        .max()
+        .unwrap_or(0);
+    let last_end = last_lesson_end.max(last_exam_end);
+    last_end > 0 && now_minutes >= last_end
+}
+
+/// Format byte counts as human-readable `KB` or `MB` strings (US decimal point).
+pub fn format_bytes(bytes: i64) -> String {
+    let clamped = bytes.max(0) as f64;
+    let mb = clamped / (1024.0 * 1024.0);
+    if mb >= 1.0 {
+        format!("{mb:.1} MB")
+    } else {
+        let kb = (clamped / 1024.0).max(1.0);
+        format!("{kb:.0} KB")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,6 +259,9 @@ mod tests {
         assert_eq!(normalize_date("7/11/2026"), "2026-11-07");
         assert_eq!(normalize_date("2026-11-7T07:00:00"), "2026-11-07");
         assert_eq!(normalize_date("07-11-2026 00:00:00"), "2026-11-07");
+        assert_eq!(normalize_date("2026-11-07"), "2026-11-07");
+        assert_eq!(format_dmy("2026-11-07"), "07/11/2026");
+        assert_eq!(format_dm("7/11/2026"), "07/11");
     }
     #[test]
     fn day_rail_labels() {
@@ -113,6 +269,8 @@ mod tests {
         assert_eq!(day_rail("2026-11-02"), Some((2, "T2")));
         assert_eq!(day_rail("2026-11-07"), Some((7, "T7")));
         assert_eq!(day_rail("bad"), None);
+        assert_eq!(day_label_vi("2026-11-08").as_deref(), Some("Chủ nhật, 08/11"));
+        assert_eq!(day_label_vi("2026-11-02").as_deref(), Some("Thứ 2, 02/11"));
     }
     #[test]
     fn exam_times() {
@@ -120,14 +278,29 @@ mod tests {
         assert_eq!(exam_end_time("23:45", 30).as_deref(), Some("00:15"));
         assert_eq!(exam_end_time("25:00", 30), None);
         assert_eq!(exam_end_time("07:00", 0), None);
+        assert_eq!(parse_hhmm_minutes("07:30"), Some(450));
     }
     #[test]
     fn day_navigation_and_week_dates() {
         assert_eq!(move_calendar_day("2026-11-08", 1).as_deref(), Some("2026-11-09"));
         assert_eq!(move_calendar_day("2026-11-09", -1).as_deref(), Some("2026-11-08"));
         assert_eq!(move_calendar_day("2026-11-09", 0), None);
+        assert_eq!(add_calendar_days("2026-11-08", 7).as_deref(), Some("2026-11-15"));
+        assert_eq!(add_calendar_days("2026-11-08", -7).as_deref(), Some("2026-11-01"));
+        assert_eq!(monday_of_week("2026-11-08").as_deref(), Some("2026-11-02"));
         assert_eq!(calendar_week_dates("2026-12-28").last().map(String::as_str), Some("2027-01-03"));
         assert!(calendar_week_dates("bad-date").is_empty());
+    }
+    #[test]
+    fn month_grid_and_widget_helpers() {
+        let (month, year, cells) = month_calendar_grid("2026-11-08", 0).unwrap();
+        assert_eq!((month, year), (11, 2026));
+        assert_eq!(cells.len() % 7, 0);
+        assert_eq!(cells[6], "2026-11-01");
+        assert!(is_day_schedule_finished(Some("11:30"), None, &[("13:30", 90)], 15 * 60));
+        assert!(!is_day_schedule_finished(Some("11:30"), None, &[("13:30", 90)], 14 * 60));
+        assert_eq!(format_bytes(512 * 1024), "512 KB");
+        assert_eq!(format_bytes(3 * 1024 * 1024), "3.0 MB");
     }
     #[test]
     fn periods() {

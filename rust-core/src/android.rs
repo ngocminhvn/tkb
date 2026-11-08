@@ -75,6 +75,93 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_dayRailNative(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_mondayOfWeekNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::monday_of_week(&source).unwrap_or_default())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_monthDatesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    anchor: JString<'_>,
+    month_offset: jint,
+) -> jstring {
+    let source = from_java(&mut env, &anchor);
+    let text = crate::month_calendar_grid(&source, month_offset)
+        .map(|(month, year, cells)| format!("{month}|{year}|{}", cells.join(",")))
+        .unwrap_or_default();
+    into_java(&mut env, text)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_dayLabelViNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::day_label_vi(&source).unwrap_or_default())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_formatDmyNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::format_dmy(&source))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_formatDmNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(&mut env, crate::format_dm(&source))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_addCalendarDaysNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+    delta_days: jint,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    into_java(
+        &mut env,
+        crate::add_calendar_days(&source, delta_days).unwrap_or_default(),
+    )
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_parseHhMmMinutesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jint {
+    let source = from_java(&mut env, &input);
+    crate::parse_hhmm_minutes(&source).unwrap_or(-1)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_formatBytesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    bytes: jni::sys::jlong,
+) -> jstring {
+    into_java(&mut env, crate::format_bytes(bytes))
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_hasNextExamPageNative(
     _env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -150,4 +237,36 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamBytesNative(
         Err(_) => return std::ptr::null_mut(),
     };
     into_byte_array(&mut env, crate::portal::map_exam_wire(semester, is_midterm != 0, &bytes))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_isLogicalUnauthorizedNative(
+    env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    source: JByteArray<'_>,
+) -> jni::sys::jboolean {
+    let Ok(bytes) = env.convert_byte_array(&source) else {
+        return 0;
+    };
+    u8::from(crate::portal::is_logical_unauthorized(&bytes))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_verifyUpdateManifestNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    current_version_code: jint,
+    allowed_prefix: JString<'_>,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let prefix = from_java(&mut env, &allowed_prefix);
+    let bytes = match env.convert_byte_array(&source) {
+        Ok(bytes) => bytes,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    match crate::portal::verify_update_manifest(current_version_code, &prefix, &bytes) {
+        Ok(Some(packed)) => into_byte_array(&mut env, Ok(packed)),
+        Ok(None) => into_byte_array(&mut env, Ok(Vec::new())),
+        Err(message) => into_byte_array(&mut env, Err(message)),
+    }
 }

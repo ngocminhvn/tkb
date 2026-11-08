@@ -36,4 +36,18 @@ class RustScheduleCoreTest {
         assertEquals("2027-01-03", dates.last())
         assertTrue(RustScheduleCore.weekDates("bad-date").isEmpty())
     }
+
+    @Test
+    fun monthCalendarAndDisplayFormattersMatchRust() {
+        assertEquals("07/11/2026", RustScheduleCore.formatDmy("2026-11-07"))
+        assertEquals("07/11", RustScheduleCore.formatDm("7/11/2026"))
+        assertEquals("2026-11-02", RustScheduleCore.mondayOfWeek("2026-11-08"))
+        assertEquals("2026-11-15", RustScheduleCore.addCalendarDays("2026-11-08", 7))
+        assertEquals(450, RustScheduleCore.parseHhMmMinutes("07:30"))
+        assertEquals("3.0 MB", RustScheduleCore.formatBytes(3L * 1024L * 1024L))
+        val grid = RustScheduleCore.monthDates("2026-11-08", 0)
+        assertEquals(11, grid?.first)
+        assertEquals(2026, grid?.second)
+        assertEquals("2026-11-01", grid?.third?.get(6))
+    }
 }

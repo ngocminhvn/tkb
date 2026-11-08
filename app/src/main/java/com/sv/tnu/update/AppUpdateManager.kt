@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import com.sv.tnu.rust.RustScheduleCore
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -347,12 +348,7 @@ object AppUpdateManager {
 
     fun formatBytes(bytes: Long?): String {
         if (bytes == null || bytes <= 0L) return "0 B"
-        val kb = bytes / 1024.0
-        val mb = kb / 1024.0
-        return when {
-            mb >= 1.0 -> String.format(Locale.US, "%.1f MB", mb)
-            kb >= 1.0 -> String.format(Locale.US, "%.1f KB", kb)
-            else -> "$bytes B"
-        }
+        if (bytes < 1024L) return "$bytes B"
+        return RustScheduleCore.formatBytes(bytes)
     }
 }
