@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,11 +50,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
+import kotlinx.coroutines.delay
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -82,12 +87,25 @@ fun MainScreen(
     val downloadResult by appUpdateViewModel.downloadResult.collectAsState()
     val updateError by appUpdateViewModel.errorMessage.collectAsState()
 
-    // Trigger the real TNUT timetable + exam sync when the authenticated
-    // main screen opens, regardless of which tab is currently selected.
-    // The ViewModel rate-limits automatic checks to once per local day;
-    // AuthStore.saveLogin resets the marker for a fresh login.
+    // The first login loads immediately; recurring automatic reloads are
+    // eligible only after 06:30 in Vietnam, at most once per Vietnam day.
+    // Sleep until the next eligible window rather than polling for changes.
     LaunchedEffect(timetableViewModel) {
-        timetableViewModel.refreshIfNeeded()
+        while (true) {
+            timetableViewModel.refreshIfNeeded()
+            delay(timetableViewModel.nextAutoSyncDelayMillis().coerceAtLeast(1_000L))
+        }
+    }
+    // If the device slept through 06:30, check again upon returning to app.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, timetableViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                timetableViewModel.refreshIfNeeded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Tự động kiểm tra bản cập nhật mới ngầm khi mở màn hình chính

@@ -3,6 +3,7 @@ package com.sv.tnu.ui
 import com.sv.tnu.data.WeekEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TimetableSwipeTest {
@@ -14,6 +15,18 @@ class TimetableSwipeTest {
         assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 1, false))
         assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 0, true))
         assertEquals(null, confirmedEdgeWeekDirection(220f, 144f, 2, true))
+    }
+
+    @Test
+    fun elasticPullMovesListWithoutProgressOverlay() {
+        assertEquals(0f, elasticEdgeOffsetPx(0f, 144f, 1), 0.001f)
+        assertEquals(0f, elasticEdgeOffsetPx(220f, 144f, 0), 0.001f)
+        val down = elasticEdgeOffsetPx(144f, 144f, -1)
+        val up = elasticEdgeOffsetPx(144f, 144f, 1)
+        assertTrue(down > 0f)
+        assertEquals(-down, up, 0.001f)
+        assertTrue(elasticEdgeOffsetPx(360f, 144f, -1) > down)
+        assertTrue(elasticEdgeOffsetPx(720f, 144f, -1) < 144f)
     }
 
     private val weeks = listOf(

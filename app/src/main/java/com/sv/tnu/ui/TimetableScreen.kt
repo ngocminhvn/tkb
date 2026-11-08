@@ -1,6 +1,9 @@
 package com.sv.tnu.ui
 
 import android.util.Log
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +44,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -54,8 +56,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -66,6 +68,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +94,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -111,6 +115,14 @@ import kotlinx.coroutines.runBlocking
 
 internal fun confirmedEdgeWeekDirection(distancePx: Float, thresholdPx: Float, direction: Int, hasAdjacentWeek: Boolean): Int? =
     direction.takeIf { (it == 1 || it == -1) && hasAdjacentWeek && thresholdPx > 0f && distancePx >= thresholdPx }
+
+/** Elastic resistance, moving the real list rather than drawing a progress overlay. */
+internal fun elasticEdgeOffsetPx(distancePx: Float, thresholdPx: Float, direction: Int): Float {
+    if (thresholdPx <= 0f || distancePx <= 0f || (direction != -1 && direction != 1)) return 0f
+    val distance = distancePx.coerceAtMost(thresholdPx * 4f)
+    val stretched = 0.52f * distance / (1f + distance / (thresholdPx * 1.2f))
+    return if (direction < 0) stretched else -stretched
+}
 
 /** One coherent offline screen state; never expose a partly loaded week/lesson pair. */
 data class TimetableSnapshot(
@@ -172,7 +184,7 @@ class TimetableViewModel(
     // been skipped; avoids flashing "no timetable" before the first sync begins.
     private val _awaitingSync = MutableStateFlow(
         authStore.lastAutoSyncAttempt.let { last ->
-            last == 0L || !isSameLocalDay(last, System.currentTimeMillis())
+            last == 0L || isVietnamDailyAutoSyncDue(System.currentTimeMillis(), last)
         },
     )
     val awaitingSync: StateFlow<Boolean> = _awaitingSync.asStateFlow()
@@ -467,12 +479,13 @@ class TimetableViewModel(
     }
 
     fun refreshIfNeeded() {
+        if (_refreshing.value) return
         val now = System.currentTimeMillis()
-        // saveLogin() resets the automatic attempt marker, so signing in
-        // always fetches both timetable and exams, regardless of earlier cache.
-        // Within an existing session, retain the once-per-local-day policy.
-        val lastAutomaticCheck = authStore.lastAutoSyncAttempt
-        if (lastAutomaticCheck == 0L || !isSameLocalDay(lastAutomaticCheck, now)) {
+        val lastAttempt = authStore.lastAutoSyncAttempt
+        // A fresh login still downloads its FIRST timetable immediately (v319).
+        // Later automatic reloads happen at most once in each Vietnam calendar
+        // day, not before 06:30 Asia/Ho_Chi_Minh. Manual sync is unrestricted.
+        if (lastAttempt == 0L || isVietnamDailyAutoSyncDue(now, lastAttempt)) {
             authStore.lastAutoSyncAttempt = now
             refresh()
         } else {
@@ -480,13 +493,10 @@ class TimetableViewModel(
         }
     }
 
-    private fun isSameLocalDay(first: Long, second: Long): Boolean {
-        val firstDay = Calendar.getInstance().apply { timeInMillis = first }
-        val secondDay = Calendar.getInstance().apply { timeInMillis = second }
-        return firstDay.get(Calendar.ERA) == secondDay.get(Calendar.ERA) &&
-            firstDay.get(Calendar.YEAR) == secondDay.get(Calendar.YEAR) &&
-            firstDay.get(Calendar.DAY_OF_YEAR) == secondDay.get(Calendar.DAY_OF_YEAR)
-    }
+    fun nextAutoSyncDelayMillis(): Long =
+        nextVietnamAutoSyncDelayMillis(
+            System.currentTimeMillis(), authStore.lastAutoSyncAttempt,
+        )
 
     fun saveLessonNote(lessonId: String, note: String) {
         viewModelScope.launch {
@@ -841,11 +851,25 @@ fun TimetableScreen(
     // effect (which can consume the remaining delta first). This observer
     // never consumes touch input, so normal LazyColumn scrolling and horizontal
     // day swipes keep working.
-    // Telegram-style: pull firmly beyond the week and RELEASE to commit.
+    // Telegram-like overscroll: the list itself follows the finger with
+    // resistance, then springs back. No labels or progress indicators.
     val edgeThresholdPx = with(LocalDensity.current) { 144.dp.toPx() }
     val haptic = LocalHapticFeedback.current
-    var edgePullDirection by remember { mutableIntStateOf(0) }
-    var edgePullProgress by remember { mutableFloatStateOf(0f) }
+    val edgeOffset = remember { Animatable(0f) }
+    val edgeScope = rememberCoroutineScope()
+    val edgeRecovery = remember { arrayOfNulls<Job>(1) }
+    fun springBackAtEdge() {
+        edgeRecovery[0]?.cancel()
+        edgeRecovery[0] = edgeScope.launch {
+            edgeOffset.animateTo(
+                0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -989,8 +1013,11 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
+                            .graphicsLayer { translationY = edgeOffset.value }
                             .pointerInput(listState, selectedWeek, weeks, edgeThresholdPx) {
                                 awaitEachGesture {
+                                    edgeRecovery[0]?.cancel()
+                                    edgeOffset.stop()
                                     val down = awaitFirstDown(requireUnconsumed = false)
                                     var previous = down.position
                                     var distance = 0f
@@ -1010,9 +1037,8 @@ fun TimetableScreen(
                                             val confirmed = confirmedEdgeWeekDirection(
                                                 distance, edgeThresholdPx, direction, hasAdjacent,
                                             )
-                                            edgePullDirection = 0
-                                            edgePullProgress = 0f
                                             if (confirmed != null) changeWeekAtBoundary(confirmed)
+                                            springBackAtEdge()
                                             break
                                         }
                                         val delta = change.position - previous
@@ -1049,17 +1075,17 @@ fun TimetableScreen(
                                             }
                                             distance = if (direction == 0) 0f else kotlin.math.abs(delta.y)
                                         }
-                                        edgePullDirection = direction
-                                        edgePullProgress = (distance / edgeThresholdPx).coerceIn(0f, 1f)
-                                        if (edgePullProgress >= 1f && !vibrated) {
+                                        edgeOffset.snapTo(
+                                            elasticEdgeOffsetPx(distance, edgeThresholdPx, direction)
+                                        )
+                                        if (distance >= edgeThresholdPx && direction != 0 && !vibrated) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             vibrated = true
-                                        } else if (edgePullProgress < 1f) {
+                                        } else if (distance < edgeThresholdPx) {
                                             vibrated = false
                                         }
                                     }
-                                    edgePullDirection = 0
-                                    edgePullProgress = 0f
+                                    springBackAtEdge()
                                 }
                             }
                             .pointerInput(selectedDay, weeks, selectedWeek) {
@@ -1144,33 +1170,6 @@ fun TimetableScreen(
                                 }
                             }
                         }
-                    }
-                }
-                if (edgePullDirection != 0 && edgePullProgress > 0f) {
-                    Column(
-                        modifier = Modifier
-                            .align(if (edgePullDirection < 0) Alignment.TopCenter else Alignment.BottomCenter)
-                            .padding(top = 10.dp, bottom = 12.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Text(
-                            text = if (edgePullProgress >= 1f) {
-                                if (edgePullDirection > 0) "Thả tay để sang tuần sau"
-                                else "Thả tay để về tuần trước"
-                            } else {
-                                if (edgePullDirection > 0) "Kéo thêm để sang tuần sau"
-                                else "Kéo thêm để về tuần trước"
-                            },
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        LinearProgressIndicator(
-                            progress = { edgePullProgress },
-                            modifier = Modifier.width(168.dp),
-                        )
                     }
                 }
                 }
