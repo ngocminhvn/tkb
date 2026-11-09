@@ -423,10 +423,10 @@ class TimetableViewModel(
             list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy
     }
 
-    fun refresh() {
+    fun refresh(showDialog: Boolean = true) {
         if (_refreshing.value) return
         _refreshing.value = true
-        _syncStatus.value = TimetableSyncStatus.Loading
+        _syncStatus.value = if (showDialog) TimetableSyncStatus.Loading else null
         viewModelScope.launch {
             try {
                 cacheReadyJob.join()
@@ -453,7 +453,7 @@ class TimetableViewModel(
                             Log.w("TimetableViewModel", "Could not read just-synced timetable", e)
                         }
                         _lastSyncTime.value = authStore.lastSyncTime
-                        _syncStatus.value = TimetableSyncStatus.Success(repository.lastSyncWarning.value)
+                        if (showDialog) _syncStatus.value = TimetableSyncStatus.Success(repository.lastSyncWarning.value)
                     }
                     .onFailure { cause ->
                         val issue = if (cause is retrofit2.HttpException && cause.code() == 401) {
@@ -463,15 +463,23 @@ class TimetableViewModel(
                         }
                         val warning = repository.lastSyncWarning.value
                         val detail = if (warning.isNullOrBlank()) issue else "$issue\nLịch thi: $warning"
-                        _error.value = "$detail Lịch đã lưu vẫn được giữ."
-                        _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
+                        if (showDialog) {
+                            _error.value = "$detail Lịch đã lưu vẫn được giữ."
+                            _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
+                        } else {
+                            Log.w("TimetableViewModel", "Automatic timetable sync failed: $detail")
+                        }
                     }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val detail = describeTimetableSyncError(e)
-                _error.value = "$detail Lịch đã lưu vẫn được giữ."
-                _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
+                if (showDialog) {
+                    _error.value = "$detail Lịch đã lưu vẫn được giữ."
+                    _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
+                } else {
+                    Log.w("TimetableViewModel", "Automatic timetable sync failed: $detail", e)
+                }
             } finally {
                 _refreshing.value = false
                 _awaitingSync.value = false
@@ -488,7 +496,7 @@ class TimetableViewModel(
         // day, not before 06:30 Asia/Ho_Chi_Minh. Manual sync is unrestricted.
         if (lastAttempt == 0L || isVietnamDailyAutoSyncDue(now, lastAttempt)) {
             authStore.lastAutoSyncAttempt = now
-            refresh()
+            refresh(showDialog = false)
         } else {
             _awaitingSync.value = false
         }
@@ -621,31 +629,30 @@ fun TimetableScreen(
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
-    // A month/day tap updates the selection instantly. StateFlow's combined
-    // database snapshot arrives asynchronously, so while it catches up, derive
-    // the displayed week and its lessons from the already-cached semester.
-    // This keeps the date strip and timetable in sync on the same frame.
-    var pendingWeek by remember { mutableStateOf<Int?>(null) }
-    val selectedWeek = pendingWeek ?: timetable?.selectedWeek
-    val lessons = if (pendingWeek != null && pendingWeek != timetable?.selectedWeek) {
-        remember(semesterLessons, pendingWeek) {
-            semesterLessons.filter { it.tuanHocKy == pendingWeek }
-        }
-    } else {
-        timetable?.lessons.orEmpty()
-    }
-    androidx.compose.runtime.LaunchedEffect(pendingWeek, timetable?.selectedWeek) {
-        if (pendingWeek != null && timetable?.selectedWeek == pendingWeek) {
-            pendingWeek = null
+    // Derive the visible week from the selected day immediately. The timeline
+    // itself is semester-wide and must not wait for a week-specific Room Flow.
+    val weekBounds = remember(weeks) {
+        weeks.map { week ->
+            Triple(
+                normalizeDateToYmd(week.ngayBatDau),
+                normalizeDateToYmd(week.ngayKetThuc),
+                week.tuanHocKy,
+            )
         }
     }
+    val selectedWeek = weekBounds.firstOrNull { (start, end, _) ->
+        selectedDay in start..end
+    }?.third ?: timetable?.selectedWeek
+    // Only dates actually containing events are normally shown. Explicitly
+    // selected empty dates are retained in the list so tapping them still works,
+    // without filling the entire semester with hundreds of empty cards.
+    var pinnedEmptyDays by remember { mutableStateOf(emptySet<String>()) }
     // Only explicit day taps/swipes request a programmatic scroll. A day
     // inferred from vertical scrolling must not scroll the list back.
     var requestedScrollDay by remember { mutableStateOf<String?>(null) }
     // Reopening TKB returns to today. Do not let an asynchronous week
     // emission overwrite a date explicitly picked by the user.
     androidx.compose.runtime.LaunchedEffect(viewModel) {
-        pendingWeek = null
         selectedDay = todayStr
         viewModel.focusToday()
     }
@@ -703,18 +710,6 @@ fun TimetableScreen(
             exams.filterNot { it.isHoanThi }.map { normalizeDateToYmd(it.ngayThi) }).toSet()
     }
 
-    val examsInWeek = remember(exams, startDayYmd, endDayYmd) {
-        if (startDayYmd.isNotBlank() && endDayYmd.isNotBlank()) {
-            exams.filter { exam ->
-                if (exam.isHoanThi) return@filter false
-                val examYmd = normalizeDateToYmd(exam.ngayThi)
-                examYmd in startDayYmd..endDayYmd
-            }
-        } else {
-            emptyList()
-        }
-    }
-
     // Reuse time labels across week navigation and lazy list recycling.
     val lessonTimes = remember(semesterLessons, periods) {
         val periodsByNumber = periods.associateBy { it.tiet }
@@ -722,16 +717,17 @@ fun TimetableScreen(
             lesson.idTkb to timeRange(periodsByNumber, lesson.tietBatDau, lesson.soTiet)
         }
     }
-    // Normalize dates and compute exam end times once per week snapshot.
-    val allGrouped: Map<String, List<ScheduleItem>> = remember(lessons, examsInWeek, lessonTimes) {
-        val lessonItems = lessons.map { lesson ->
+    // Process the entire semester just once per data update; the LazyColumn
+    // then renders only the visible cards instead of switching weekly pages.
+    val allGrouped: Map<String, List<ScheduleItem>> = remember(semesterLessons, exams, lessonTimes) {
+        val lessonItems = semesterLessons.map { lesson ->
             ScheduleItem.Lesson(
                 lesson = lesson,
                 timeDisplay = lessonTimes[lesson.idTkb].orEmpty(),
                 date = normalizeDateToYmd(lesson.ngayHoc),
             )
         }
-        val examItems = examsInWeek.map { exam ->
+        val examItems = exams.filterNot { it.isHoanThi }.map { exam ->
             ScheduleItem.Exam(
                 exam = exam,
                 endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut),
@@ -744,16 +740,13 @@ fun TimetableScreen(
             .toSortedMap()
     }
 
-    // Render the whole seven-day week. The selected day controls scroll
-    // position, not which classes are hidden. This also makes empty dates
-    // selectable and visible without losing adjacent lessons.
+    // A picker tap or horizontal swipe navigates to any date in the semester.
+    // Missing schedule days become one pinned empty row on demand.
     fun selectDay(date: String, weekNumber: Int) {
+        if (date !in allGrouped) pinnedEmptyDays = pinnedEmptyDays + date
         selectedDay = date
         requestedScrollDay = date
-        if (selectedWeek != weekNumber) {
-            pendingWeek = weekNumber
-            viewModel.selectWeek(weekNumber)
-        }
+        if (viewModel.selectedWeek.value != weekNumber) viewModel.selectWeek(weekNumber)
     }
 
     fun changeSelectedDay(direction: Int) {
@@ -761,23 +754,24 @@ fun TimetableScreen(
         selectDay(next.first, next.second)
     }
 
-    // Navigation by vertical overscroll happens only beyond the first/last
-    // actual semester week, never just because the final day is visible.
-    fun changeWeekAtBoundary(direction: Int) {
-        val index = weeks.indexOfFirst { it.tuanHocKy == selectedWeek }
-        if (index < 0) return
-        val next = weeks.getOrNull(index + direction) ?: return
-        val date = normalizeDateToYmd(
-            if (direction > 0) next.ngayBatDau else next.ngayKetThuc
-        )
-        selectDay(date, next.tuanHocKy)
-    }
-
-    val displayedGrouped: Map<String, List<ScheduleItem>> = remember(startDayYmd, allGrouped) {
-        if (startDayYmd.isBlank()) emptyMap()
-        else weekDates(startDayYmd).associateWith { date -> allGrouped[date].orEmpty() }
-    }
-    // Precompute all seven day labels before lazy composition.
+    // Calendar selection and the timeline use the same semester-wide cache.
+    // Avoid rendering 7 empty cards every week: those are not lessons, and
+    // they make scrolling needlessly long. Today's empty day stays accessible.
+    val displayedGrouped: Map<String, List<ScheduleItem>> =
+        remember(weeks, allGrouped, pinnedEmptyDays, todayStr) {
+            val validDays = weeks.asSequence()
+                .flatMap { week ->
+                    weekDates(normalizeDateToYmd(week.ngayBatDau)).asSequence()
+                }
+                .toSet()
+            (allGrouped.keys + pinnedEmptyDays + todayStr)
+                .asSequence()
+                .filter { it in validDays }
+                .distinct()
+                .sorted()
+                .associateWith { date -> allGrouped[date].orEmpty() }
+        }
+    // Precompute day labels once for lazy composition.
     val flatRows = remember(displayedGrouped) {
         buildList {
             displayedGrouped.forEach { (date, dayItems) ->
@@ -809,7 +803,9 @@ fun TimetableScreen(
     }
     // Initialize at the chosen day before the first frame, without extra scroll.
     val initialDayIndex = firstRowByDay[selectedDay] ?: firstRowByDay[todayStr] ?: 0
-    val listState = key(startDayYmd) {
+    // Reinitialize only on the first DB load or semester change, not every
+    // time the scroll crosses a week boundary.
+    val listState = key(weeks.isNotEmpty(), viewModel.hocKy) {
         rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
     }
     // Follow the user's actual scroll without fighting a tapped date.
@@ -826,14 +822,20 @@ fun TimetableScreen(
             if (!scrolling || requestedScrollDay != null) return@collect
             val visibleDay = if (atEnd) flatRows.lastOrNull()?.date
                 else flatRows.getOrNull(index)?.date
-            if (visibleDay != null && visibleDay != selectedDay) selectedDay = visibleDay
+            if (visibleDay != null && visibleDay != selectedDay) {
+                selectedDay = visibleDay
+                weekBounds.firstOrNull { (start, end, _) -> visibleDay in start..end }
+                    ?.third?.let { week ->
+                        if (viewModel.selectedWeek.value != week) viewModel.selectWeek(week)
+                    }
+            }
         }
     }
 
     // A date tapped in the week/month picker or reached via horizontal swipe
     // still scrolls to that date. Wait for the new week's rows before clearing
     // the request, so a cross-week selection does not get lost.
-    androidx.compose.runtime.LaunchedEffect(requestedScrollDay, startDayYmd, listState) {
+    androidx.compose.runtime.LaunchedEffect(requestedScrollDay, firstRowByDay, listState) {
         val requested = requestedScrollDay ?: return@LaunchedEffect
         val target = firstRowByDay[requested] ?: return@LaunchedEffect
         val firstVisible = listState.firstVisibleItemIndex
@@ -845,33 +847,6 @@ fun TimetableScreen(
             }
         }
         if (requestedScrollDay == requested) requestedScrollDay = null
-    }
-
-    // Count real finger movement at an exhausted scroll edge. A nested-scroll
-    // onPostScroll callback is unreliable with Compose's built-in overscroll
-    // effect (which can consume the remaining delta first). This observer
-    // never consumes touch input, so normal LazyColumn scrolling and horizontal
-    // day swipes keep working.
-    // Telegram-like overscroll: the list itself follows the finger with
-    // resistance, then springs back. No labels or progress indicators.
-    val edgeThresholdPx = with(LocalDensity.current) { 144.dp.toPx() }
-    val haptic = LocalHapticFeedback.current
-    var edgeOffsetPx by remember { mutableFloatStateOf(0f) }
-    val edgeScope = rememberCoroutineScope()
-    val edgeRecovery = remember { arrayOfNulls<Job>(1) }
-    fun springBackAtEdge() {
-        edgeRecovery[0]?.cancel()
-        val from = edgeOffsetPx
-        if (from == 0f) return
-        edgeRecovery[0] = edgeScope.launch {
-            Animatable(from).animateTo(
-                0f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                ),
-            ) { edgeOffsetPx = value }
-        }
     }
 
     Scaffold(
@@ -1016,80 +991,6 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { translationY = edgeOffsetPx }
-                            .pointerInput(listState, selectedWeek, weeks, edgeThresholdPx) {
-                                awaitEachGesture {
-                                    edgeRecovery[0]?.cancel()
-                                    edgeOffsetPx = 0f
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    var previous = down.position
-                                    var distance = 0f
-                                    var direction = 0
-                                    var vibrated = false
-                                    val currentIndex = weeks.indexOfFirst { it.tuanHocKy == selectedWeek }
-                                    // Observe post-scroll without consuming LazyColumn or day-swipe gestures.
-                                    while (true) {
-                                        val event = awaitPointerEvent(PointerEventPass.Final)
-                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                        if (!change.pressed) {
-                                            val hasAdjacent = when (direction) {
-                                                1 -> currentIndex in 0 until weeks.lastIndex
-                                                -1 -> currentIndex > 0
-                                                else -> false
-                                            }
-                                            val confirmed = confirmedEdgeWeekDirection(
-                                                distance, edgeThresholdPx, direction, hasAdjacent,
-                                            )
-                                            if (confirmed != null) changeWeekAtBoundary(confirmed)
-                                            break
-                                        }
-                                        val delta = change.position - previous
-                                        previous = change.position
-                                        if (kotlin.math.abs(delta.x) > kotlin.math.abs(delta.y)) {
-                                            direction = 0
-                                            distance = 0f
-                                            vibrated = false
-                                        } else if (direction != 0) {
-                                            val atBoundary = if (direction == 1) {
-                                                !listState.canScrollForward
-                                            } else {
-                                                !listState.canScrollBackward
-                                            }
-                                            if (!atBoundary) {
-                                                direction = 0
-                                                distance = 0f
-                                                vibrated = false
-                                            } else {
-                                                val outwardDelta = if (direction == 1) -delta.y else delta.y
-                                                distance = (distance + outwardDelta).coerceAtLeast(0f)
-                                                if (distance == 0f) {
-                                                    direction = 0
-                                                    vibrated = false
-                                                }
-                                            }
-                                        } else {
-                                            direction = when {
-                                                delta.y < 0f && !listState.canScrollForward &&
-                                                    currentIndex in 0 until weeks.lastIndex -> 1
-                                                delta.y > 0f && !listState.canScrollBackward &&
-                                                    currentIndex > 0 -> -1
-                                                else -> 0
-                                            }
-                                            distance = if (direction == 0) 0f else kotlin.math.abs(delta.y)
-                                        }
-                                        edgeOffsetPx = elasticEdgeOffsetPx(
-                                            distance, edgeThresholdPx, direction,
-                                        )
-                                        if (distance >= edgeThresholdPx && direction != 0 && !vibrated) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            vibrated = true
-                                        } else if (distance < edgeThresholdPx) {
-                                            vibrated = false
-                                        }
-                                    }
-                                    springBackAtEdge()
-                                }
-                            }
                             .pointerInput(selectedDay, weeks, selectedWeek) {
                                 var totalDrag = 0f
                                 detectHorizontalDragGestures(
@@ -1107,7 +1008,7 @@ fun TimetableScreen(
                                     onDragCancel = { totalDrag = 0f },
                                 )
                             },
-                        // Compact footer: extra edge pull + finger release confirms change.
+                        // The timeline continues across week boundaries without a pager.
                         contentPadding = PaddingValues(
                             top = 4.dp,
                             bottom = contentPadding.calculateBottomPadding() + 16.dp,

@@ -47,7 +47,7 @@ internal fun describeTimetableSyncError(cause: Throwable): String {
     }.trim()
 }
 
-/** A single centered dialog for first-login, daily automatic and manual sync. */
+/** A centered result dialog for user-initiated sync only. Automatic sync is silent. */
 @Composable
 fun TimetableSyncDialog(
     status: TimetableSyncStatus,

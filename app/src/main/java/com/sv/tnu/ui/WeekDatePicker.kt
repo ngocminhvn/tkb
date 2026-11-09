@@ -138,7 +138,11 @@ private fun CalendarDay(
             modifier = Modifier
                 .size(4.dp)
                 .background(
-                    if (hasSchedule && enabled && !isSelected) selectedDayColor else Color.Transparent,
+                    when {
+                        isToday -> Color(0xFF22C55E) // Today's marker stays green, even if selected.
+                        hasSchedule && enabled && !isSelected -> selectedDayColor
+                        else -> Color.Transparent
+                    },
                     CircleShape,
                 ),
         )
