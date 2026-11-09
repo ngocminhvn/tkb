@@ -74,11 +74,11 @@ import com.sv.tnu.data.AuthStore
 import com.sv.tnu.notifications.ScheduleReminders
 import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.schools.SchoolRepository
+import com.sv.tnu.schools.SchoolIds
 import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,7 +93,6 @@ fun SettingsScreen(
 ) {
     val refreshing by timetableViewModel.refreshing.collectAsState()
     val lastSyncTime by timetableViewModel.lastSyncTime.collectAsState()
-    val lessons by timetableViewModel.semesterLessons.collectAsState()
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.allExams.collectAsState()
     val showExamsOnHome by timetableViewModel.showExamsOnHome.collectAsState()
@@ -175,27 +174,6 @@ fun SettingsScreen(
         }
     }
 
-    // Weekly counts refer to actual lessons in the current Vietnam calendar
-    // week, not the semester total or the week selected by timeline scrolling.
-    // Rust returns full-week counts before pruning old lesson rows for Room.
-    val currentWeekStart = remember(lastSyncTime) {
-        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
-        }
-        val todayYmd = formatter.format(Date())
-        RustScheduleCore.mondayOfWeek(todayYmd) ?: todayYmd
-    }
-    val (weeklySubjects, weeklyPeriods) = remember(lessons, lastSyncTime, currentWeekStart) {
-        authStore.weeklyClassStats(timetableViewModel.hocKy, currentWeekStart) ?: run {
-            val thisWeek = lessons.filter {
-                RustScheduleCore.mondayOfWeek(it.ngayHoc) == currentWeekStart
-            }
-            val subjects = thisWeek.distinctBy {
-                it.maMon.ifBlank { it.tenMon.ifBlank { it.idTkb } }
-            }.size
-            subjects to thisWeek.sumOf { it.soTiet.coerceAtLeast(0) }
-        }
-    }
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
     Scaffold(
@@ -302,13 +280,14 @@ fun SettingsScreen(
                     ) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Môn học tuần này",
-                            value = "$weeklySubjects môn",
+                            label = "Nhận diện",
+                            value = if (authStore.isLoggedIn && authStore.schoolId == SchoolIds.TNUT)
+                                "SV TNUT" else "—",
                         )
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Tiết học",
-                            value = "$weeklyPeriods tiết",
+                            label = "Lịch thi",
+                            value = "${exams.count { !it.isHoanThi }} buổi",
                         )
                         StatItem(
                             modifier = Modifier.weight(1f),
@@ -818,20 +797,27 @@ private fun StatItem(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-            .padding(vertical = 10.dp, horizontal = 12.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                maxLines = 1,
+                softWrap = false,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }

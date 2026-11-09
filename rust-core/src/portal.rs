@@ -2,8 +2,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 use std::borrow::Cow;
-use std::collections::HashSet;
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::NaiveDate;
 
 #[derive(Deserialize)]
 struct Timetable<'a> {
@@ -92,8 +91,6 @@ struct TimetableRows<'a> {
     periods: Vec<PeriodRow<'a>>,
     weeks: Vec<WeekRow<'a>>,
     lessons: Vec<LessonRow<'a>>,
-    weekly_subjects: i32,
-    weekly_periods: i32,
 }
 
 /// Return entity-shaped JSON after verifying a complete semester timetable.
@@ -105,35 +102,9 @@ fn timetable_rows<'a>(
 ) -> Result<TimetableRows<'a>, String> {
     let today = NaiveDate::parse_from_str(from_ymd, "%Y-%m-%d")
         .map_err(|_| "Invalid Vietnam calendar start date".to_string())?;
-    let monday = today - Duration::days(today.weekday().num_days_from_monday() as i64);
-    let sunday = monday + Duration::days(6);
     if source.weeks.is_empty() || source.weeks.iter().all(|week| week.lessons.is_empty()) {
         return Err(format!("Portal trả lịch học rỗng (học kỳ {semester}). Dữ liệu đã lưu được giữ nguyên."));
     }
-    // Count current-week subjects and periods from the ORIGINAL portal payload
-    // (Monday through Sunday), BEFORE removing past days for the timetable.
-    let mut weekly_courses: HashSet<String> = HashSet::new();
-    let mut weekly_periods: i32 = 0;
-    for lesson in source.weeks.iter().flat_map(|w| w.lessons.iter()) {
-        let normalized = crate::normalize_date(&lesson.date);
-        let Ok(day) = NaiveDate::parse_from_str(&normalized, "%Y-%m-%d") else {
-            continue;
-        };
-        if day < monday || day > sunday {
-            continue;
-        }
-        let course = if !lesson.course_code.trim().is_empty() {
-            lesson.course_code.trim()
-        } else if !lesson.title.trim().is_empty() {
-            lesson.title.trim()
-        } else {
-            lesson.id.as_ref()
-        };
-        weekly_courses.insert(course.to_string());
-        weekly_periods = weekly_periods.saturating_add(lesson.period_count.max(0));
-    }
-    let weekly_subjects = i32::try_from(weekly_courses.len())
-        .map_err(|_| "Too many weekly TNUT courses".to_string())?;
     let periods = source.periods.into_iter().map(|period| PeriodRow {
         tiet: period.tiet, gio_bat_dau: period.start, gio_ket_thuc: period.end,
     }).collect();
@@ -191,7 +162,7 @@ fn timetable_rows<'a>(
             });
         }
     }
-    Ok(TimetableRows { periods, weeks, lessons, weekly_subjects, weekly_periods })
+    Ok(TimetableRows { periods, weeks, lessons })
 }
 
 #[derive(Deserialize)]
@@ -405,9 +376,6 @@ fn pack_timetable(rows: TimetableRows<'_>) -> Result<Vec<u8>, String> {
         binary_str(&mut out, &row.ten_lop)?;
         binary_str(&mut out, &row.ma_nhom)?;
     }
-    // Extended TKB1T footer; Kotlin's decoder reads both i32 fields.
-    binary_i32(&mut out, rows.weekly_subjects);
-    binary_i32(&mut out, rows.weekly_periods);
     Ok(out)
 }
 fn pack_exams(page: ExamPageRows) -> Result<Vec<u8>, String> {

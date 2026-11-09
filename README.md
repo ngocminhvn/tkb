@@ -3,7 +3,7 @@
 Ứng dụng Android mã nguồn mở để xem **thời khóa biểu, lịch thi và ghi chú môn học** cho sinh viên Đại học Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
 
 - Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
-- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Thống kê **môn học tuần này** và **tiết học** tính từ toàn bộ dữ liệu tuần hiện tại trước khi lọc các buổi quá khứ. Khi nâng từ bản 328, ứng dụng tự đồng bộ im lặng một lần để bổ sung thống kê vào cache.
+- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Cài đặt hiển thị nhận diện tài khoản SV TNUT, số buổi thi đã lưu và học kỳ hiện tại.
 - Giao diện **Kotlin + Jetpack Compose (Material 3)**; một phần xử lý dữ liệu lịch chạy bằng **Rust** qua JNI.
 - **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 
@@ -43,7 +43,7 @@ RustScheduleCore (JNI) → rust-core/src/lib.rs
   tính toán ngày/tuần, thời gian và chuẩn hóa dữ liệu
 ```
 
-**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android, chỉ mã hóa các tuần/buổi học từ ngày hiện tại theo giờ Việt Nam vào kết quả nhị phân TKB1. **Chưa phải ứng dụng 100% Rust.** Endpoint TNUT hiện được tích hợp theo bộ lọc học kỳ; chưa xác minh được tham số lọc từ ngày phía máy chủ, nên HTTP vẫn nhận kết quả học kỳ đầy đủ rồi Rust mới loại dữ liệu quá khứ trước khi chuyển sang Kotlin/Room. Rust đồng thời ghi số môn khác nhau và tổng số tiết của tuần hiện tại vào footer TKB1T để Cài đặt không mất số liệu khi lịch cũ bị lọc.
+**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android, chỉ mã hóa các tuần/buổi học từ ngày hiện tại theo giờ Việt Nam vào kết quả nhị phân TKB1. **Chưa phải ứng dụng 100% Rust.** Endpoint TNUT hiện được tích hợp theo bộ lọc học kỳ; chưa xác minh được tham số lọc từ ngày phía máy chủ, nên HTTP vẫn nhận kết quả học kỳ đầy đủ rồi Rust mới loại dữ liệu quá khứ trước khi chuyển sang Kotlin/Room.
 
 ## Bản đồ thư mục (đọc trước khi sửa)
 

@@ -72,31 +72,6 @@ class AuthStore(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_EXAMS_ON_HOME, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_EXAMS_ON_HOME, value).apply()
 
-    /** Full current-week lesson counts, independent of the pruned Room rows. */
-    fun weeklyClassStats(semester: Int, mondayYmd: String): Pair<Int, Int>? =
-        if (prefs.getInt(KEY_WEEK_STATS_SEMESTER, 0) == semester &&
-            prefs.getString(KEY_WEEK_STATS_MONDAY, null) == mondayYmd &&
-            prefs.contains(KEY_WEEK_STATS_SUBJECTS) &&
-            prefs.contains(KEY_WEEK_STATS_PERIODS)
-        ) {
-            prefs.getInt(KEY_WEEK_STATS_SUBJECTS, 0) to
-                prefs.getInt(KEY_WEEK_STATS_PERIODS, 0)
-        } else null
-
-    fun saveWeeklyClassStats(semester: Int, mondayYmd: String, subjects: Int, periods: Int) {
-        prefs.edit()
-            .putInt(KEY_WEEK_STATS_SEMESTER, semester)
-            .putString(KEY_WEEK_STATS_MONDAY, mondayYmd)
-            .putInt(KEY_WEEK_STATS_SUBJECTS, subjects)
-            .putInt(KEY_WEEK_STATS_PERIODS, periods)
-            .apply()
-    }
-
-    /** At most one immediate upgrade backfill attempt per semester/week. */
-    var weeklyStatsBackfillKey: String?
-        get() = prefs.getString(KEY_WEEK_STATS_BACKFILL_KEY, null)
-        set(value) = prefs.edit().putString(KEY_WEEK_STATS_BACKFILL_KEY, value).apply()
-
     // Both reminders are opt-in. Times are local minutes after midnight.
     var remindToday: Boolean
         get() = prefs.getBoolean(KEY_REMIND_TODAY, false)
@@ -141,13 +116,6 @@ class AuthStore(context: Context) {
             studentName = null
             avatarPath = null
             lastProfileCheck = 0L
-            prefs.edit()
-                .remove(KEY_WEEK_STATS_SEMESTER)
-                .remove(KEY_WEEK_STATS_MONDAY)
-                .remove(KEY_WEEK_STATS_SUBJECTS)
-                .remove(KEY_WEEK_STATS_PERIODS)
-                .remove(KEY_WEEK_STATS_BACKFILL_KEY)
-                .apply()
         }
         prefs.edit()
             .putString(KEY_USERNAME, username)
@@ -219,11 +187,6 @@ class AuthStore(context: Context) {
         private const val KEY_STUDENT_NAME = "student_name"
         private const val KEY_LAST_PROFILE_CHECK = "last_profile_check"
         private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
-        private const val KEY_WEEK_STATS_SEMESTER = "week_stats_semester"
-        private const val KEY_WEEK_STATS_MONDAY = "week_stats_monday"
-        private const val KEY_WEEK_STATS_SUBJECTS = "week_stats_subjects"
-        private const val KEY_WEEK_STATS_PERIODS = "week_stats_periods"
-        private const val KEY_WEEK_STATS_BACKFILL_KEY = "week_stats_backfill_key"
         private const val KEY_REMIND_TODAY = "remind_today"
         private const val KEY_REMIND_TOMORROW = "remind_tomorrow"
         private const val KEY_TODAY_REMINDER_MINUTES = "today_reminder_minutes"
