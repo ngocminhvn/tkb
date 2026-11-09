@@ -215,13 +215,18 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapTimetableBytesNati
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
     semester: jint,
+    from_ymd: JString<'_>,
     source: JByteArray<'_>,
 ) -> jbyteArray {
+    let from_ymd = from_java(&mut env, &from_ymd);
     let bytes = match env.convert_byte_array(&source) {
         Ok(bytes) => bytes,
         Err(_) => return std::ptr::null_mut(),
     };
-    into_byte_array(&mut env, crate::portal::map_timetable_wire(semester, &bytes))
+    into_byte_array(
+        &mut env,
+        crate::portal::map_timetable_wire(semester, &from_ymd, &bytes),
+    )
 }
 
 #[no_mangle]

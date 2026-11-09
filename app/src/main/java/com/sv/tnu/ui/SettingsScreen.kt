@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -41,10 +39,8 @@ import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -52,7 +48,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -101,7 +96,6 @@ fun SettingsScreen(
     val avatarPath by repository.avatarPath.collectAsState()
     val exams by timetableViewModel.allExams.collectAsState()
     val showExamsOnHome by timetableViewModel.showExamsOnHome.collectAsState()
-    val visibleWeekCount by timetableViewModel.visibleWeekCount.collectAsState()
     val isDarkMode by authStore.isDarkModeFlow.collectAsState()
     val isFetchingExams by timetableViewModel.isFetchingExams.collectAsState()
     val examSyncError by timetableViewModel.examSyncError.collectAsState()
@@ -393,91 +387,8 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            // Tùy chọn hiển thị số tuần (với nút - và +)
-            val weeksBefore = (visibleWeekCount - 1) / 2
-            val weeksAfter = visibleWeekCount - 1 - weeksBefore
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Tùy chọn hiển thị",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$visibleWeekCount tuần ($weeksBefore trước, 1 hiện tại, $weeksAfter sau)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        FilledTonalIconButton(
-                            onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount - 1) },
-                            enabled = visibleWeekCount > 1,
-                            modifier = Modifier.size(34.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Remove,
-                                contentDescription = "Giảm",
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier.widthIn(min = 28.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "$visibleWeekCount",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-
-                        FilledTonalIconButton(
-                            onClick = { timetableViewModel.setVisibleWeekCount(visibleWeekCount + 1) },
-                            enabled = visibleWeekCount < 15,
-                            modifier = Modifier.size(34.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Tăng",
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    }
-                }
-            }
+            // Timetable rows now load continuously on scroll; there is no
+            // configurable before/after week window.
 
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
             Card(

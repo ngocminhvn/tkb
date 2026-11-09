@@ -277,9 +277,6 @@ class TimetableViewModel(
     private val _showExamsOnHome = MutableStateFlow(authStore.showExamsOnHome)
     val showExamsOnHome: StateFlow<Boolean> = _showExamsOnHome.asStateFlow()
 
-    private val _visibleWeekCount = MutableStateFlow(authStore.visibleWeekCount)
-    val visibleWeekCount: StateFlow<Int> = _visibleWeekCount.asStateFlow()
-
     /** Lịch thi hiển thị ở trang chủ: nếu tắt thì không load để tối ưu bộ nhớ & truy vấn. */
     val exams: StateFlow<List<ExamEntity>> = _showExamsOnHome
         .flatMapLatest { show ->
@@ -298,28 +295,6 @@ class TimetableViewModel(
     val currentWeekNumber: StateFlow<Int?> = combine(weeks, _todayYmd) { weekList, today ->
         currentWeekNumber(weekList, today) ?: weekList.firstOrNull()?.tuanHocKy
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /**
-     * Tùy chọn hiển thị số tuần:
-     * Ví dụ 4 tuần: (4-1)/2 = 1 tuần trước, 1 tuần hiện tại, 2 tuần sau.
-     * Ví dụ 5 tuần: (5-1)/2 = 2 tuần trước, 1 tuần hiện tại, 2 tuần sau.
-     */
-    val visibleWeeks: StateFlow<List<WeekEntity>> =
-        combine(weeks, _todayYmd, _visibleWeekCount, _selectedWeek) { weekList, today, count, manual ->
-            if (weekList.isEmpty()) emptyList()
-            else {
-                // Preserve the number-of-weeks setting while allowing month
-                // navigation to any available semester week. Recenter the
-                // window on an explicitly selected week.
-                // Calculate the current week from the same Room emission rather
-                // than waiting for a separate StateFlow with an initial null.
-                val center = manual ?: currentWeekNumber(weekList, today) ?: 1
-                val n = count.coerceIn(1, 20)
-                val weeksBefore = (n - 1) / 2
-                val weeksAfter = n - 1 - weeksBefore
-                weekList.filter { it.tuanHocKy in (center - weeksBefore)..(center + weeksAfter) }
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val selectedWeek: StateFlow<Int?> = timetable
         .map { it?.selectedWeek }
@@ -361,12 +336,6 @@ class TimetableViewModel(
         if (enable) {
             fetchExamsOnly(force = true)
         }
-    }
-
-    fun setVisibleWeekCount(count: Int) {
-        val clamped = count.coerceIn(1, 20)
-        authStore.visibleWeekCount = clamped
-        _visibleWeekCount.value = clamped
     }
 
     fun fetchExamsOnly(force: Boolean = false) {

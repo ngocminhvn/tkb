@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Nguồn dữ liệu thời khóa biểu: API portal -> Room, UI đọc Flow từ Room nên
@@ -38,6 +41,18 @@ class TnutRepository(
     override val schoolName: String = TnutSchoolProvider.info.displayName
     /** Học kỳ hiện tại của TNUT, dùng khi chưa lưu học kỳ nào. */
     override val defaultHocKy: Int = 20261
+
+    // Use Vietnam calendar day as the cut-off for every portal sync,
+    // irrespective of a different device timezone.
+    private fun todayInVietnam(): String {
+        val clock = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"))
+        return String.format(
+            Locale.US, "%04d-%02d-%02d",
+            clock.get(Calendar.YEAR),
+            clock.get(Calendar.MONTH) + 1,
+            clock.get(Calendar.DAY_OF_MONTH),
+        )
+    }
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     override val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
@@ -108,14 +123,16 @@ class TnutRepository(
         }
 
         val timetableResult = try {
-            // Retrofit/OkHttp still owns HTTP + token refresh. Rust receives the
-            // original response bytes, parses the portal wrapper once, and
-            // returns compact binary records; no Kotlin JSON round-trip.
+            // This TNUT endpoint exposes a semester filter, not a verified
+            // server-side from-date parameter. Request every available week,
+            // then Rust discards past weeks and past lessons BEFORE creating
+            // the binary rows for Room; no Kotlin JSON round-trip.
             val data = withContext(Dispatchers.IO) {
+                val todayYmd = todayInVietnam()
                 val raw = api.weeklyTimetable(
                     WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy))
                 ).use { it.bytes() }
-                RustPortalCore.mapTimetable(hocKy, raw)
+                RustPortalCore.mapTimetable(hocKy, todayYmd, raw)
             }
             saveToDb(hocKy, data)
             authStore.hocKy = hocKy

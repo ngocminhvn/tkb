@@ -44,7 +44,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../ui/MainScreen.kt` | Khung màn hình chính, tab/navigation, mở cài đặt, kết nối update | TNUT parsing |
 | `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
 | `.../ui/WeekDatePicker.kt` | Thanh ngày, chọn ngày/tuần, lịch tháng, thao tác kéo/chạm | Lấy token/API |
-| `.../ui/SettingsScreen.kt` | Compose cài đặt hiển thị, số tuần, nhắc lịch, tài khoản, kiểm tra cập nhật | SQL migration |
+| `.../ui/SettingsScreen.kt` | Compose cài đặt giao diện, nhắc lịch, tài khoản, kiểm tra cập nhật (đã bỏ chỉnh số tuần) | SQL migration |
 | `.../ui/UpdateDialog.kt` | UI hộp thoại cập nhật APK | Tải file HTTP |
 | `.../ui/components/UserAvatar.kt` | Composable avatar dùng lại | Auth protocol |
 | `.../ui/glass/LiquidGlass.kt` | Hiệu ứng/liquid glass trên Compose | Nghiệp vụ portal |
@@ -104,7 +104,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 ### C. Đồng bộ lịch học/lịch thi
 
 `TimetableViewModel.refresh` → `SchoolRepository.refresh` → `TnutRepository.refresh`:
-- Tải **bytes gốc** của API lịch học → `RustPortalCore.mapTimetable` → `rust-core/src/portal.rs` parse/validate → encode nhị phân `TKB1` → Kotlin decode thành `PeriodEntity/WeekEntity/LessonEntity` → `TkbDao.replaceTimetable` transaction.
+- Tải **bytes gốc** của API lịch học (bộ lọc học kỳ; chưa xác minh server hỗ trợ từ ngày) → `RustPortalCore.mapTimetable` nhận `fromYmd` theo giờ Việt Nam → `rust-core/src/portal.rs` parse/validate dữ liệu nguồn, lọc tuần có ngày kết thúc từ hôm nay và buổi học có ngày từ hôm nay → encode nhị phân `TKB1` → Kotlin decode thành `PeriodEntity/WeekEntity/LessonEntity` → `TkbDao.replaceTimetable` transaction. Không thay đổi format nhị phân; chỉ thay số bản ghi và chữ ký JNI.
 - Đồng bộ lịch thi được kích hoạt độc lập/concurrently; từng loại lịch thi (giữa kỳ/cuối kỳ) tải phân trang; Rust parse, validate, loại trùng → `TkbDao.replaceExamsByType`. Một endpoint lỗi không được xóa lịch loại còn lại.
 - Giao dịch thay dữ liệu **chỉ bắt đầu sau khi** toàn bộ dữ liệu cần thiết đã hợp lệ. Khi lịch trống/lỗi/401 không ghi đè cache tốt bằng danh sách rỗng.
 - Ghi chú `lesson_notes` không thuộc transaction thay timetable. Đừng xóa ghi chú khi cập nhật lessons.

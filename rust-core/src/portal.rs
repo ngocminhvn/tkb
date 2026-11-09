@@ -94,7 +94,13 @@ struct TimetableRows<'a> {
 
 /// Return entity-shaped JSON after verifying a complete semester timetable.
 /// Reject empty data before a transaction can replace the offline cache.
-fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableRows<'a>, String> {
+fn timetable_rows<'a>(
+    semester: i32,
+    source: Timetable<'a>,
+    from_ymd: &str,
+) -> Result<TimetableRows<'a>, String> {
+    chrono::NaiveDate::parse_from_str(from_ymd, "%Y-%m-%d")
+        .map_err(|_| "Invalid Vietnam calendar start date".to_string())?;
     if source.weeks.is_empty() || source.weeks.iter().all(|week| week.lessons.is_empty()) {
         return Err(format!("Portal trả lịch học rỗng (học kỳ {semester}). Dữ liệu đã lưu được giữ nguyên."));
     }
@@ -115,6 +121,11 @@ fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableR
         } else {
             Cow::Owned(crate::normalize_date(&week.end))
         };
+        // Drop completed weeks while retaining the CURRENT week and all
+        // future weeks (including weeks with zero scheduled lessons).
+        if end_date.as_ref() < from_ymd {
+            continue;
+        }
         weeks.push(WeekRow {
             hoc_ky: semester, tuan_hoc_ky: week.number, ngay_bat_dau: start_date,
             ngay_ket_thuc: end_date, thong_tin_tuan: week.title,
@@ -125,6 +136,11 @@ fn timetable_rows<'a>(semester: i32, source: Timetable<'a>) -> Result<TimetableR
             } else {
                 Cow::Owned(crate::normalize_date(&lesson.date))
             };
+            // In the current week, omit classes before today's date while
+            // still keeping the week's boundaries for known-empty days.
+            if lesson_date.as_ref() < from_ymd {
+                continue;
+            }
             lessons.push(LessonRow {
                 id_tkb: lesson.id, hoc_ky: semester, tuan_hoc_ky: week.number,
                 ngay_hoc: lesson_date, thu_kieu_so: lesson.weekday,
@@ -379,9 +395,13 @@ fn pack_exams(page: ExamPageRows) -> Result<Vec<u8>, String> {
 }
 
 /// Receives exactly the network JSON bytes; does not reserialize Kotlin DTOs.
-pub fn map_timetable_wire(semester: i32, bytes: &[u8]) -> Result<Vec<u8>, String> {
+pub fn map_timetable_wire(
+    semester: i32,
+    from_ymd: &str,
+    bytes: &[u8],
+) -> Result<Vec<u8>, String> {
     let data: Timetable<'_> = parse_envelope(bytes, "thời khóa biểu")?;
-    pack_timetable(timetable_rows(semester, data)?)
+    pack_timetable(timetable_rows(semester, data, from_ymd)?)
 }
 pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Vec<u8>, String> {
     let data: ExamPage = parse_envelope(bytes, "lịch thi")?;

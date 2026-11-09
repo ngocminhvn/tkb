@@ -72,10 +72,6 @@ class AuthStore(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_EXAMS_ON_HOME, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_EXAMS_ON_HOME, value).apply()
 
-    var visibleWeekCount: Int
-        get() = prefs.getInt(KEY_VISIBLE_WEEK_COUNT, 5).coerceIn(1, 20)
-        set(value) = prefs.edit().putInt(KEY_VISIBLE_WEEK_COUNT, value.coerceIn(1, 20)).apply()
-
     // Both reminders are opt-in. Times are local minutes after midnight.
     var remindToday: Boolean
         get() = prefs.getBoolean(KEY_REMIND_TODAY, false)
@@ -191,7 +187,6 @@ class AuthStore(context: Context) {
         private const val KEY_STUDENT_NAME = "student_name"
         private const val KEY_LAST_PROFILE_CHECK = "last_profile_check"
         private const val KEY_SHOW_EXAMS_ON_HOME = "show_exams_on_home"
-        private const val KEY_VISIBLE_WEEK_COUNT = "visible_week_count"
         private const val KEY_REMIND_TODAY = "remind_today"
         private const val KEY_REMIND_TOMORROW = "remind_tomorrow"
         private const val KEY_TODAY_REMINDER_MINUTES = "today_reminder_minutes"

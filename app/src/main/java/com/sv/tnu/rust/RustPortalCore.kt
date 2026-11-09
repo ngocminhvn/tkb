@@ -18,7 +18,11 @@ object RustPortalCore {
         System.loadLibrary("tkb_core")
     }
 
-    private external fun mapTimetableBytesNative(semester: Int, responseBody: ByteArray): ByteArray
+    private external fun mapTimetableBytesNative(
+        semester: Int,
+        fromYmd: String,
+        responseBody: ByteArray,
+    ): ByteArray
     private external fun mapExamBytesNative(
         semester: Int,
         isMidterm: Boolean,
@@ -34,8 +38,13 @@ object RustPortalCore {
         responseBody: ByteArray,
     ): ByteArray
 
-    fun mapTimetable(semester: Int, rawResponse: ByteArray): PortalBinaryDecoder.TimetableRows =
-        PortalBinaryDecoder.decodeTimetable(mapTimetableBytesNative(semester, rawResponse))
+    /** Only upcoming weeks/lessons are sent through TKB1 and decoded into Room. */
+    fun mapTimetable(
+        semester: Int,
+        fromYmd: String,
+        rawResponse: ByteArray,
+    ): PortalBinaryDecoder.TimetableRows =
+        PortalBinaryDecoder.decodeTimetable(mapTimetableBytesNative(semester, fromYmd, rawResponse))
 
     fun mapExamPage(
         semester: Int,

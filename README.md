@@ -12,9 +12,9 @@
 ## Tính năng hiện có
 
 - Đăng nhập TNUT, làm mới phiên/token; thông báo rõ khi phiên không còn hợp lệ.
-- Lịch học theo học kỳ, tuần/ngày; chọn ngày, chuyển tuần, xem ngày trong tháng.
+- Lịch học cuộn dọc từ hôm nay (không mở các ngày cũ); tải thêm ngày theo từng nhóm khi cuộn, chọn ngày/tuần và xem lịch tháng.
 - Xem môn, tiết/giờ, phòng, giảng viên, lớp/nhóm và ghi chú riêng cho buổi học.
-- Đồng bộ lịch học và lịch thi; xem lịch thi giữa kỳ/cuối kỳ, phân trang dữ liệu portal.
+- Đồng bộ lịch học và lịch thi; lịch học chỉ lưu những buổi từ hôm nay trở đi, giữ tuần hiện tại và các tuần tương lai. Xem lịch thi giữa kỳ/cuối kỳ, phân trang dữ liệu portal.
 - Lưu lịch học, lịch thi, ghi chú trên thiết bị, sử dụng lại khi không có mạng.
 - Nhắc lịch hôm nay/ngày mai theo thiết lập người dùng; widget thời khóa biểu.
 - Chế độ giao diện sáng/tối và kiểm tra/cài đặt bản cập nhật ứng dụng.
@@ -43,7 +43,7 @@ RustScheduleCore (JNI) → rust-core/src/lib.rs
   tính toán ngày/tuần, thời gian và chuẩn hóa dữ liệu
 ```
 
-**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android và chuyển dữ liệu portal thành các bản ghi dùng được cho Room. **Chưa phải ứng dụng 100% Rust.**
+**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android, chỉ mã hóa các tuần/buổi học từ ngày hiện tại theo giờ Việt Nam vào kết quả nhị phân TKB1. **Chưa phải ứng dụng 100% Rust.** Endpoint TNUT hiện được tích hợp theo bộ lọc học kỳ; chưa xác minh được tham số lọc từ ngày phía máy chủ, nên HTTP vẫn nhận kết quả học kỳ đầy đủ rồi Rust mới loại dữ liệu quá khứ trước khi chuyển sang Kotlin/Room.
 
 ## Bản đồ thư mục (đọc trước khi sửa)
 
