@@ -641,15 +641,8 @@ fun TimetableScreen(
             )
         }
     }
-    val selectedWeek = weekBounds.firstOrNull { (start, end, _) ->
-        selectedDay in start..end
-    }?.third ?: timetable?.selectedWeek
-    // Only a small window of dates is generated initially. As the user scrolls,
-    // append seven more days on demand; LazyColumn composes only visible rows.
-    // A calendar tap may extend the window directly to the requested date.
-    val semesterEndDay = remember(weeks) {
-        weeks.maxOfOrNull { normalizeDateToYmd(it.ngayKetThuc) }.orEmpty()
-    }
+    // Keep a short initial window. Even when the portal has no more weeks,
+    // scrolling is allowed to request additional future calendar days.
     var loadedDayCount by remember(viewModel.hocKy, todayStr) { mutableIntStateOf(14) }
     val lastLoadedDay = remember(todayStr, loadedDayCount) {
         RustScheduleCore.moveCalendarDay(todayStr, loadedDayCount - 1) ?: todayStr
@@ -700,16 +693,9 @@ fun TimetableScreen(
         }
     }
 
-    val weekInfo = weeks.firstOrNull { it.tuanHocKy == selectedWeek }
-    val startDayYmd = remember(weekInfo) {
-        weekInfo?.let { normalizeDateToYmd(it.ngayBatDau) } ?: ""
-    }
-    val endDayYmd = remember(weekInfo) {
-        weekInfo?.let { normalizeDateToYmd(it.ngayKetThuc) } ?: ""
-    }
-    // No week-change LaunchedEffect that rewrites selectedDay: while a
-    // cached week is being selected, the old week might still be emitted by
-    // Room. Rewriting here forced a second tap on dates in another week.
+    // The picker follows the TOP of the scrolling timeline, including dates
+    // not represented by a synced WeekEntity in SQLite.
+    val startDayYmd = remember(selectedDay) { mondayOfLocalWeek(selectedDay) }
 
     // Dots are driven by real portal data only, not a hard-coded calendar.
     val eventDays = remember(semesterLessons, exams) {
@@ -748,9 +734,10 @@ fun TimetableScreen(
     }
 
     // Keep dates earlier than today inaccessible, including via horizontal swipes.
-    // A far-future calendar tap only extends the data window as far as needed.
+    // A far-future calendar tap extends the data window only as far as needed.
+    // 0 denotes an as-yet-unsynced week, never write that as a selected week.
     fun selectDay(date: String, weekNumber: Int) {
-        if (date < todayStr || (semesterEndDay.isNotBlank() && date > semesterEndDay)) return
+        if (date < todayStr) return
         if (date > lastLoadedDay) {
             var cursor = lastLoadedDay
             var count = loadedDayCount
@@ -764,24 +751,27 @@ fun TimetableScreen(
         }
         selectedDay = date
         requestedScrollDay = date
-        if (viewModel.selectedWeek.value != weekNumber) viewModel.selectWeek(weekNumber)
+        if (weekNumber > 0 && viewModel.selectedWeek.value != weekNumber) {
+            viewModel.selectWeek(weekNumber)
+        }
     }
 
     fun changeSelectedDay(direction: Int) {
-        val next = adjacentTimetableDay(selectedDay, direction, weeks) ?: return
-        selectDay(next.first, next.second)
+        val nextDate = RustScheduleCore.moveCalendarDay(selectedDay, direction) ?: return
+        if (nextDate < todayStr) return
+        val week = weekBounds.firstOrNull { (start, end, _) -> nextDate in start..end }?.third ?: 0
+        selectDay(nextDate, week)
     }
 
-    // Build just the loaded dates, never every date in the semester up front.
-    // Future days without portal data show a placeholder while the existing
-    // cards, notes and exams retain their normal appearance.
+    // Only materialize the current window. The database may end in the
+    // middle of that window; dates beyond its last known week are placeholders,
+    // not a reason to stop pagination.
     val displayedGrouped: Map<String, List<ScheduleItem>> =
-        remember(todayStr, semesterEndDay, loadedDayCount, allGrouped) {
+        remember(todayStr, loadedDayCount, allGrouped) {
             buildMap {
-                if (semesterEndDay.isBlank()) return@buildMap
                 var date = todayStr
                 var count = 0
-                while (date <= semesterEndDay && count < loadedDayCount) {
+                while (count < loadedDayCount) {
                     put(date, allGrouped[date].orEmpty())
                     val next = RustScheduleCore.moveCalendarDay(date, 1) ?: break
                     if (next <= date) break
@@ -790,6 +780,13 @@ fun TimetableScreen(
                 }
             }
         }
+    // Weeks are a database synchronization boundary: an empty day within a
+    // saved week is a genuine no-class day; outside it we have no schedule.
+    val syncedDays = remember(displayedGrouped, weekBounds) {
+        displayedGrouped.keys.filterTo(mutableSetOf()) { day ->
+            weekBounds.any { (start, end, _) -> day in start..end }
+        }
+    }
     // Precompute day labels once for lazy composition.
     val flatRows = remember(displayedGrouped) {
         buildList {
@@ -825,15 +822,17 @@ fun TimetableScreen(
     val listState = key(todayStr, weeks.isNotEmpty(), viewModel.hocKy) {
         rememberLazyListState(initialFirstVisibleItemIndex = 0)
     }
-    // Prefetch the next seven days only when the visible rows reach this
-    // page's end. Recomposition does not recreate the LazyListState.
-    androidx.compose.runtime.LaunchedEffect(listState, flatRows, semesterEndDay) {
+    // Prefetch more days whenever the list approaches its current end,
+    // including AFTER the final week saved in SQLite. The next page is
+    // appended only on demand; the list state is stable across appends.
+    androidx.compose.runtime.LaunchedEffect(listState, flatRows) {
         snapshotFlow {
             listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
         }.distinctUntilChanged().collect { lastVisible ->
             val lastLoaded = flatRows.lastOrNull()?.date
-            if (lastLoaded != null && lastLoaded < semesterEndDay &&
-                lastVisible >= (flatRows.size - 5).coerceAtLeast(0)
+            if (lastLoaded != null &&
+                lastVisible >= (flatRows.size - 6).coerceAtLeast(0) &&
+                RustScheduleCore.moveCalendarDay(lastLoaded, 1) != null
             ) {
                 loadedDayCount += 7
             }
@@ -960,7 +959,7 @@ fun TimetableScreen(
             // Weekly calendar replaces the old "Tuần 10" capsule.
             // Swipe horizontally for nearby weeks, down to show the month.
             WeekDatePicker(
-                weekStartYmd = startDayYmd.ifBlank { mondayOfLocalWeek(todayStr) },
+                weekStartYmd = startDayYmd,
                 selectedYmd = selectedDay,
                 todayYmd = todayStr,
                 eventDays = eventDays,
@@ -1086,8 +1085,9 @@ fun TimetableScreen(
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
-                                                text = if (row.date > todayStr) "Chưa đồng bộ"
-                                                    else "Không có lịch học hoặc lịch thi.",
+                                                text = if (row.date in syncedDays)
+                                                    "Không có lịch học hoặc lịch thi."
+                                                else "Chưa đồng bộ",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
                                                 textAlign = TextAlign.Center,

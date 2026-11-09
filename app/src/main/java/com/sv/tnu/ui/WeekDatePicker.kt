@@ -186,8 +186,9 @@ fun WeekDatePicker(
     // Both the seven-day strip and expanded month use this same one-tap
     // selection path. Close the month only after a valid week is selected.
     fun pickDate(date: String, week: WeekEntity?) {
-        if (week == null) return
-        onPickDate(date, week.tuanHocKy)
+        if (date < todayYmd) return
+        // An unsynced future day has no WeekEntity yet but is still viewable.
+        onPickDate(date, week?.tuanHocKy ?: 0)
         showMonth = false
     }
 
@@ -231,8 +232,7 @@ fun WeekDatePicker(
                     selectedYmd = selectedYmd,
                     todayYmd = todayYmd,
                     hasSchedule = ymd in eventDays,
-                    enabled = ymd >= todayYmd &&
-                        weekBounds.any { ymd in it.start..it.end },
+                    enabled = ymd >= todayYmd,
                     onClick = {
                         val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
                         pickDate(ymd, week)
@@ -302,7 +302,7 @@ fun WeekDatePicker(
                                     selectedYmd = selectedYmd,
                                     todayYmd = todayYmd,
                                     hasSchedule = ymd in eventDays,
-                                    enabled = week != null && ymd >= todayYmd,
+                                    enabled = ymd >= todayYmd,
                                     onClick = { pickDate(ymd, week) },
                                     modifier = Modifier.weight(1f),
                                     weekend = dayIndex >= 5,
