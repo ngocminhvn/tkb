@@ -3,7 +3,7 @@
 Ứng dụng Android mã nguồn mở để xem **thời khóa biểu, lịch thi và ghi chú môn học** cho sinh viên Đại học Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
 
 - Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
-- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Thống kê **môn học tuần này** và **tiết học** tính từ toàn bộ dữ liệu tuần hiện tại trước khi lọc các buổi quá khứ.
+- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Thống kê **môn học tuần này** và **tiết học** tính từ toàn bộ dữ liệu tuần hiện tại trước khi lọc các buổi quá khứ. Khi nâng từ bản 328, ứng dụng tự đồng bộ im lặng một lần để bổ sung thống kê vào cache.
 - Giao diện **Kotlin + Jetpack Compose (Material 3)**; một phần xử lý dữ liệu lịch chạy bằng **Rust** qua JNI.
 - **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 

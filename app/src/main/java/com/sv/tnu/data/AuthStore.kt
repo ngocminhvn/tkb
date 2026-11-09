@@ -92,6 +92,11 @@ class AuthStore(context: Context) {
             .apply()
     }
 
+    /** At most one immediate upgrade backfill attempt per semester/week. */
+    var weeklyStatsBackfillKey: String?
+        get() = prefs.getString(KEY_WEEK_STATS_BACKFILL_KEY, null)
+        set(value) = prefs.edit().putString(KEY_WEEK_STATS_BACKFILL_KEY, value).apply()
+
     // Both reminders are opt-in. Times are local minutes after midnight.
     var remindToday: Boolean
         get() = prefs.getBoolean(KEY_REMIND_TODAY, false)
@@ -141,6 +146,7 @@ class AuthStore(context: Context) {
                 .remove(KEY_WEEK_STATS_MONDAY)
                 .remove(KEY_WEEK_STATS_SUBJECTS)
                 .remove(KEY_WEEK_STATS_PERIODS)
+                .remove(KEY_WEEK_STATS_BACKFILL_KEY)
                 .apply()
         }
         prefs.edit()
@@ -217,6 +223,7 @@ class AuthStore(context: Context) {
         private const val KEY_WEEK_STATS_MONDAY = "week_stats_monday"
         private const val KEY_WEEK_STATS_SUBJECTS = "week_stats_subjects"
         private const val KEY_WEEK_STATS_PERIODS = "week_stats_periods"
+        private const val KEY_WEEK_STATS_BACKFILL_KEY = "week_stats_backfill_key"
         private const val KEY_REMIND_TODAY = "remind_today"
         private const val KEY_REMIND_TOMORROW = "remind_tomorrow"
         private const val KEY_TODAY_REMINDER_MINUTES = "today_reminder_minutes"

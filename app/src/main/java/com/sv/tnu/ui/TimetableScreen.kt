@@ -469,10 +469,20 @@ class TimetableViewModel(
         if (_refreshing.value) return
         val now = System.currentTimeMillis()
         val lastAttempt = authStore.lastAutoSyncAttempt
-        // A fresh login still downloads its FIRST timetable immediately (v319).
-        // Later automatic reloads happen at most once in each Vietnam calendar
-        // day, not before 06:30 Asia/Ho_Chi_Minh. Manual sync is unrestricted.
-        if (lastAttempt == 0L || isVietnamDailyAutoSyncDue(now, lastAttempt)) {
+        // Existing 328 installations have already pruned previous lessons.
+        // Perform ONE silent upgrade backfill per semester/calendar week so
+        // the newly added weekly stats are immediately available.
+        val todayVn = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+        }.format(Date(now))
+        val mondayVn = RustScheduleCore.mondayOfWeek(todayVn) ?: todayVn
+        val backfillKey = "$hocKy:$mondayVn"
+        val needsBackfill = authStore.weeklyClassStats(hocKy, mondayVn) == null &&
+            authStore.weeklyStatsBackfillKey != backfillKey
+        // First login still syncs immediately. Later daily reloads remain
+        // limited to once per Vietnam day after 06:30.
+        if (lastAttempt == 0L || isVietnamDailyAutoSyncDue(now, lastAttempt) || needsBackfill) {
+            if (needsBackfill) authStore.weeklyStatsBackfillKey = backfillKey
             authStore.lastAutoSyncAttempt = now
             refresh(showDialog = false)
         } else {
