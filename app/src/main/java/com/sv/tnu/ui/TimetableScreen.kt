@@ -55,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -624,8 +625,8 @@ fun TimetableScreen(
     val lessonNotes by viewModel.lessonNotes.collectAsState()
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
 
-    // Both lessons and exams share one past-day filter. Re-evaluate the local
-    // date when the app resumes after midnight, without background polling.
+    // The visible timeline starts at today and never exposes past lessons.
+    // Re-evaluate the local date after midnight without background polling.
     var todayStr by remember { mutableStateOf(localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
@@ -643,10 +644,16 @@ fun TimetableScreen(
     val selectedWeek = weekBounds.firstOrNull { (start, end, _) ->
         selectedDay in start..end
     }?.third ?: timetable?.selectedWeek
-    // Only dates actually containing events are normally shown. Explicitly
-    // selected empty dates are retained in the list so tapping them still works,
-    // without filling the entire semester with hundreds of empty cards.
-    var pinnedEmptyDays by remember { mutableStateOf(emptySet<String>()) }
+    // Only a small window of dates is generated initially. As the user scrolls,
+    // append seven more days on demand; LazyColumn composes only visible rows.
+    // A calendar tap may extend the window directly to the requested date.
+    val semesterEndDay = remember(weeks) {
+        weeks.maxOfOrNull { normalizeDateToYmd(it.ngayKetThuc) }.orEmpty()
+    }
+    var loadedDayCount by remember(viewModel.hocKy, todayStr) { mutableIntStateOf(14) }
+    val lastLoadedDay = remember(todayStr, loadedDayCount) {
+        RustScheduleCore.moveCalendarDay(todayStr, loadedDayCount - 1) ?: todayStr
+    }
     // Only explicit day taps/swipes request a programmatic scroll. A day
     // inferred from vertical scrolling must not scroll the list back.
     var requestedScrollDay by remember { mutableStateOf<String?>(null) }
@@ -740,10 +747,21 @@ fun TimetableScreen(
             .toSortedMap()
     }
 
-    // A picker tap or horizontal swipe navigates to any date in the semester.
-    // Missing schedule days become one pinned empty row on demand.
+    // Keep dates earlier than today inaccessible, including via horizontal swipes.
+    // A far-future calendar tap only extends the data window as far as needed.
     fun selectDay(date: String, weekNumber: Int) {
-        if (date !in allGrouped) pinnedEmptyDays = pinnedEmptyDays + date
+        if (date < todayStr || (semesterEndDay.isNotBlank() && date > semesterEndDay)) return
+        if (date > lastLoadedDay) {
+            var cursor = lastLoadedDay
+            var count = loadedDayCount
+            while (cursor < date && count < 1000) {
+                val next = RustScheduleCore.moveCalendarDay(cursor, 1) ?: break
+                if (next <= cursor) break
+                cursor = next
+                count++
+            }
+            loadedDayCount = count + 7
+        }
         selectedDay = date
         requestedScrollDay = date
         if (viewModel.selectedWeek.value != weekNumber) viewModel.selectWeek(weekNumber)
@@ -754,22 +772,23 @@ fun TimetableScreen(
         selectDay(next.first, next.second)
     }
 
-    // Calendar selection and the timeline use the same semester-wide cache.
-    // Avoid rendering 7 empty cards every week: those are not lessons, and
-    // they make scrolling needlessly long. Today's empty day stays accessible.
+    // Build just the loaded dates, never every date in the semester up front.
+    // Future days without portal data show a placeholder while the existing
+    // cards, notes and exams retain their normal appearance.
     val displayedGrouped: Map<String, List<ScheduleItem>> =
-        remember(weeks, allGrouped, pinnedEmptyDays, todayStr) {
-            val validDays = weeks.asSequence()
-                .flatMap { week ->
-                    weekDates(normalizeDateToYmd(week.ngayBatDau)).asSequence()
+        remember(todayStr, semesterEndDay, loadedDayCount, allGrouped) {
+            buildMap {
+                if (semesterEndDay.isBlank()) return@buildMap
+                var date = todayStr
+                var count = 0
+                while (date <= semesterEndDay && count < loadedDayCount) {
+                    put(date, allGrouped[date].orEmpty())
+                    val next = RustScheduleCore.moveCalendarDay(date, 1) ?: break
+                    if (next <= date) break
+                    date = next
+                    count++
                 }
-                .toSet()
-            (allGrouped.keys + pinnedEmptyDays + todayStr)
-                .asSequence()
-                .filter { it in validDays }
-                .distinct()
-                .sorted()
-                .associateWith { date -> allGrouped[date].orEmpty() }
+            }
         }
     // Precompute day labels once for lazy composition.
     val flatRows = remember(displayedGrouped) {
@@ -801,28 +820,39 @@ fun TimetableScreen(
         flatRows.withIndex().filter { it.value.firstInDay }
             .associate { it.value.date to it.index }
     }
-    // Initialize at the chosen day before the first frame, without extra scroll.
-    val initialDayIndex = firstRowByDay[selectedDay] ?: firstRowByDay[todayStr] ?: 0
-    // Reinitialize only on the first DB load or semester change, not every
-    // time the scroll crosses a week boundary.
-    val listState = key(weeks.isNotEmpty(), viewModel.hocKy) {
-        rememberLazyListState(initialFirstVisibleItemIndex = initialDayIndex)
+    // Day zero is always today. Preserve scroll while new pages arrive, but
+    // reset to today's boundary when the local date or semester changes.
+    val listState = key(todayStr, weeks.isNotEmpty(), viewModel.hocKy) {
+        rememberLazyListState(initialFirstVisibleItemIndex = 0)
     }
-    // Follow the user's actual scroll without fighting a tapped date.
-    // At the bottom the final date might not fit at the top of the viewport,
-    // so selecting just the first visible item would leave it stuck on Saturday.
-    androidx.compose.runtime.LaunchedEffect(listState, flatRows) {
+    // Prefetch the next seven days only when the visible rows reach this
+    // page's end. Recomposition does not recreate the LazyListState.
+    androidx.compose.runtime.LaunchedEffect(listState, flatRows, semesterEndDay) {
         snapshotFlow {
-            Triple(
-                listState.isScrollInProgress,
-                listState.firstVisibleItemIndex,
-                listState.canScrollBackward && !listState.canScrollForward,
-            )
-        }.distinctUntilChanged().collect { (scrolling, index, atEnd) ->
-            if (!scrolling || requestedScrollDay != null) return@collect
-            val visibleDay = if (atEnd) flatRows.lastOrNull()?.date
-                else flatRows.getOrNull(index)?.date
-            if (visibleDay != null && visibleDay != selectedDay) {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+        }.distinctUntilChanged().collect { lastVisible ->
+            val lastLoaded = flatRows.lastOrNull()?.date
+            if (lastLoaded != null && lastLoaded < semesterEndDay &&
+                lastVisible >= (flatRows.size - 5).coerceAtLeast(0)
+            ) {
+                loadedDayCount += 7
+            }
+        }
+    }
+
+    // The FIRST visible card touching the viewport's top edge controls the
+    // highlighted date. No waiting for gesture completion or switching pages.
+    // Do not force-select the final date when it is merely visible at bottom.
+    androidx.compose.runtime.LaunchedEffect(listState, flatRows, weekBounds) {
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            layout.visibleItemsInfo.firstOrNull { item ->
+                item.offset + item.size > layout.viewportStartOffset
+            }?.index ?: listState.firstVisibleItemIndex
+        }.distinctUntilChanged().collect { index ->
+            if (requestedScrollDay != null) return@collect
+            val visibleDay = flatRows.getOrNull(index)?.date ?: return@collect
+            if (visibleDay != selectedDay) {
                 selectedDay = visibleDay
                 weekBounds.firstOrNull { (start, end, _) -> visibleDay in start..end }
                     ?.third?.let { week ->
@@ -832,9 +862,8 @@ fun TimetableScreen(
         }
     }
 
-    // A date tapped in the week/month picker or reached via horizontal swipe
-    // still scrolls to that date. Wait for the new week's rows before clearing
-    // the request, so a cross-week selection does not get lost.
+    // Picker taps navigate to their loaded date, including newly requested
+    // future pages. Large jumps skip costly off-screen scroll animation.
     androidx.compose.runtime.LaunchedEffect(requestedScrollDay, firstRowByDay, listState) {
         val requested = requestedScrollDay ?: return@LaunchedEffect
         val target = firstRowByDay[requested] ?: return@LaunchedEffect
@@ -847,6 +876,12 @@ fun TimetableScreen(
             }
         }
         if (requestedScrollDay == requested) requestedScrollDay = null
+    }
+
+    // The horizontal swipe detector must not restart whenever scrolling
+    // selects another day, or fast continuous swipes can be interrupted.
+    val currentSwipeDay = rememberUpdatedState<(Int) -> Unit> { direction ->
+        changeSelectedDay(direction)
     }
 
     Scaffold(
@@ -991,7 +1026,7 @@ fun TimetableScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .pointerInput(selectedDay, weeks, selectedWeek) {
+                            .pointerInput(Unit) {
                                 var totalDrag = 0f
                                 detectHorizontalDragGestures(
                                     onDragStart = { totalDrag = 0f },
@@ -1001,7 +1036,7 @@ fun TimetableScreen(
                                     },
                                     onDragEnd = {
                                         if (kotlin.math.abs(totalDrag) > 64.dp.toPx()) {
-                                            changeSelectedDay(if (totalDrag < 0f) 1 else -1)
+                                            currentSwipeDay.value(if (totalDrag < 0f) 1 else -1)
                                         }
                                         totalDrag = 0f
                                     },
@@ -1051,7 +1086,8 @@ fun TimetableScreen(
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
-                                                text = "Không có lịch học hoặc lịch thi.",
+                                                text = if (row.date > todayStr) "Chưa đồng bộ"
+                                                    else "Không có lịch học hoặc lịch thi.",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
                                                 textAlign = TextAlign.Center,

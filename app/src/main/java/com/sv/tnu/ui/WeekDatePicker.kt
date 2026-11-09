@@ -1,6 +1,8 @@
 package com.sv.tnu.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -24,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,15 @@ private fun CalendarDay(
     val isSelected = ymd == selectedYmd
     val isToday = ymd == todayYmd
     val selectedDayColor = MaterialTheme.colorScheme.primary
+    val highlightColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> selectedDayColor
+            isToday -> selectedDayColor.copy(alpha = 0.15f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 120),
+        label = "Selected calendar day",
+    )
     val day = ymd.substringAfterLast('-').toIntOrNull()?.toString() ?: "-"
     Column(
         modifier = modifier
@@ -104,9 +114,7 @@ private fun CalendarDay(
             modifier = Modifier
                 .size(36.dp)
                 .background(
-                    color = if (isSelected) selectedDayColor
-                        else if (isToday) selectedDayColor.copy(alpha = 0.15f)
-                        else Color.Transparent,
+                    color = highlightColor,
                     shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,
@@ -173,7 +181,7 @@ fun WeekDatePicker(
     val selectedDayColor = MaterialTheme.colorScheme.primary
     var showMonth by rememberSaveable { mutableStateOf(false) }
     var monthOffset by remember { mutableIntStateOf(0) }
-    LaunchedEffect(weekStartYmd) { monthOffset = 0 }
+    // Do not reset the viewed month during rapid vertical timeline scrolling.
 
     // Both the seven-day strip and expanded month use this same one-tap
     // selection path. Close the month only after a valid week is selected.
@@ -184,7 +192,8 @@ fun WeekDatePicker(
     }
 
     val selectedAnchor = selectedYmd.ifBlank { todayYmd }
-    val monthView = remember(selectedAnchor, monthOffset) { monthDates(selectedAnchor, monthOffset) }
+    val monthAnchor = selectedAnchor.take(7) + "-01"
+    val monthView = remember(monthAnchor, monthOffset) { monthDates(monthAnchor, monthOffset) }
 
     Column(
         modifier = Modifier
@@ -222,7 +231,8 @@ fun WeekDatePicker(
                     selectedYmd = selectedYmd,
                     todayYmd = todayYmd,
                     hasSchedule = ymd in eventDays,
-                    enabled = true,
+                    enabled = ymd >= todayYmd &&
+                        weekBounds.any { ymd in it.start..it.end },
                     onClick = {
                         val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
                         pickDate(ymd, week)
@@ -292,7 +302,7 @@ fun WeekDatePicker(
                                     selectedYmd = selectedYmd,
                                     todayYmd = todayYmd,
                                     hasSchedule = ymd in eventDays,
-                                    enabled = week != null,
+                                    enabled = week != null && ymd >= todayYmd,
                                     onClick = { pickDate(ymd, week) },
                                     modifier = Modifier.weight(1f),
                                     weekend = dayIndex >= 5,
