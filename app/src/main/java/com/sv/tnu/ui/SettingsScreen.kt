@@ -78,6 +78,7 @@ import com.sv.tnu.ui.components.UserAvatar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,9 +175,26 @@ fun SettingsScreen(
         }
     }
 
-    val (totalSubjects, totalCredits) = remember(lessons) {
-        val uniqueByCourse = lessons.distinctBy { it.maMon }
-        uniqueByCourse.size to uniqueByCourse.sumOf { it.soTinChi.toIntOrNull() ?: 0 }
+    // Weekly counts refer to actual lessons in the current Vietnam calendar
+    // week, not the semester total or the week selected by timeline scrolling.
+    // Rust returns full-week counts before pruning old lesson rows for Room.
+    val currentWeekStart = remember(lastSyncTime) {
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+        }
+        val todayYmd = formatter.format(Date())
+        RustScheduleCore.mondayOfWeek(todayYmd) ?: todayYmd
+    }
+    val (weeklySubjects, weeklyPeriods) = remember(lessons, lastSyncTime, currentWeekStart) {
+        authStore.weeklyClassStats(timetableViewModel.hocKy, currentWeekStart) ?: run {
+            val thisWeek = lessons.filter {
+                RustScheduleCore.mondayOfWeek(it.ngayHoc) == currentWeekStart
+            }
+            val subjects = thisWeek.distinctBy {
+                it.maMon.ifBlank { it.tenMon.ifBlank { it.idTkb } }
+            }.size
+            subjects to thisWeek.sumOf { it.soTiet.coerceAtLeast(0) }
+        }
     }
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
@@ -284,13 +302,13 @@ fun SettingsScreen(
                     ) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Môn học HK",
-                            value = "$totalSubjects môn",
+                            label = "Môn học tuần này",
+                            value = "$weeklySubjects môn",
                         )
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Tín chỉ",
-                            value = "$totalCredits TC",
+                            label = "Tiết học",
+                            value = "$weeklyPeriods tiết",
                         )
                         StatItem(
                             modifier = Modifier.weight(1f),
@@ -814,6 +832,7 @@ private fun StatItem(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
     }

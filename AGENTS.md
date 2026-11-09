@@ -104,7 +104,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 ### C. Đồng bộ lịch học/lịch thi
 
 `TimetableViewModel.refresh` → `SchoolRepository.refresh` → `TnutRepository.refresh`:
-- Tải **bytes gốc** của API lịch học (bộ lọc học kỳ; chưa xác minh server hỗ trợ từ ngày) → `RustPortalCore.mapTimetable` nhận `fromYmd` theo giờ Việt Nam → `rust-core/src/portal.rs` parse/validate dữ liệu nguồn, lọc tuần có ngày kết thúc từ hôm nay và buổi học có ngày từ hôm nay → encode nhị phân `TKB1` → Kotlin decode thành `PeriodEntity/WeekEntity/LessonEntity` → `TkbDao.replaceTimetable` transaction. Không thay đổi format nhị phân; chỉ thay số bản ghi và chữ ký JNI.
+- Tải **bytes gốc** của API lịch học (bộ lọc học kỳ; chưa xác minh server hỗ trợ từ ngày) → `RustPortalCore.mapTimetable` nhận `fromYmd` theo giờ Việt Nam → `rust-core/src/portal.rs` parse/validate dữ liệu nguồn, lọc tuần có ngày kết thúc từ hôm nay và buổi học có ngày từ hôm nay → encode nhị phân `TKB1` → Kotlin decode thành `PeriodEntity/WeekEntity/LessonEntity` → `TkbDao.replaceTimetable` transaction. Mở rộng TKB1T thêm footer hai số i32 (môn học tuần này và số tiết tuần này) từ dữ liệu gốc trước khi lọc; decoder Kotlin và Rust encoder phải thay đồng bộ. Số liệu tuần được lưu trong AuthStore sau khi Room commit; không lưu lịch cũ chỉ để tính thống kê.
 - Đồng bộ lịch thi được kích hoạt độc lập/concurrently; từng loại lịch thi (giữa kỳ/cuối kỳ) tải phân trang; Rust parse, validate, loại trùng → `TkbDao.replaceExamsByType`. Một endpoint lỗi không được xóa lịch loại còn lại.
 - Giao dịch thay dữ liệu **chỉ bắt đầu sau khi** toàn bộ dữ liệu cần thiết đã hợp lệ. Khi lịch trống/lỗi/401 không ghi đè cache tốt bằng danh sách rỗng.
 - Ghi chú `lesson_notes` không thuộc transaction thay timetable. Đừng xóa ghi chú khi cập nhật lessons.
@@ -116,6 +116,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - `RustPortalCore.kt` giải mã nhị phân `TKB1` từ Rust (`portal.rs`), **không** tự ý khôi phục tuyến Kotlin DTO → JSON → JNI → JSON → Kotlin.
 - Nếu thay cấu trúc record, trường, thứ tự hoặc version của `TKB1`: cập nhật encoder Rust, decoder Kotlin, test fixture và kiểm tra thực tế trên Android.
 - `RustScheduleCore.kt` có fallback cho host JVM tests; Android runtime phải có thư viện native thực, không im lặng fallback trên thiết bị.
+- Chạm lại tab TKB gọi `requestReturnToToday` và đưa danh sách về ngày hôm nay ngay lập tức; không animate cuộn qua các ngày trung gian.
 - Kiểm tra symbol JNI và R8 keep rules trong `app/proguard-rules.pro` nếu rename class/method.
 
 ## 4. Kiểm tra trước khi commit

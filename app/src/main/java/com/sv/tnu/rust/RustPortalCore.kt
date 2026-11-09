@@ -96,6 +96,8 @@ object PortalBinaryDecoder {
         val periods: List<PeriodEntity>,
         val weeks: List<WeekEntity>,
         val lessons: List<LessonEntity>,
+        val weeklySubjects: Int,
+        val weeklyPeriods: Int,
     )
 
     data class ExamPageRows(
@@ -194,8 +196,12 @@ object PortalBinaryDecoder {
                 maNhom = reader.string(),
             )
         }
+        // Footer is calculated before old lesson rows are excluded by Rust.
+        val weeklySubjects = reader.int()
+        val weeklyPeriods = reader.int()
+        require(weeklySubjects >= 0 && weeklyPeriods >= 0) { "Invalid weekly lesson totals" }
         reader.finish()
-        return TimetableRows(periods, weeks, lessons)
+        return TimetableRows(periods, weeks, lessons, weeklySubjects, weeklyPeriods)
     }
 
     fun decodeExams(bytes: ByteArray): ExamPageRows {

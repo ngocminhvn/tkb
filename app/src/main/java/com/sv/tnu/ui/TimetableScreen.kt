@@ -204,6 +204,14 @@ class TimetableViewModel(
     private val _justSyncedCache = MutableStateFlow<CachedTimetable?>(null)
     private val _firstLoginRenderEpoch = MutableStateFlow(0)
     val firstLoginRenderEpoch: StateFlow<Int> = _firstLoginRenderEpoch.asStateFlow()
+
+    private val _returnToTodayRequest = MutableStateFlow(0)
+    val returnToTodayRequest: StateFlow<Int> = _returnToTodayRequest.asStateFlow()
+
+    fun requestReturnToToday() {
+        focusToday()
+        _returnToTodayRequest.value += 1
+    }
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
     // A SINGLE observable snapshot is the source of truth for first render.
@@ -592,6 +600,7 @@ fun TimetableScreen(
     val awaitingSync by viewModel.awaitingSync.collectAsState()
     val error by viewModel.error.collectAsState()
     val lessonNotes by viewModel.lessonNotes.collectAsState()
+    val returnToTodayRequest by viewModel.returnToTodayRequest.collectAsState()
     var noteLesson by remember { mutableStateOf<LessonEntity?>(null) }
 
     // The visible timeline starts at today and never exposes past lessons.
@@ -790,6 +799,17 @@ fun TimetableScreen(
     // reset to today's boundary when the local date or semester changes.
     val listState = key(todayStr, weeks.isNotEmpty(), viewModel.hocKy) {
         rememberLazyListState(initialFirstVisibleItemIndex = 0)
+    }
+    // A repeat tap on the TKB tab immediately returns to the first row
+    // without animating across potentially thousands of unloaded dates.
+    androidx.compose.runtime.LaunchedEffect(returnToTodayRequest) {
+        if (returnToTodayRequest > 0) {
+            requestedScrollDay = todayStr
+            listState.scrollToItem(0)
+            selectedDay = todayStr
+            loadedDayCount = 14
+            requestedScrollDay = null
+        }
     }
     // Prefetch more days whenever the list approaches its current end,
     // including AFTER the final week saved in SQLite. The next page is

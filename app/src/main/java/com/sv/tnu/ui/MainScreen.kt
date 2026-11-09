@@ -158,7 +158,13 @@ fun MainScreen(
         GlassTabBar(
             itemCount = NavigationTab.entries.size,
             selectedIndex = selectedIndex,
-            onSelected = { selectedIndex = it },
+            onSelected = { tab ->
+                selectedIndex = tab
+                // Works even when TKB is already the selected tab.
+                if (tab == NavigationTab.TIMETABLE.ordinal) {
+                    timetableViewModel.requestReturnToToday()
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 24.dp, vertical = 12.dp)

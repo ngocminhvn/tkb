@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.sv.tnu.rust.RustPortalCore
+import com.sv.tnu.rust.RustScheduleCore
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.CachedTimetable
 import com.sv.tnu.schools.SchoolRepository
@@ -135,6 +136,11 @@ class TnutRepository(
                 RustPortalCore.mapTimetable(hocKy, todayYmd, raw)
             }
             saveToDb(hocKy, data)
+            val todayYmd = todayInVietnam()
+            val mondayYmd = RustScheduleCore.mondayOfWeek(todayYmd) ?: todayYmd
+            authStore.saveWeeklyClassStats(
+                hocKy, mondayYmd, data.weeklySubjects, data.weeklyPeriods,
+            )
             authStore.hocKy = hocKy
             authStore.lastSyncTime = System.currentTimeMillis()
             if (authStore.avatarPath.isNullOrBlank() &&
