@@ -139,6 +139,11 @@ interface TkbDao {
     // Each TNUT exam endpoint can fail independently.
     suspend fun replaceExamsByType(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>)
 
+    suspend fun commitPortalTimetable(hocKy: Int, fromDate: String, payload: ByteArray)
+
+    /** Empty portal results leave the previous exam cache intact. */
+    suspend fun commitPortalExams(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>): Boolean
+
     /** Remove only the complete, exact fixture inserted by older APKs. */
     suspend fun removeLegacySampleExamsIfExact(hocKy: Int): Boolean
 }

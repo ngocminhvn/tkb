@@ -47,9 +47,9 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../schools/SchoolProvider.kt` | Interface `SchoolProvider`, `SchoolSession`, `SchoolRepository`, ID/model chung | Hardcode UI TNUT |
 | `.../schools/SchoolRegistry.kt` | Danh sách school providers, chọn provider theo ID | Quy tắc SQL/HTTP |
 | `.../schools/tnut/TnutApi.kt` | Endpoint Retrofit, form đăng nhập và chuyển response bytes vào Rust | Compose, chỉnh DB |
-| `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh, fallback login | View/layout |
+| `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh và adapter cho chính sách làm mới phiên Rust | View/layout |
 | `.../schools/tnut/TnutSchoolProvider.kt` | Adapter kết nối login/session + repository TNUT | Logic trường khác |
-| `.../schools/tnut/TnutRepository.kt` | Điều phối gọi portal, đồng bộ lịch/thi, validate qua Rust, ghi SQLite, avatar, ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
+| `.../schools/tnut/TnutRepository.kt` | Điều phối HTTP lịch/thi, gọi Rust kiểm tra và ghi SQLite, xử lý avatar và ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
 | `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
@@ -131,6 +131,11 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - Các bridge Kotlin tải `libtkb_core.so`. `TKB1L` chuyển token từ phản hồi đăng nhập/refresh sang AuthStore. `TKB1A` chuyển tên và dữ liệu ảnh. `TKB1P` chuyển manifest khớp `update.json` do CI phát hành.
 - Chạm lại tab TKB gọi `requestReturnToToday` và đưa danh sách về ngày hôm nay ngay lập tức; không animate cuộn qua các ngày trung gian.
 - Kiểm tra symbol JNI và R8 keep rules trong `app/proguard-rules.pro` nếu rename class/method.
+
+Khi đồng bộ lịch học, repository chuyển bytes TNUT thẳng vào `RustCacheStore`.
+Rust kiểm tra payload rồi thực hiện transaction SQLite và chỉ báo thành công khi
+commit xong. Lịch thi rỗng giữ cache theo từng loại. Timeline dùng `TKB1Y` để
+nhận chỉ số nguồn, ngày và giờ hiển thị theo một lô.
 
 ## 4. Kiểm tra trước khi commit và push
 

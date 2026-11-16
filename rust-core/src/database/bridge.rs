@@ -136,6 +136,14 @@ pub(crate) fn execute(
                     .remove_legacy_sample_exams_if_exact(semester)
                     .map(i64::from)
             }
+            14 => {
+                let rows = batch::read_exams(payload)?;
+                if rows.is_empty() {
+                    return Ok(0);
+                }
+                db.replace_exams_by_type(semester, midterm, &rows)?;
+                return Ok(1);
+            }
             _ => return Err(rusqlite::Error::InvalidQuery),
         }
         Ok(0)

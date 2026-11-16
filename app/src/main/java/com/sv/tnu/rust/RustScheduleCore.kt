@@ -1,6 +1,8 @@
 package com.sv.tnu.rust
 
+import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
+import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import java.util.TimeZone
 
@@ -177,6 +179,41 @@ object RustScheduleCore {
     private external fun dayRowOffsetsNative(counts: IntArray): IntArray
     private external fun weekLessonIndicesNative(weeks: IntArray, selected: Int): IntArray
     private external fun shouldAppendDaysNative(lastVisible: Int, rowCount: Int, lastDay: String): Boolean
+
+    private external fun timelineBatchNative(
+        lessonDates: Array<String>,
+        lessonSlots: IntArray,
+        examFields: Array<String>,
+        examSlots: IntArray,
+        periodFields: Array<String>,
+        periodNumbers: IntArray,
+    ): ByteArray
+
+    fun timelineBatch(
+        lessons: List<LessonEntity>,
+        exams: List<ExamEntity>,
+        periods: List<PeriodEntity>,
+    ): List<PortalBinaryDecoder.TimelineItem> {
+        val lessonSlots = IntArray(lessons.size * 2)
+        lessons.forEachIndexed { index, lesson ->
+            lessonSlots[index * 2] = lesson.tietBatDau
+            lessonSlots[index * 2 + 1] = lesson.soTiet
+        }
+        val examSlots = IntArray(exams.size * 2)
+        exams.forEachIndexed { index, exam ->
+            examSlots[index * 2] = exam.soPhut
+            examSlots[index * 2 + 1] = if (exam.isHoanThi) 1 else 0
+        }
+        val wire = timelineBatchNative(
+            Array(lessons.size) { lessons[it].ngayHoc },
+            lessonSlots,
+            Array(exams.size * 2) { if (it % 2 == 0) exams[it / 2].ngayThi else exams[it / 2].gioBatDau },
+            examSlots,
+            Array(periods.size * 2) { if (it % 2 == 0) periods[it / 2].gioBatDau else periods[it / 2].gioKetThuc },
+            IntArray(periods.size) { periods[it].tiet },
+        )
+        return PortalBinaryDecoder.decodeTimeline(wire)
+    }
 
     fun scheduleOrder(fields: Array<String>): IntArray = scheduleOrderNative(fields)
 

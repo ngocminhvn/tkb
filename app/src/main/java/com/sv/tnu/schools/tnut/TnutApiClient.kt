@@ -63,15 +63,17 @@ object TnutApiClient {
             }
 
             val refreshToken = authStore.refreshToken?.takeIf { it.isNotBlank() }
+            var httpStatus = 0
+            var ioFailure = false
             val refreshed = if (refreshToken != null) {
                 try {
                     runBlocking { plainApi.refreshSession(refreshToken) }
                 } catch (e: HttpException) {
-                    // A server-side outage is not a reason to try the password.
-                    if (!RustPortalCore.shouldFallbackToLogin(e.code())) return@synchronized null
+                    httpStatus = e.code()
                     null
                 } catch (_: IOException) {
-                    return@synchronized null
+                    ioFailure = true
+                    null
                 } catch (_: Exception) {
                     null
                 }
@@ -79,17 +81,19 @@ object TnutApiClient {
                 null
             }
 
-            val session = if (refreshed?.accessToken.isNullOrBlank()) {
-                val username = authStore.username?.takeIf { it.isNotBlank() }
-                val password = authStore.password?.takeIf { it.isNotBlank() }
-                if (username == null || password == null) return@synchronized null
-                try {
-                    runBlocking { plainApi.loginSession(username, password) }
-                } catch (_: Exception) {
-                    return@synchronized null
+            val session = when (RustPortalCore.renewalAction(httpStatus, ioFailure, refreshed?.accessToken)) {
+                RustPortalCore.RenewalAction.STOP -> return@synchronized null
+                RustPortalCore.RenewalAction.USE_REFRESH -> refreshed
+                RustPortalCore.RenewalAction.FALLBACK_LOGIN -> {
+                    val username = authStore.username?.takeIf { it.isNotBlank() }
+                    val password = authStore.password?.takeIf { it.isNotBlank() }
+                    if (username == null || password == null) return@synchronized null
+                    try {
+                        runBlocking { plainApi.loginSession(username, password) }
+                    } catch (_: Exception) {
+                        return@synchronized null
+                    }
                 }
-            } else {
-                refreshed
             }
 
             val validSession = session?.takeIf { it.accessToken.isNotBlank() }

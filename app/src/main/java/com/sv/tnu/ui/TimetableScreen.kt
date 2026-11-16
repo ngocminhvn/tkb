@@ -511,35 +511,20 @@ internal fun adjacentTimetableDay(
 ): Pair<String, Int>? =
     RustScheduleCore.adjacentTimetableDay(selectedYmd, direction, weeks)
 
-private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
-    RustScheduleCore.examEndTime(gioBatDau, soPhut)
-
-private fun timeRange(periods: Map<Int, PeriodEntity>, tietBatDau: Int, soTiet: Int): String =
-    RustScheduleCore.formatLessonTime(
-        tietBatDau,
-        periods[tietBatDau]?.gioBatDau,
-        periods[tietBatDau + soTiet - 1]?.gioKetThuc,
-    )
-
 private sealed interface ScheduleItem {
     val date: String
-    val sortKey: String
 
     data class Lesson(
         val lesson: LessonEntity,
         val timeDisplay: String,
         override val date: String,
-    ) : ScheduleItem {
-        override val sortKey: String = lesson.tietBatDau.toString().padStart(2, '0')
-    }
+    ) : ScheduleItem
 
     data class Exam(
         val exam: ExamEntity,
         val endTime: String,
         override val date: String,
-    ) : ScheduleItem {
-        override val sortKey: String = exam.gioBatDau
-    }
+    ) : ScheduleItem
 }
 
 /** One lazy item per card, avoiding composing every card in a whole day. */
@@ -650,41 +635,14 @@ fun TimetableScreen(
     // not represented by a synced WeekEntity in SQLite.
     val startDayYmd = remember(selectedDay) { mondayOfLocalWeek(selectedDay) }
 
-    // Reuse time labels across week navigation and lazy list recycling.
-    val lessonTimes = remember(semesterLessons, periods) {
-        val periodsByNumber = periods.associateBy { it.tiet }
-        val byPeriodRange = mutableMapOf<Pair<Int, Int>, String>()
-        semesterLessons.associate { lesson ->
-            val range = lesson.tietBatDau to lesson.soTiet
-            val display = byPeriodRange.getOrPut(range) {
-                timeRange(periodsByNumber, lesson.tietBatDau, lesson.soTiet)
+    val allGrouped = remember(semesterLessons, exams, periods) {
+        RustScheduleCore.timelineBatch(semesterLessons, exams, periods).map { row ->
+            if (row.source >= 0) {
+                ScheduleItem.Lesson(semesterLessons[row.source], row.timeLabel, row.date)
+            } else {
+                ScheduleItem.Exam(exams[-1 - row.source], row.timeLabel, row.date)
             }
-            lesson.idTkb to display
-        }
-    }
-    // Process the entire semester just once per data update; the LazyColumn
-    // then renders only the visible cards instead of switching weekly pages.
-    val allGrouped: Map<String, List<ScheduleItem>> = remember(semesterLessons, exams, lessonTimes) {
-        val lessonItems = semesterLessons.map { lesson ->
-            ScheduleItem.Lesson(
-                lesson = lesson,
-                timeDisplay = lessonTimes[lesson.idTkb].orEmpty(),
-                date = normalizeDateToYmd(lesson.ngayHoc),
-            )
-        }
-        val examItems = exams.filterNot { it.isHoanThi }.map { exam ->
-            ScheduleItem.Exam(
-                exam = exam,
-                endTime = calculateExamEndTime(exam.gioBatDau, exam.soPhut),
-                date = normalizeDateToYmd(exam.ngayThi),
-            )
-        }
-        val items = lessonItems + examItems
-        val fields = Array(items.size * 2) { index ->
-            val item = items[index / 2]
-            if (index % 2 == 0) item.date else item.sortKey
-        }
-        RustScheduleCore.scheduleOrder(fields).map(items::get).groupBy { it.date }
+        }.groupBy { it.date }
     }
 
     val eventDays = allGrouped.keys

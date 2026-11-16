@@ -124,6 +124,21 @@ object RustPortalCore {
     fun shouldAuthenticateRetry(isOfficial: Boolean, path: String, responseCount: Int): Boolean =
         shouldAuthenticateRetryNative(isOfficial, path, responseCount)
 
+    private external fun accountChangedNative(previous: String?, username: String): Boolean
+    private external fun rotationFieldsNative(refresh: String, idpc: String): Int
+    private external fun renewalActionNative(httpStatus: Int, ioFailure: Boolean, access: String): Int
+
+    fun accountChanged(previous: String?, username: String): Boolean =
+        accountChangedNative(previous, username)
+
+    fun rotationFields(refresh: String?, idpc: String?): Int =
+        rotationFieldsNative(refresh.orEmpty(), idpc.orEmpty())
+
+    enum class RenewalAction { STOP, USE_REFRESH, FALLBACK_LOGIN }
+
+    fun renewalAction(httpStatus: Int, ioFailure: Boolean, access: String?): RenewalAction =
+        RenewalAction.entries[renewalActionNative(httpStatus, ioFailure, access.orEmpty())]
+
     fun shouldFallbackToLogin(httpStatus: Int): Boolean =
         shouldFallbackToLoginNative(httpStatus)
 
@@ -219,8 +234,8 @@ object PortalBinaryDecoder {
             else -> throw IllegalArgumentException("Invalid Rust boolean")
         }
 
-        fun count(): Int = int().also {
-            require(it in 0..100_000) { "Invalid Rust record count: $it" }
+        fun count(max: Int = 100_000): Int = int().also {
+            require(it in 0..max) { "Invalid Rust record count: $it" }
         }
 
         fun string(): String {
@@ -318,6 +333,15 @@ object PortalBinaryDecoder {
         reader.finish()
         require(rowCount == rows.size) { "Rust exam page row count mismatch" }
         return ExamPageRows(rows, totalPages, rowCount)
+    }
+
+    data class TimelineItem(val source: Int, val date: String, val timeLabel: String)
+
+    fun decodeTimeline(bytes: ByteArray): List<TimelineItem> {
+        val reader = Reader(bytes, 'Y'.code.toByte())
+        val rows = List(reader.count(200_000)) { TimelineItem(reader.int(), reader.string(), reader.string()) }
+        reader.finish()
+        return rows
     }
 
     fun decodeLogin(bytes: ByteArray): SchoolSessionTokens {

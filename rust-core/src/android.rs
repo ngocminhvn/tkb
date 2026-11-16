@@ -859,3 +859,67 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_examSyncIssueNative(
         None => std::ptr::null_mut(),
     }
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_timelineBatchNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    lesson_dates: JObjectArray<'_>,
+    lesson_slots: JIntArray<'_>,
+    exam_fields: JObjectArray<'_>,
+    exam_slots: JIntArray<'_>,
+    period_fields: JObjectArray<'_>,
+    period_numbers: JIntArray<'_>,
+) -> jbyteArray {
+    let result = (|| {
+        let lesson_dates = read_strings(&mut env, &lesson_dates)?;
+        let lesson_slots = read_ints(&env, lesson_slots)?;
+        let exam_fields = read_strings(&mut env, &exam_fields)?;
+        let exam_slots = read_ints(&env, exam_slots)?;
+        let period_fields = read_strings(&mut env, &period_fields)?;
+        let period_numbers = read_ints(&env, period_numbers)?;
+        Ok::<_, jni::errors::Error>(crate::timeline::timeline_batch(
+            &lesson_dates, &lesson_slots, &exam_fields, &exam_slots, &period_fields, &period_numbers,
+        ))
+    })();
+    match result {
+        Ok(batch) => into_byte_array(&mut env, batch),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_accountChangedNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    previous: JString<'_>,
+    username: JString<'_>,
+) -> jboolean {
+    let previous = (!previous.is_null()).then(|| from_java(&mut env, &previous));
+    let username = from_java(&mut env, &username);
+    u8::from(crate::auth::account_changed(previous.as_deref(), &username))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_rotationFieldsNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    refresh: JString<'_>,
+    idpc: JString<'_>,
+) -> jint {
+    let refresh = from_java(&mut env, &refresh);
+    let idpc = from_java(&mut env, &idpc);
+    crate::auth::rotation_fields(&refresh, &idpc)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_renewalActionNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    http_status: jint,
+    io_failure: jboolean,
+    access: JString<'_>,
+) -> jint {
+    let access = from_java(&mut env, &access);
+    crate::auth::renewal_action(http_status, io_failure != 0, &access) as jint
+}

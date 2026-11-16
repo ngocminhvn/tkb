@@ -94,7 +94,7 @@ class TnutRepository(
     /**
      * Synchronize the timetable and exams on every requested portal sync.
      * These API sources are independent: failed/empty timetable requests must
-     * never suppress the exam request, and neither may wipe the other's Room
+     * never suppress the exam request, and neither may wipe the other's SQLite
      * cache. Both run concurrently, but each uses its own transactional write.
      */
     override suspend fun refresh(hocKy: Int): Result<Unit> = coroutineScope {
@@ -110,18 +110,14 @@ class TnutRepository(
         }
 
         val timetableResult = try {
-            // This TNUT endpoint exposes a semester filter, not a verified
-            // server-side from-date parameter. Request every available week,
-            // then Rust discards past weeks and past lessons BEFORE creating
-            // the binary rows for Room; no Kotlin JSON round-trip.
-            val data = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 val todayYmd = todayInVietnam()
                 val raw = api.weeklyTimetable(
                     RustPortalCore.timetableRequest(hocKy).toRequestBody(jsonMediaType)
                 ).use { it.bytes() }
-                RustPortalCore.mapTimetable(hocKy, todayYmd, raw)
+                dao.commitPortalTimetable(hocKy, todayYmd, raw)
             }
-            saveToDb(hocKy, data)
+            TimetableWidgetProvider.updateAll(context)
             authStore.hocKy = hocKy
             authStore.lastSyncTime = System.currentTimeMillis()
             if (authStore.avatarPath.isNullOrBlank() &&
@@ -146,16 +142,6 @@ class TnutRepository(
             _lastSyncWarning.value = error.message ?: error.javaClass.simpleName
         }
         timetableResult
-    }
-
-    private suspend fun saveToDb(
-        hocKy: Int,
-        data: com.sv.tnu.rust.PortalBinaryDecoder.TimetableRows,
-    ) {
-        // Native decoder has already checked the response; only then commit.
-        // Keep the original Room transaction and all existing notes.
-        dao.replaceTimetable(hocKy, data.periods, data.weeks, data.lessons)
-        TimetableWidgetProvider.updateAll(context)
     }
 
     /**
@@ -207,7 +193,7 @@ class TnutRepository(
                 val raw = api.exams(
                     RustPortalCore.examRequest(hocKy, isGiuaKy, page).toRequestBody(jsonMediaType)
                 ).use { it.bytes() }
-                // Rust rejects invalid portal pages before any Room replacement.
+                // Rust rejects invalid portal pages before any SQLite replacement.
                 RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
             }
             all.addAll(mapped.rows)
@@ -229,8 +215,7 @@ class TnutRepository(
         for (isGiuaKy in listOf(false, true)) {
             try {
                 val exams = loadPortalExams(hocKy, isGiuaKy)
-                if (exams.isNotEmpty()) {
-                    dao.replaceExamsByType(hocKy, isGiuaKy, exams)
+                if (dao.commitPortalExams(hocKy, isGiuaKy, exams)) {
                     updated = true
                 } else {
                     Log.i("TnutRepository", "Portal returned zero ${if (isGiuaKy) "midterm" else "final"} exams for semester $hocKy")

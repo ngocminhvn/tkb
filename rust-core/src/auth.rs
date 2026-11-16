@@ -37,9 +37,58 @@ pub fn should_fallback_to_login(http_status: u16) -> bool {
     (400..500).contains(&http_status)
 }
 
+fn has_session_value(value: &str) -> bool {
+    // Kotlin Char.isWhitespace uses Java isWhitespace or isSpaceChar.
+    value.chars().any(|c| {
+        !((c.is_whitespace() && c != '\u{85}') || ('\u{1c}'..='\u{1f}').contains(&c))
+    })
+}
+
+pub fn account_changed(previous: Option<&str>, username: &str) -> bool {
+    previous.is_some_and(|previous| previous != username)
+}
+
+pub fn rotation_fields(refresh_token: &str, idpc: &str) -> i32 {
+    i32::from(has_session_value(refresh_token)) | (i32::from(has_session_value(idpc)) << 1)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[repr(i32)]
+pub enum RenewalAction {
+    Stop,
+    UseRefresh,
+    FallbackLogin,
+}
+
+pub fn renewal_action(http_status: i32, io_failure: bool, access: &str) -> RenewalAction {
+    if io_failure || (http_status != 0 && !u16::try_from(http_status).is_ok_and(should_fallback_to_login)) {
+        RenewalAction::Stop
+    } else if has_session_value(access) {
+        RenewalAction::UseRefresh
+    } else {
+        RenewalAction::FallbackLogin
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preserves_refresh_outcomes_and_optional_token_fields() {
+        use RenewalAction::*;
+        assert_eq!(renewal_action(0, false, "new-token"), UseRefresh);
+        assert_eq!(renewal_action(0, false, " "), FallbackLogin);
+        assert_eq!(renewal_action(401, false, ""), FallbackLogin);
+        assert_eq!(renewal_action(503, false, ""), Stop);
+        assert_eq!(renewal_action(0, true, ""), Stop);
+        assert_eq!(rotation_fields(" ", "one"), 2);
+        assert_eq!(rotation_fields("token", "\u{1c}"), 1);
+        assert_eq!(rotation_fields("token", "one"), 3);
+        assert!(!account_changed(None, "alice"));
+        assert!(!account_changed(Some("alice"), "alice"));
+        assert!(account_changed(Some("alice"), "bob"));
+    }
 
     #[test]
     fn tokens_never_go_to_foreign_origin() {

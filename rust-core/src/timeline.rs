@@ -232,6 +232,61 @@ pub fn should_append_days(last_visible: i32, row_count: i32, last_day: &str) -> 
         && crate::move_calendar_day(last_day, 1).is_some()
 }
 
+/// TKB1Y contains sorted source indices, normalized dates and display times.
+pub(crate) fn timeline_batch(
+    lesson_dates: &[String],
+    lesson_slots: &[i32],
+    exam_fields: &[String],
+    exam_slots: &[i32],
+    period_fields: &[String],
+    period_numbers: &[i32],
+) -> Result<Vec<u8>, String> {
+    use crate::portal::{binary_count, binary_header, binary_i32, binary_str};
+    if lesson_slots.len() != lesson_dates.len() * 2
+        || exam_fields.len() != exam_slots.len()
+        || !exam_slots.len().is_multiple_of(2)
+        || period_fields.len() != period_numbers.len() * 2
+    {
+        return Err("Invalid timeline batch shape".into());
+    }
+
+    let periods: std::collections::HashMap<_, _> = period_numbers.iter().copied()
+        .zip(period_fields.as_chunks::<2>().0).collect();
+    let mut rows = Vec::with_capacity(lesson_dates.len() + exam_slots.len() / 2);
+    for (index, (date, &[start, count])) in lesson_dates.iter()
+        .zip(lesson_slots.as_chunks::<2>().0).enumerate()
+    {
+        let end = start.wrapping_add(count).wrapping_sub(1);
+        let label = crate::format_lesson_time(
+            start,
+            periods.get(&start).map(|times| times[0].as_str()),
+            periods.get(&end).map_or("", |times| times[1].as_str()),
+            false,
+        );
+        rows.push((index as i32, crate::normalize_date(date), format!("{start:0>2}"), label));
+    }
+
+    for (index, ([date, start], &[minutes, postponed])) in exam_fields.as_chunks::<2>().0
+        .iter().zip(exam_slots.as_chunks::<2>().0).enumerate()
+    {
+        if postponed == 0 {
+            let source = i32::try_from(index).map_err(|_| "Too many exams")?;
+            let label = crate::exam_end_time(start, minutes).unwrap_or_default();
+            rows.push((-1 - source, crate::normalize_date(date), start.clone(), label));
+        }
+    }
+    rows.sort_by(|a, b| a.1.encode_utf16().cmp(b.1.encode_utf16())
+        .then_with(|| a.2.encode_utf16().cmp(b.2.encode_utf16())));
+    let mut out = binary_header(b'Y');
+    binary_count(&mut out, rows.len())?;
+    for (source, date, _, label) in rows {
+        binary_i32(&mut out, source);
+        binary_str(&mut out, &date)?;
+        binary_str(&mut out, &label)?;
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -365,23 +365,23 @@ fn parse_envelope<'a, T: Deserialize<'a>>(
     }
     wrapper.data.ok_or_else(|| format!("TNUT {section} response has no data"))
 }
-fn binary_i32(out: &mut Vec<u8>, value: i32) {
+pub(crate) fn binary_i32(out: &mut Vec<u8>, value: i32) {
     out.extend_from_slice(&value.to_be_bytes());
 }
 fn binary_i64(out: &mut Vec<u8>, value: i64) {
     out.extend_from_slice(&value.to_be_bytes());
 }
-fn binary_count(out: &mut Vec<u8>, value: usize) -> Result<(), String> {
+pub(crate) fn binary_count(out: &mut Vec<u8>, value: usize) -> Result<(), String> {
     let count = i32::try_from(value).map_err(|_| "Too many TNUT rows".to_string())?;
     binary_i32(out, count);
     Ok(())
 }
-fn binary_str(out: &mut Vec<u8>, value: &str) -> Result<(), String> {
+pub(crate) fn binary_str(out: &mut Vec<u8>, value: &str) -> Result<(), String> {
     binary_count(out, value.len())?;
     out.extend_from_slice(value.as_bytes());
     Ok(())
 }
-fn binary_header(kind: u8) -> Vec<u8> {
+pub(crate) fn binary_header(kind: u8) -> Vec<u8> {
     let mut out = Vec::with_capacity(4096);
     out.extend_from_slice(b"TKB1");
     out.push(kind);

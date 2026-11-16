@@ -40,13 +40,13 @@ TnutApi / TnutRepository             ▲
                                      └─ binary TKB1 → bản ghi Kotlin
 
 RustScheduleCore (JNI) → rust-core/src/lib.rs
-  tính ngày/tuần và khung giờ, sắp thứ tự timeline, phân trang, nội dung nhắc và bố cục widget
+  chuẩn bị timeline theo lô, tính ngày/tuần, phân trang, nội dung nhắc và bố cục widget
 
 rust-core/src/update.rs
   xác minh SHA-256 và giải nén gói cập nhật APK
 ```
 
-Kotlin quản lý giao diện, HTTP/TLS trực tiếp với TNUT, khóa làm mới phiên, Keystore và các API hệ thống Android. Rust tạo phần thân yêu cầu lịch học/lịch thi, đọc phản hồi đăng nhập, ảnh đại diện và lịch, quyết định phân trang và loại trùng lịch thi. Bộ cập nhật dùng Rust để đọc manifest phát hành, xác minh SHA-256 và giải nén XZ. Endpoint lịch học lọc theo học kỳ. Rust loại các tuần và buổi học đã qua theo giờ Việt Nam trước khi lưu vào SQLite.
+Kotlin quản lý giao diện, HTTP/TLS trực tiếp với TNUT, khóa làm mới phiên, Keystore và các API hệ thống Android. Rust tạo phần thân yêu cầu lịch học/lịch thi, đọc phản hồi đăng nhập, ảnh đại diện và lịch, quyết định phân trang, loại trùng lịch thi, ghi lịch hợp lệ vào SQLite và áp dụng quy tắc làm mới phiên. Bộ cập nhật dùng Rust để đọc manifest phát hành, xác minh SHA-256 và giải nén XZ. Endpoint lịch học lọc theo học kỳ. Rust loại các tuần và buổi học đã qua theo giờ Việt Nam trước khi lưu vào SQLite.
 
 ## Bản đồ thư mục (đọc trước khi sửa)
 

@@ -128,3 +128,31 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_executeNative(
         }
     }
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_commitPortalTimetableNative(
+    mut env: JNIEnv<'_>,
+    _: JObject<'_>,
+    handle: jlong,
+    semester: jint,
+    from_date: JString<'_>,
+    payload: jni::objects::JByteArray<'_>,
+) {
+    let (Ok(date), Ok(payload)) = (
+        env.get_string(&from_date).map(String::from),
+        env.convert_byte_array(&payload),
+    ) else {
+        failure(&mut env);
+        return;
+    };
+    match crate::portal::map_timetable_wire(semester, &date, &payload) {
+        Ok(mapped) => {
+            if bridge::execute(handle, 5, semester, false, &mapped).is_err() {
+                failure(&mut env);
+            }
+        }
+        Err(message) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", message);
+        }
+    }
+}

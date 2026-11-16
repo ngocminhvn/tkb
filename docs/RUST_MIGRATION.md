@@ -1,5 +1,13 @@
 # Rust migration — TKB SV
 
+## Portal commits, session policy and timeline batches
+
+The native DAO validates and commits timetable response bytes in one JNI call.
+The exam commit path preserves prior results when a portal batch is empty.
+Rust selects the refresh outcome and which token fields to update. The Android
+transport, refresh lock and encrypted preferences retain their roles.
+`TKB1Y` batches timeline dates, display times and source indices for Compose.
+
 ## Current stage C — full native DAO and production handoff
 
 `AppDatabase.get` now owns a singleton `RustCacheStore`, opened lazily on IO.

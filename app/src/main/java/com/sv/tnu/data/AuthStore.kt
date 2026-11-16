@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.schools.SchoolIds
 import com.sv.tnu.schools.SchoolSessionTokens
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,7 +111,7 @@ class AuthStore(context: Context) {
         get() = !accessToken.isNullOrBlank()
 
     fun saveLogin(username: String, password: String, response: SchoolSessionTokens) {
-        if (this.username != null && this.username != username) {
+        if (RustPortalCore.accountChanged(this.username, username)) {
             // A newly signed-in account must never inherit another
             // student's name/avatar from encrypted preferences.
             studentName = null
@@ -134,12 +135,9 @@ class AuthStore(context: Context) {
         // The portal may rotate only access_token. An omitted refresh_token
         // must NOT erase the previously valid one.
         val editor = prefs.edit().putString(KEY_ACCESS_TOKEN, response.accessToken)
-        response.refreshToken?.takeIf { it.isNotBlank() }?.let {
-            editor.putString(KEY_REFRESH_TOKEN, it)
-        }
-        response.idpc?.takeIf { it.isNotBlank() }?.let {
-            editor.putString(KEY_IDPC, it)
-        }
+        val fields = RustPortalCore.rotationFields(response.refreshToken, response.idpc)
+        if (fields and 1 != 0) editor.putString(KEY_REFRESH_TOKEN, response.refreshToken)
+        if (fields and 2 != 0) editor.putString(KEY_IDPC, response.idpc)
         editor.apply()
     }
 

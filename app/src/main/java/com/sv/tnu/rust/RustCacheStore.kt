@@ -119,6 +119,19 @@ class RustCacheStore private constructor(private var handle: Long, private val f
     override suspend fun replaceExams(hocKy: Int, exams: List<ExamEntity>) { mutate(6, hocKy, payload = DatabaseBinaryEncoder.exams(exams)) }
     override suspend fun replaceExamsByType(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>) { mutate(7, hocKy, isGiuaKy, DatabaseBinaryEncoder.exams(exams)) }
     override suspend fun removeLegacySampleExamsIfExact(hocKy: Int): Boolean = mutate(13, hocKy) != 0L
+    override suspend fun commitPortalTimetable(hocKy: Int, fromDate: String, payload: ByteArray) = read {
+        commitPortalTimetableNative(handle, hocKy, fromDate, payload)
+        revision.value += 1
+    }
+
+    override suspend fun commitPortalExams(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>): Boolean = read {
+        val committed = executeNative(handle, 14, hocKy, isGiuaKy, DatabaseBinaryEncoder.exams(exams)) != 0L
+        if (committed) revision.value += 1
+        committed
+    }
+
+    private external fun commitPortalTimetableNative(handle: Long, semester: Int, fromDate: String, payload: ByteArray)
+
     private external fun queryNative(handle: Long, operation: Int, semester: Int, week: Int, date: String): ByteArray
     private external fun executeNative(handle: Long, operation: Int, semester: Int, midterm: Boolean, payload: ByteArray): Long
 
