@@ -6,11 +6,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pages: write
+  id-token: write
 
 # Build validation: compile Rust JNI for every ABI before packaging TKB SV.
+# GitHub Pages rejects a deployment while another deployment is in
+# progress (HTTP 400). Serialize the ENTIRE build + deploy workflow so a new
+# push cannot cancel an active deployment. GitHub retains the latest pending
+# run rather than publishing a stale intermediate APK.
 concurrency:
-  group: tkb-release
+  group: tkb-pages-release
   cancel-in-progress: false
 
 jobs:
@@ -133,11 +139,70 @@ jobs:
             echo "::warning::Previous APK unavailable; checked certificate against existing keystore."
           fi
 
-      - name: Copy APK to release name
-        run: cp app/build/outputs/apk/release/app-release.apk TKB-SV.apk
+      - name: Prepare release files
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk TKB-SV.apk
+          xz -9 -k TKB-SV.apk
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from datetime import datetime, timezone
+          version_code = 100000 + int(os.environ["GITHUB_RUN_NUMBER"])
+          version_name = f"1.0.0.{os.environ['GITHUB_RUN_NUMBER']}"
+          changelog = subprocess.check_output(
+              ["git", "log", "-1", "--pretty=%s"], text=True
+          ).strip()
+          commit = os.environ["GITHUB_SHA"]
+          def sha256(path):
+              h = hashlib.sha256()
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              return h.hexdigest()
+          update = {
+              "versionCode": version_code,
+              "versionName": version_name,
+              "apkUrl": "https://ngocminhvn.github.io/tkb/TKB-SV.apk",
+              "packageUrl": "https://ngocminhvn.github.io/tkb/TKB-SV.apk.xz",
+              "compression": "xz",
+              "sha256": sha256("TKB-SV.apk"),
+              "packageSha256": sha256("TKB-SV.apk.xz"),
+              "sizeBytes": os.path.getsize("TKB-SV.apk"),
+              "packageSizeBytes": os.path.getsize("TKB-SV.apk.xz"),
+              "changelog": changelog,
+              "commit": commit,
+              "publishedAt": datetime.now(timezone.utc).isoformat(),
+          }
+          with open("update.json", "w") as f:
+              json.dump(update, f, indent=2, ensure_ascii=False)
+          print(json.dumps(update, indent=2, ensure_ascii=False))
+          PY
+          touch .nojekyll
+          ls -lh TKB-SV.apk TKB-SV.apk.xz update.json
 
       - name: Upload TKB-SV.apk Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TKB-SV.apk
           path: TKB-SV.apk
+
+      - name: Stage Pages files
+        run: |
+          mkdir -p pages
+          cp TKB-SV.apk TKB-SV.apk.xz update.json .nojekyll pages/
+          ls -lh pages/
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
