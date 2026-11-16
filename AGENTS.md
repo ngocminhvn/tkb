@@ -4,6 +4,7 @@
 
 Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trước khi chỉnh sửa:
 
+0. Luôn lấy code mới nhất xuống máy rồi mới bắt đầu làm việc.
 1. Đọc `README.md`, sau đó tìm module bằng **bản đồ thư mục** và **bảng định tuyến công việc** bên dưới.
 2. Mở các file **thực tế** ở nhánh đang làm. File này chỉ mô tả baseline; **code mới nhất là nguồn sự thật**.
 3. Truy vết đường dữ liệu từ UI → provider/repository → HTTP hoặc Room → Rust/JNI (nếu có), rồi mới sửa.
