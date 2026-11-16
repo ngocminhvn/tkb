@@ -43,16 +43,9 @@ class TnutRepository(
     override val defaultHocKy: Int = 20261
 
     // Use Vietnam calendar day as the cut-off for every portal sync,
-    // irrespective of a different device timezone.
-    private fun todayInVietnam(): String {
-        val clock = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"))
-        return String.format(
-            Locale.US, "%04d-%02d-%02d",
-            clock.get(Calendar.YEAR),
-            clock.get(Calendar.MONTH) + 1,
-            clock.get(Calendar.DAY_OF_MONTH),
-        )
-    }
+    // computed directly by Rust native core.
+    private fun todayInVietnam(): String =
+        com.sv.tnu.rust.RustScheduleCore.todayVietnamYmd()
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     override val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()

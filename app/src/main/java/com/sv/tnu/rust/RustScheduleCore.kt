@@ -26,6 +26,7 @@ object RustScheduleCore {
     private external fun vietnamAutoSyncCutoffNative(nowMillis: Long): Long
     private external fun isVietnamDailyAutoSyncDueNative(nowMillis: Long, lastAttemptMillis: Long): Boolean
     private external fun nextVietnamAutoSyncDelayNative(nowMillis: Long, lastAttemptMillis: Long): Long
+    private external fun todayVietnamYmdNative(nowMillis: Long): String
     private external fun findWeekNumberNative(weeksPayload: String, dateYmd: String): Int
     private external fun resolveSelectedWeekNative(weeksPayload: String, manualWeek: Int, todayYmd: String): Int
     private external fun calculateExtendedDayCountNative(currentCount: Int, lastLoadedDay: String, targetDate: String): Int
@@ -90,6 +91,10 @@ object RustScheduleCore {
 
     fun nextVietnamAutoSyncDelay(nowMillis: Long, lastAttemptMillis: Long): Long =
         nextVietnamAutoSyncDelayNative(nowMillis, lastAttemptMillis)
+
+    /** Compute today's calendar date in Vietnam (UTC+07:00, yyyy-MM-dd). */
+    fun todayVietnamYmd(nowMillis: Long = System.currentTimeMillis()): String =
+        todayVietnamYmdNative(nowMillis)
 
     /**
      * Build the Monday-aligned month grid for `anchor` shifted by `monthOffset` months.

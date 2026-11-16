@@ -19,6 +19,15 @@ pub fn next_delay_millis(now_millis: i64, last_attempt_millis: i64) -> i64 {
     if last_attempt_millis < cutoff { return 0; }
     cutoff.saturating_add(DAY_MS).saturating_sub(now_millis).max(0)
 }
+
+/// Compute today's calendar date in Vietnam (UTC+07:00, ISO format YYYY-MM-DD).
+pub fn today_vietnam_ymd(now_millis: i64) -> String {
+    let local_ms = now_millis.saturating_add(VIETNAM_OFFSET_MS);
+    let epoch_days = local_ms.div_euclid(DAY_MS);
+    chrono::NaiveDate::from_num_days_from_ce_opt((epoch_days + 719_163) as i32)
+        .map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "1970-01-01".to_string())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -41,5 +50,13 @@ mod tests {
     fn previous_day_attempt_is_not_todays_attempt() {
         assert!(is_due(0, -DAY_MS));
         assert!(!is_due(0, 0));
+    }
+
+    #[test]
+    fn formats_vietnam_calendar_date() {
+        // 0 ms UTC is 1970-01-01 07:00 in Vietnam
+        assert_eq!(today_vietnam_ymd(0), "1970-01-01");
+        // 1700000000000 ms UTC = 2023-11-14 22:13:20 UTC = 2023-11-15 05:13:20 in Vietnam
+        assert_eq!(today_vietnam_ymd(1_700_000_000_000), "2023-11-15");
     }
 }

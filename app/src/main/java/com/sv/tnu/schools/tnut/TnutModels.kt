@@ -2,10 +2,6 @@ package com.sv.tnu.schools.tnut
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 
 @Serializable
 data class LoginResponse(
@@ -38,45 +34,6 @@ data class SemesterListData(
     @SerialName("hoc_ky") val hocKy: Int = 0,
     @SerialName("hoc_ky_theo_ngay_hien_tai") val hocKyHienTai: Int = 0,
     @SerialName("ds_hoc_ky") val dsHocKy: List<Semester> = emptyList(),
-)
-
-@Serializable
-data class Period(
-    val tiet: Int,
-    @SerialName("gio_bat_dau") val gioBatDau: String,
-    @SerialName("gio_ket_thuc") val gioKetThuc: String,
-)
-
-@Serializable
-data class Lesson(
-    @SerialName("id_tkb") val idTkb: String,
-    @SerialName("thu_kieu_so") val thuKieuSo: Int,
-    @SerialName("tiet_bat_dau") val tietBatDau: Int,
-    @SerialName("so_tiet") val soTiet: Int,
-    @SerialName("ma_mon") val maMon: String = "",
-    @SerialName("ten_mon") val tenMon: String = "",
-    @SerialName("so_tin_chi") val soTinChi: String = "",
-    @SerialName("ma_phong") val maPhong: String = "",
-    @SerialName("ten_giang_vien") val tenGiangVien: String = "",
-    @SerialName("ten_lop") val tenLop: String = "",
-    @SerialName("ma_nhom") val maNhom: String = "",
-    @SerialName("ngay_hoc") val ngayHoc: String = "",
-)
-
-@Serializable
-data class Week(
-    @SerialName("tuan_hoc_ky") val tuanHocKy: Int,
-    @SerialName("thong_tin_tuan") val thongTinTuan: String = "",
-    @SerialName("ngay_bat_dau") val ngayBatDau: String = "",
-    @SerialName("ngay_ket_thuc") val ngayKetThuc: String = "",
-    @SerialName("ds_thoi_khoa_bieu") val dsThoiKhoaBieu: List<Lesson> = emptyList(),
-)
-
-@Serializable
-data class TkbData(
-    @SerialName("total_items") val totalItems: Int = 0,
-    @SerialName("ds_tiet_trong_ngay") val dsTietTrongNgay: List<Period> = emptyList(),
-    @SerialName("ds_tuan_tkb") val dsTuanTkb: List<Week> = emptyList(),
 )
 
 @Serializable
@@ -128,62 +85,6 @@ data class AvatarResponse(
     val code: Int = 0,
     val data: AvatarData? = null,
     val message: String? = null,
-)
-
-@Serializable
-data class ExamItemApi(
-    @SerialName("so_thu_tu") val soThuTu: JsonElement? = null,
-    @SerialName("ma_mon") val maMon: String? = null,
-    @SerialName("ten_mon") val tenMon: String? = null,
-    @SerialName("ten_mon_eg") val tenMonEg: String? = null,
-    @SerialName("ngay_thi") val ngayThi: String? = null,
-    @SerialName("gio_bat_dau") val gioBatDau: String? = null,
-    @SerialName("so_phut") val soPhut: JsonElement? = null,
-    @SerialName("tiet_bat_dau") val tietBatDau: JsonElement? = null,
-    @SerialName("so_tiet") val soTiet: JsonElement? = null,
-    @SerialName("ma_phong") val maPhong: String? = null,
-    @SerialName("dia_diem_thi") val diaDiemThi: String? = null,
-    @SerialName("hinh_thuc_thi") val hinhThucThi: String? = null,
-    @SerialName("so_bao_danh") val soBaoDanh: String? = null,
-    @SerialName("dot_thi") val dotThi: String? = null,
-    @SerialName("ghi_chu_sv") val ghiChuSv: String? = null,
-    @SerialName("ghi_chu_htt") val ghiChuHtt: String? = null,
-    @SerialName("to_thi") val toThi: String? = null,
-    @SerialName("nhom_thi") val nhomThi: String? = null,
-    @SerialName("ghep_thi") val ghepThi: String? = null,
-) {
-    val soPhutInt: Int
-        get() = when (val el = soPhut) {
-            is JsonPrimitive -> el.intOrNull ?: el.contentOrNull?.toIntOrNull() ?: 0
-            else -> 0
-        }
-
-    val soThuTuInt: Int
-        get() = when (val el = soThuTu) {
-            is JsonPrimitive -> el.intOrNull ?: el.contentOrNull?.toIntOrNull() ?: 0
-            else -> 0
-        }
-}
-
-@Serializable
-data class ExamDataApi(
-    @SerialName("total_items") val totalItems: Int? = null,
-    @SerialName("total_pages") val totalPages: Int? = null,
-    @SerialName("is_DHMO") val isDhmo: Boolean? = null,
-    @SerialName("ds_lich_thi") val dsLichThi: List<ExamItemApi>? = emptyList(),
-    @SerialName("ds_lich_hoan_thi") val dsLichHoanThi: List<ExamItemApi>? = emptyList(),
-    @SerialName("title_lich_hoan_thi") val titleLichHoanThi: String? = null,
-    @SerialName("thong_bao_no_hoc_phi") val thongBaoNoHocPhi: String? = null,
-    @SerialName("is_show_in_sv_du_thi") val isShowInSvDuThi: Boolean? = null,
-    @SerialName("thong_bao_ghi_chu") val thongBaoGhiChu: String? = null,
-)
-
-@Serializable
-data class ExamResponse(
-    val code: Int = 0,
-    val data: ExamDataApi? = null,
-    val message: String? = null,
-    val result: Boolean = false,
 )
 
 /**

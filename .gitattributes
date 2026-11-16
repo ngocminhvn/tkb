@@ -1,0 +1,3 @@
+# GitHub Linguist language overrides
+# Vendored visual shaders and design effects
+app/src/main/java/com/sv/tnu/ui/glass/LiquidGlass.kt linguist-vendored

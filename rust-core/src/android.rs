@@ -365,6 +365,16 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_nextVietnamAutoSync
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_todayVietnamYmdNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now_millis: jni::sys::jlong,
+) -> jstring {
+    let ymd = crate::autosync::today_vietnam_ymd(now_millis);
+    into_java(&mut env, ymd)
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_findWeekNumberNative(
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
