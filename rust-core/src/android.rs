@@ -997,3 +997,17 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_syncFailureDetailNa
     let warning = from_java(&mut env, &warning);
     into_java(&mut env, crate::timeline::sync_failure_detail(&issue, &warning, manual != 0))
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldRecoverEmptyTimetableNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    has_cache: jboolean,
+    last_attempt: jlong,
+    last_success: jlong,
+    already_attempted: jboolean,
+) -> jboolean {
+    u8::from(crate::autosync::should_recover_empty_timetable(
+        has_cache != 0, last_attempt, last_success, already_attempted != 0,
+    ))
+}

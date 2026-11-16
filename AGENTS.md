@@ -136,6 +136,11 @@ Khi đồng bộ lịch học, repository chuyển bytes TNUT thẳng vào `Rust
 Rust kiểm tra payload rồi thực hiện transaction SQLite và chỉ báo thành công khi
 commit xong. Các trang lịch thi ở dạng TKB1E đến khi Rust kiểm tra cả lô, loại trùng và commit theo từng loại thi. Lỗi giữa chừng hoặc lịch thi rỗng giữ cache cũ. Timeline dùng `TKB1Y` để nhận chỉ số nguồn, ngày và giờ hiển thị theo một lô. Rust quyết định bước chuyển tuần, điều kiện tự đồng bộ và nội dung kết quả đồng bộ cho ViewModel.
 
+Khi khởi động, đợi đọc cache trước khi quyết định tự đồng bộ. Cache trống sau
+một lần thử thất bại được phép tự thử lại một lần trong ViewModel. Trong lúc
+chờ, giữ lịch nhìn thấy được hoặc hiện chỉ báo tải khi chưa có lịch. Chỉ dọn
+fixture lịch thi cũ khi chưa có dấu hiệu cache đã được đồng bộ từ portal.
+
 ## 4. Kiểm tra trước khi commit và push
 
 Từ root repository:

@@ -16,6 +16,7 @@
 - Xem môn, tiết/giờ, phòng, giảng viên, lớp/nhóm và ghi chú riêng cho buổi học.
 - Đồng bộ lịch học và lịch thi; lịch học chỉ lưu những buổi từ hôm nay trở đi, giữ tuần hiện tại và các tuần tương lai. Xem lịch thi giữa kỳ/cuối kỳ, phân trang dữ liệu portal.
 - Lưu lịch học, lịch thi, ghi chú trên thiết bị, sử dụng lại khi không có mạng.
+- Khi mở app, hiển thị lịch đã lưu trong lúc đồng bộ. Nếu cache trống và lần tự đồng bộ trước chưa thành công, thử lại một lần trong phiên mở app.
 - Nhắc lịch hôm nay/ngày mai theo thiết lập người dùng; widget thời khóa biểu.
 - Chế độ giao diện sáng/tối và kiểm tra/cài đặt bản cập nhật ứng dụng.
 

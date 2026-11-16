@@ -220,6 +220,14 @@ object RustScheduleCore {
     private external fun canStartExamSyncNative(showExams: Boolean, force: Boolean, fetching: Boolean): Boolean
     private external fun syncFailureDetailNative(issue: String, warning: String, manual: Boolean): String
 
+    private external fun shouldRecoverEmptyTimetableNative(
+        hasCache: Boolean, lastAttempt: Long, lastSuccess: Long, alreadyAttempted: Boolean,
+    ): Boolean
+
+    fun shouldRecoverEmptyTimetable(
+        hasCache: Boolean, lastAttempt: Long, lastSuccess: Long, alreadyAttempted: Boolean,
+    ): Boolean = shouldRecoverEmptyTimetableNative(hasCache, lastAttempt, lastSuccess, alreadyAttempted)
+
     fun shouldAutoRefresh(now: Long, lastAttempt: Long): Boolean =
         shouldAutoRefreshNative(now, lastAttempt)
 

@@ -150,7 +150,10 @@ class TnutRepository(
      * legacy fixture. Never replace genuine saved lessons, exams or notes.
      */
     override suspend fun prepareOfflineCache(hocKy: Int) = withContext(Dispatchers.IO) {
-        if (dao.removeLegacySampleExamsIfExact(hocKy)) {
+        // Old demo rows share their identity with genuine portal rows.
+        if (authStore.lastSyncTime == 0L && !authStore.hasCommittedFinalExams(hocKy) &&
+            dao.removeLegacySampleExamsIfExact(hocKy)
+        ) {
             TimetableWidgetProvider.updateAll(context)
         }
     }
@@ -216,6 +219,7 @@ class TnutRepository(
             try {
                 val pages = loadPortalExamPages(hocKy, isGiuaKy)
                 if (dao.commitPortalExamPages(hocKy, isGiuaKy, pages)) {
+                    if (!isGiuaKy) authStore.markFinalExamsCommitted(hocKy)
                     updated = true
                 } else {
                     Log.i("TnutRepository", "Portal returned zero ${if (isGiuaKy) "midterm" else "final"} exams for semester $hocKy")

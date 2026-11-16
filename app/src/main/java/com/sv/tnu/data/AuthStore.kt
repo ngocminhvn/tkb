@@ -56,6 +56,12 @@ class AuthStore(context: Context) {
         get() = prefs.getLong(KEY_LAST_AUTO_SYNC_ATTEMPT, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_AUTO_SYNC_ATTEMPT, value).apply()
 
+    fun hasCommittedFinalExams(semester: Int): Boolean =
+        prefs.getBoolean("portal_final_exams_$semester", false)
+
+    fun markFinalExamsCommitted(semester: Int) =
+        prefs.edit().putBoolean("portal_final_exams_$semester", true).apply()
+
     var avatarPath: String?
         get() = prefs.getString(KEY_AVATAR_PATH, null)
         set(value) = prefs.edit().putString(KEY_AVATAR_PATH, value).apply()

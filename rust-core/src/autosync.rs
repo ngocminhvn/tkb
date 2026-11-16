@@ -17,6 +17,16 @@ pub fn should_auto_refresh(now_millis: i64, last_attempt_millis: i64) -> bool {
     last_attempt_millis == 0 || is_due(now_millis, last_attempt_millis)
 }
 
+/// One startup recovery is allowed when the last attempt did not populate an empty cache.
+pub fn should_recover_empty_timetable(
+    has_cached_timetable: bool,
+    last_attempt: i64,
+    last_success: i64,
+    already_attempted: bool,
+) -> bool {
+    !has_cached_timetable && !already_attempted && last_attempt > last_success
+}
+
 pub fn next_delay_millis(now_millis: i64, last_attempt_millis: i64) -> i64 {
     let cutoff = cutoff_millis(now_millis);
     if now_millis < cutoff { return cutoff.saturating_sub(now_millis); }
@@ -35,6 +45,14 @@ pub fn today_vietnam_ymd(now_millis: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recovers_only_an_empty_cache_after_an_unconfirmed_attempt() {
+        assert!(should_recover_empty_timetable(false, 20, 10, false));
+        assert!(!should_recover_empty_timetable(true, 20, 10, false));
+        assert!(!should_recover_empty_timetable(false, 20, 20, false));
+        assert!(!should_recover_empty_timetable(false, 20, 10, true));
+    }
+
     #[test]
     fn six_thirty_in_vietnam_exactly() {
         // 1970-01-01 00:00 UTC is 07:00 in Vietnam.
