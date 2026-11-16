@@ -257,7 +257,7 @@ pub fn normalize_username(input: &str) -> String {
 }
 
 pub const EXAM_PAGE_SIZE: usize = 100;
-const MAX_EXAM_PAGES: usize = 50;
+pub(crate) const MAX_EXAM_PAGES: usize = 50;
 
 pub fn timetable_request(semester: i32) -> Vec<u8> {
     serde_json::json!({"filter": {"hoc_ky": semester}}).to_string().into_bytes()

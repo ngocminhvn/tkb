@@ -187,7 +187,7 @@ class TimetableViewModel(
     // been skipped; avoids flashing "no timetable" before the first sync begins.
     private val _awaitingSync = MutableStateFlow(
         authStore.lastAutoSyncAttempt.let { last ->
-            last == 0L || isVietnamDailyAutoSyncDue(System.currentTimeMillis(), last)
+            RustScheduleCore.shouldAutoRefresh(System.currentTimeMillis(), last)
         },
     )
     val awaitingSync: StateFlow<Boolean> = _awaitingSync.asStateFlow()
@@ -345,8 +345,7 @@ class TimetableViewModel(
     }
 
     fun fetchExamsOnly(force: Boolean = false) {
-        if (!authStore.showExamsOnHome && !force) return
-        if (_isFetchingExams.value) return
+        if (!RustScheduleCore.canStartExamSync(authStore.showExamsOnHome, force, _isFetchingExams.value)) return
         _isFetchingExams.value = true
         _examSyncError.value = null
         viewModelScope.launch {
@@ -389,14 +388,8 @@ class TimetableViewModel(
     }
 
     fun moveWeek(delta: Int) {
-        val list = weeks.value
-        if (list.isEmpty()) return
         val current = selectedWeek.value ?: return
-        val currentIndex = list.indexOfFirst { it.tuanHocKy == current }
-        if (currentIndex < 0) return
-        // Use actual semester week order (handles gaps and term boundaries).
-        _selectedWeek.value =
-            list[(currentIndex + delta).coerceIn(0, list.lastIndex)].tuanHocKy
+        RustScheduleCore.moveWeek(weeks.value, current, delta)?.let { _selectedWeek.value = it }
     }
 
     fun refresh(showDialog: Boolean = true) {
@@ -437,29 +430,26 @@ class TimetableViewModel(
                         } else {
                             describeTimetableSyncError(cause)
                         }
-                        val warning = repository.lastSyncWarning.value
-                        val detail = if (warning.isNullOrBlank()) issue else "$issue\nLịch thi: $warning"
-                        if (showDialog) {
-                            _error.value = "$detail Lịch đã lưu vẫn được giữ."
-                            _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
-                        } else {
-                            Log.w("TimetableViewModel", "Automatic timetable sync failed: $detail")
-                        }
+                        reportSyncFailure(issue, repository.lastSyncWarning.value, showDialog)
                     }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val detail = describeTimetableSyncError(e)
-                if (showDialog) {
-                    _error.value = "$detail Lịch đã lưu vẫn được giữ."
-                    _syncStatus.value = TimetableSyncStatus.Failure(_error.value!!)
-                } else {
-                    Log.w("TimetableViewModel", "Automatic timetable sync failed: $detail", e)
-                }
+                reportSyncFailure(describeTimetableSyncError(e), null, showDialog, e)
             } finally {
                 _refreshing.value = false
                 _awaitingSync.value = false
             }
+        }
+    }
+
+    private fun reportSyncFailure(issue: String, warning: String?, showDialog: Boolean, cause: Throwable? = null) {
+        val detail = RustScheduleCore.syncFailureDetail(issue, warning, showDialog)
+        if (showDialog) {
+            _error.value = detail
+            _syncStatus.value = TimetableSyncStatus.Failure(detail)
+        } else {
+            Log.w("TimetableViewModel", "Automatic timetable sync failed: $detail", cause)
         }
     }
 
@@ -469,7 +459,7 @@ class TimetableViewModel(
         val lastAttempt = authStore.lastAutoSyncAttempt
         // First login syncs immediately; subsequent automatic syncs run once
         // per Vietnam day after 06:30. No extra backfill request is needed.
-        if (lastAttempt == 0L || isVietnamDailyAutoSyncDue(now, lastAttempt)) {
+        if (RustScheduleCore.shouldAutoRefresh(now, lastAttempt)) {
             authStore.lastAutoSyncAttempt = now
             refresh(showDialog = false)
         } else {

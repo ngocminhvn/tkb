@@ -150,6 +150,38 @@ pub(crate) fn execute(
     })
 }
 
+pub(crate) fn commit_exam_pages(
+    handle: i64,
+    semester: i32,
+    midterm: bool,
+    pages: impl IntoIterator<Item = Result<Vec<u8>>>,
+) -> Result<bool> {
+    let mut seen = std::collections::HashSet::new();
+    let mut exams = Vec::new();
+    for page in pages {
+        for row in super::batch::read_exams(&page?)? {
+            if row.hoc_ky != semester || row.is_giua_ky != midterm {
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+            let key = (row.is_hoan_thi, row.ma_mon.clone(), row.ngay_thi.clone(),
+                row.gio_bat_dau.clone(), row.so_bao_danh.clone(), row.ma_phong.clone());
+            if seen.insert(key) {
+                if exams.len() == 100_000 {
+                    return Err(rusqlite::Error::InvalidQuery);
+                }
+                exams.push(row);
+            }
+        }
+    }
+    with_database(handle, |db| {
+        if exams.is_empty() {
+            return Ok(false);
+        }
+        db.replace_exams_by_type(semester, midterm, &exams)?;
+        Ok(true)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

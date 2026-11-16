@@ -7,8 +7,8 @@ The Rust core provides the platform-independent logic behind the existing Androi
 - Date normalization, week and month navigation, local dates using the device's UTC offset, Vietnam auto-sync timing, timetable selection and gestures.
 - Weekly lesson selection, batched timeline dates, time labels and stable ordering, day-row offsets and timeline prefetch. The Kotlin adapter reuses the packed week payload.
 - Lesson time labels, exam end times, widget sizing and end-of-day decisions, and sorted reminder text.
-- TNUT login and refresh response parsing, avatar profile extraction, timetable and exam request bodies, logical unauthorized response handling, refresh decisions, token rotation and account-change policy.
-- Timetable and exam validation, pagination and cross-page deduplication and portal-specific commits that preserve valid cached data when a source fails or returns an empty exam list.
+- TNUT login and refresh response parsing, avatar profile extraction, timetable and exam request bodies, logical unauthorized response handling, request classification, session renewal decisions, token rotation and account-change policy.
+- Timetable and exam validation, pagination and cross-page deduplication and portal-specific commits that preserve valid cached data when a source fails or returns an empty exam list. Exam pages remain encoded until the source is ready to commit.
 - GitHub Pages release manifest validation, SHA-256 verification and streaming XZ decompression of downloaded APK packages in app-private storage.
 
 `RustPortalCore` passes original HTTP response bytes to Rust through JNI. It decodes the returned `TKB1` records into Kotlin records, session values, avatar details and release metadata. The timetable and exam records retain the existing layouts. The updater supports compressed and uncompressed packages. Rust verifies the downloaded bytes before writing the final APK.

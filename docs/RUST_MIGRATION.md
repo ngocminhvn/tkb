@@ -3,10 +3,13 @@
 ## Portal commits, session policy and timeline batches
 
 The native DAO validates and commits timetable response bytes in one JNI call.
-The exam commit path preserves prior results when a portal batch is empty.
-Rust selects the refresh outcome and which token fields to update. The Android
+The exam commit path consumes all encoded pages for one exam type, retains the
+first duplicate, and preserves the existing cache on empty or invalid batches.
+Rust classifies portal requests, chooses the next renewal step, and selects
+the token fields to update. The Android
 transport, refresh lock and encrypted preferences retain their roles.
 `TKB1Y` batches timeline dates, display times and source indices for Compose.
+Rust also handles week navigation, sync eligibility and sync error details.
 
 ## Current stage C — full native DAO and production handoff
 

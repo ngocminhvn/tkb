@@ -923,3 +923,77 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_renewalActionNative(
     let access = from_java(&mut env, &access);
     crate::auth::renewal_action(http_status, io_failure != 0, &access) as jint
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_renewalStartNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    current: JString<'_>,
+    rejected: JString<'_>,
+    refresh: JString<'_>,
+) -> jint {
+    let current = from_java(&mut env, &current);
+    let rejected = from_java(&mut env, &rejected);
+    let refresh = from_java(&mut env, &refresh);
+    crate::auth::renewal_start(&current, &rejected, &refresh) as jint
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_requestKindNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    scheme: JString<'_>,
+    host: JString<'_>,
+    path: JString<'_>,
+) -> jint {
+    let scheme = from_java(&mut env, &scheme);
+    let host = from_java(&mut env, &host);
+    let path = from_java(&mut env, &path);
+    crate::auth::request_kind(&scheme, &host, &path) as jint
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldAutoRefreshNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now: jlong,
+    last_attempt: jlong,
+) -> jboolean {
+    u8::from(crate::autosync::should_auto_refresh(now, last_attempt))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_moveWeekNative(
+    env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    weeks: JIntArray<'_>,
+    current: jint,
+    delta: jint,
+) -> jint {
+    let Ok(weeks) = read_ints(&env, weeks) else { return -1; };
+    crate::timeline::move_week_index(&weeks, current, delta).unwrap_or(-1)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_canStartExamSyncNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    show_exams: jboolean,
+    force: jboolean,
+    fetching: jboolean,
+) -> jboolean {
+    u8::from(crate::timeline::can_start_exam_sync(show_exams != 0, force != 0, fetching != 0))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_syncFailureDetailNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    issue: JString<'_>,
+    warning: JString<'_>,
+    manual: jboolean,
+) -> jstring {
+    let issue = from_java(&mut env, &issue);
+    let warning = from_java(&mut env, &warning);
+    into_java(&mut env, crate::timeline::sync_failure_detail(&issue, &warning, manual != 0))
+}

@@ -183,10 +183,10 @@ class TnutRepository(
     /**
      * Read every published exam page for one semester/type. The portal expects
      * filter.is_giua_ky AND additional.paging/ordering even for default values.
-     * A failed page invalidates this batch; caller then keeps the Room cache.
+     * A failed page invalidates this batch; caller then keeps the SQLite cache.
      */
-    private suspend fun loadPortalExams(hocKy: Int, isGiuaKy: Boolean): List<ExamEntity> {
-        val all = mutableListOf<ExamEntity>()
+    private suspend fun loadPortalExamPages(hocKy: Int, isGiuaKy: Boolean): List<ByteArray> {
+        val pages = mutableListOf<ByteArray>()
         var page = 1
         while (true) {
             val mapped = withContext(Dispatchers.IO) {
@@ -194,14 +194,14 @@ class TnutRepository(
                     RustPortalCore.examRequest(hocKy, isGiuaKy, page).toRequestBody(jsonMediaType)
                 ).use { it.bytes() }
                 // Rust rejects invalid portal pages before any SQLite replacement.
-                RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
+                RustPortalCore.encodeExamPage(hocKy, isGiuaKy, page, raw)
             }
-            all.addAll(mapped.rows)
+            pages.add(mapped.bytes)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
-            page = RustPortalCore.nextExamPage(page, mapped) ?: break
+            page = mapped.nextPage ?: break
         }
-        return RustPortalCore.dedupeExams(all)
+        return pages
     }
 
     /**
@@ -214,8 +214,8 @@ class TnutRepository(
         val failures = mutableListOf<String>()
         for (isGiuaKy in listOf(false, true)) {
             try {
-                val exams = loadPortalExams(hocKy, isGiuaKy)
-                if (dao.commitPortalExams(hocKy, isGiuaKy, exams)) {
+                val pages = loadPortalExamPages(hocKy, isGiuaKy)
+                if (dao.commitPortalExamPages(hocKy, isGiuaKy, pages)) {
                     updated = true
                 } else {
                     Log.i("TnutRepository", "Portal returned zero ${if (isGiuaKy) "midterm" else "final"} exams for semester $hocKy")

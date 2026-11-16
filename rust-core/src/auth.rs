@@ -37,7 +37,7 @@ pub fn should_fallback_to_login(http_status: u16) -> bool {
     (400..500).contains(&http_status)
 }
 
-fn has_session_value(value: &str) -> bool {
+pub(crate) fn has_session_value(value: &str) -> bool {
     // Kotlin Char.isWhitespace uses Java isWhitespace or isSpaceChar.
     value.chars().any(|c| {
         !((c.is_whitespace() && c != '\u{85}') || ('\u{1c}'..='\u{1f}').contains(&c))
@@ -67,6 +67,42 @@ pub fn renewal_action(http_status: i32, io_failure: bool, access: &str) -> Renew
         RenewalAction::UseRefresh
     } else {
         RenewalAction::FallbackLogin
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[repr(i32)]
+pub enum RenewalStart {
+    ReuseCurrent,
+    Refresh,
+    Login,
+}
+
+pub fn renewal_start(current: &str, rejected: &str, refresh: &str) -> RenewalStart {
+    if has_session_value(current) && can_reuse_rotated_token(current, rejected) {
+        RenewalStart::ReuseCurrent
+    } else if has_session_value(refresh) {
+        RenewalStart::Refresh
+    } else {
+        RenewalStart::Login
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[repr(i32)]
+pub enum RequestKind {
+    OtherOrigin,
+    Login,
+    Session,
+}
+
+pub fn request_kind(scheme: &str, hostname: &str, path: &str) -> RequestKind {
+    if !is_official_portal_origin(scheme, hostname) {
+        RequestKind::OtherOrigin
+    } else if path.ends_with("auth/login") {
+        RequestKind::Login
+    } else {
+        RequestKind::Session
     }
 }
 

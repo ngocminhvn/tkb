@@ -13,6 +13,10 @@ pub fn is_due(now_millis: i64, last_attempt_millis: i64) -> bool {
     let cutoff = cutoff_millis(now_millis);
     now_millis >= cutoff && last_attempt_millis < cutoff
 }
+pub fn should_auto_refresh(now_millis: i64, last_attempt_millis: i64) -> bool {
+    last_attempt_millis == 0 || is_due(now_millis, last_attempt_millis)
+}
+
 pub fn next_delay_millis(now_millis: i64, last_attempt_millis: i64) -> i64 {
     let cutoff = cutoff_millis(now_millis);
     if now_millis < cutoff { return cutoff.saturating_sub(now_millis); }

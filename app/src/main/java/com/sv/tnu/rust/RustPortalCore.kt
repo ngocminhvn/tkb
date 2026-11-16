@@ -90,6 +90,14 @@ object RustPortalCore {
     fun nextExamPage(page: Int, mapped: PortalBinaryDecoder.ExamPageRows): Int? =
         nextExamPageNative(page, mapped.totalPages ?: -1, mapped.rowCount).takeIf { it > 0 }
 
+    data class EncodedExamPage(val bytes: ByteArray, val nextPage: Int?)
+
+    fun encodeExamPage(semester: Int, midterm: Boolean, page: Int, payload: ByteArray): EncodedExamPage {
+        val bytes = mapExamBytesNative(semester, midterm, payload)
+        val (totalPages, rowCount) = PortalBinaryDecoder.examPageHeader(bytes)
+        return EncodedExamPage(bytes, nextExamPageNative(page, totalPages, rowCount).takeIf { it > 0 })
+    }
+
     fun unpackUpdate(packagePath: String, destinationPath: String, sha256: String, compressed: Boolean): Boolean =
         unpackUpdateNative(packagePath, destinationPath, sha256, compressed)
 
@@ -138,6 +146,18 @@ object RustPortalCore {
 
     fun renewalAction(httpStatus: Int, ioFailure: Boolean, access: String?): RenewalAction =
         RenewalAction.entries[renewalActionNative(httpStatus, ioFailure, access.orEmpty())]
+
+    private external fun renewalStartNative(current: String, rejected: String, refresh: String): Int
+    private external fun requestKindNative(scheme: String, host: String, path: String): Int
+
+    enum class RenewalStart { REUSE_CURRENT, REFRESH, LOGIN }
+    enum class RequestKind { OTHER_ORIGIN, LOGIN, SESSION }
+
+    fun renewalStart(current: String?, rejected: String?, refresh: String?): RenewalStart =
+        RenewalStart.entries[renewalStartNative(current.orEmpty(), rejected.orEmpty(), refresh.orEmpty())]
+
+    fun requestKind(scheme: String, host: String, path: String): RequestKind =
+        RequestKind.entries[requestKindNative(scheme, host, path)]
 
     fun shouldFallbackToLogin(httpStatus: Int): Boolean =
         shouldFallbackToLoginNative(httpStatus)
@@ -303,6 +323,14 @@ object PortalBinaryDecoder {
         }
         reader.finish()
         return TimetableRows(periods, weeks, lessons)
+    }
+
+    fun examPageHeader(bytes: ByteArray): Pair<Int, Int> {
+        val reader = Reader(bytes, 'E'.code.toByte())
+        val pages = reader.int()
+        val rowCount = reader.count()
+        require(reader.count() == rowCount) { "Rust exam page row count mismatch" }
+        return pages to rowCount
     }
 
     fun decodeExams(bytes: ByteArray): ExamPageRows {

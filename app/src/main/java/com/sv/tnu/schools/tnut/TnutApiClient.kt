@@ -57,15 +57,14 @@ object TnutApiClient {
      */
     private fun renewSession(authStore: AuthStore, rejectedToken: String?): String? =
         synchronized(refreshLock) {
-            val current = authStore.accessToken?.takeIf { it.isNotBlank() }
-            if (RustPortalCore.canReuseRotatedToken(current, rejectedToken)) {
-                return@synchronized current
-            }
+            val current = authStore.accessToken
+            val refreshToken = authStore.refreshToken
+            val start = RustPortalCore.renewalStart(current, rejectedToken, refreshToken)
+            if (start == RustPortalCore.RenewalStart.REUSE_CURRENT) return@synchronized current
 
-            val refreshToken = authStore.refreshToken?.takeIf { it.isNotBlank() }
             var httpStatus = 0
             var ioFailure = false
-            val refreshed = if (refreshToken != null) {
+            val refreshed = if (start == RustPortalCore.RenewalStart.REFRESH && refreshToken != null) {
                 try {
                     runBlocking { plainApi.refreshSession(refreshToken) }
                 } catch (e: HttpException) {
@@ -108,12 +107,9 @@ object TnutApiClient {
         // logical HTTP-200/code-401 responses must be retried explicitly.
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
-            // This client is only for the official TNUT portal. Never attach
-            // saved credentials to requests redirected to another hostname.
-            if (!RustPortalCore.isOfficialPortalOrigin(original.url.scheme, original.url.host)) {
-                return@Interceptor chain.proceed(original)
-            }
-            val isLogin = original.url.encodedPath.endsWith("auth/login")
+            val kind = RustPortalCore.requestKind(original.url.scheme, original.url.host, original.url.encodedPath)
+            if (kind == RustPortalCore.RequestKind.OTHER_ORIGIN) return@Interceptor chain.proceed(original)
+            val isLogin = kind == RustPortalCore.RequestKind.LOGIN
             val oldToken = authStore.accessToken?.takeIf { it.isNotBlank() }
             val request = original.newBuilder().apply {
                 if (!isLogin) {
@@ -130,7 +126,7 @@ object TnutApiClient {
             // Close the first body before calling proceed again. Application
             // interceptors may retry; network interceptors may not.
             val newToken = renewSession(authStore, oldToken)
-            if (newToken != null && newToken != oldToken) {
+            if (newToken != null && RustPortalCore.canReuseRotatedToken(newToken, oldToken)) {
                 response.close()
                 val retry = request.newBuilder()
                     .header("Authorization", "Bearer $newToken")
@@ -162,7 +158,7 @@ object TnutApiClient {
                 val rejectedToken = RustPortalCore.extractBearerToken(response.request.header("Authorization"))
                 val newToken = renewSession(authStore, rejectedToken)
                     ?: return null
-                if (newToken == rejectedToken) return null
+                if (!RustPortalCore.canReuseRotatedToken(newToken, rejectedToken)) return null
 
                 return response.request.newBuilder()
                     .header("Authorization", "Bearer $newToken")

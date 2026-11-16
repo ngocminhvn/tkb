@@ -144,6 +144,8 @@ interface TkbDao {
     /** Empty portal results leave the previous exam cache intact. */
     suspend fun commitPortalExams(hocKy: Int, isGiuaKy: Boolean, exams: List<ExamEntity>): Boolean
 
+    suspend fun commitPortalExamPages(hocKy: Int, isGiuaKy: Boolean, pages: List<ByteArray>): Boolean
+
     /** Remove only the complete, exact fixture inserted by older APKs. */
     suspend fun removeLegacySampleExamsIfExact(hocKy: Int): Boolean
 }

@@ -130,6 +130,16 @@ class RustCacheStore private constructor(private var handle: Long, private val f
         committed
     }
 
+    override suspend fun commitPortalExamPages(hocKy: Int, isGiuaKy: Boolean, pages: List<ByteArray>): Boolean = read {
+        val committed = commitPortalExamPagesNative(handle, hocKy, isGiuaKy, pages.toTypedArray())
+        if (committed) revision.value += 1
+        committed
+    }
+
+    private external fun commitPortalExamPagesNative(
+        handle: Long, semester: Int, midterm: Boolean, pages: Array<ByteArray>,
+    ): Boolean
+
     private external fun commitPortalTimetableNative(handle: Long, semester: Int, fromDate: String, payload: ByteArray)
 
     private external fun queryNative(handle: Long, operation: Int, semester: Int, week: Int, date: String): ByteArray

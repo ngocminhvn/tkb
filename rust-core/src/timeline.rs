@@ -287,6 +287,28 @@ pub(crate) fn timeline_batch(
     Ok(out)
 }
 
+pub fn move_week_index(weeks: &[i32], current: i32, delta: i32) -> Option<i32> {
+    let index = weeks.iter().position(|&week| week == current)?;
+    let target = (index as i64 + i64::from(delta)).clamp(0, (weeks.len() - 1) as i64);
+    Some(target as i32)
+}
+
+pub fn can_start_exam_sync(show_exams: bool, force: bool, already_fetching: bool) -> bool {
+    (show_exams || force) && !already_fetching
+}
+
+pub fn sync_failure_detail(issue: &str, exam_warning: &str, manual: bool) -> String {
+    let mut detail = issue.to_owned();
+    if crate::auth::has_session_value(exam_warning) {
+        detail.push_str("\nLịch thi: ");
+        detail.push_str(exam_warning);
+    }
+    if manual {
+        detail.push_str(" Lịch đã lưu vẫn được giữ.");
+    }
+    detail
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

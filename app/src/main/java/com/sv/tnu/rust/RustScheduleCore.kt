@@ -215,6 +215,23 @@ object RustScheduleCore {
         return PortalBinaryDecoder.decodeTimeline(wire)
     }
 
+    private external fun shouldAutoRefreshNative(now: Long, lastAttempt: Long): Boolean
+    private external fun moveWeekNative(weeks: IntArray, current: Int, delta: Int): Int
+    private external fun canStartExamSyncNative(showExams: Boolean, force: Boolean, fetching: Boolean): Boolean
+    private external fun syncFailureDetailNative(issue: String, warning: String, manual: Boolean): String
+
+    fun shouldAutoRefresh(now: Long, lastAttempt: Long): Boolean =
+        shouldAutoRefreshNative(now, lastAttempt)
+
+    fun moveWeek(weeks: List<WeekEntity>, current: Int, delta: Int): Int? =
+        weeks.getOrNull(moveWeekNative(IntArray(weeks.size) { weeks[it].tuanHocKy }, current, delta))?.tuanHocKy
+
+    fun canStartExamSync(showExams: Boolean, force: Boolean, fetching: Boolean): Boolean =
+        canStartExamSyncNative(showExams, force, fetching)
+
+    fun syncFailureDetail(issue: String, warning: String?, manual: Boolean): String =
+        syncFailureDetailNative(issue, warning.orEmpty(), manual)
+
     fun scheduleOrder(fields: Array<String>): IntArray = scheduleOrderNative(fields)
 
     fun dayRowOffsets(counts: IntArray): IntArray = dayRowOffsetsNative(counts)

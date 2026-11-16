@@ -16,12 +16,11 @@ abstract class Context {
     abstract fun getDatabasePath(name: String): File
 }
 """)
-    decoder = (source / 'rust/RustPortalCore.kt').read_text()
-    decoder = decoder[decoder.index('object PortalBinaryDecoder'):decoder.index('    fun decodeLogin')]
-    (tmp / 'Decoder.kt').write_text('package com.sv.tnu.rust\nimport com.sv.tnu.data.*\nimport java.io.*\nimport java.nio.charset.StandardCharsets\n' + decoder + '}')
+    (tmp / 'AuthStore.kt').write_text('package com.sv.tnu.data\nclass AuthStore')
     (tmp / 'Smoke.kt').write_text('''
 import com.sv.tnu.rust.RustCacheStore
 import com.sv.tnu.rust.RustScheduleCore
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.data.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -67,6 +66,30 @@ fun main(args: Array<String>) = runBlocking {
     check(db.examsOnce(1).single().isGiuaKy)
     try { db.replaceExamsByType(1,false,listOf(mid)); error("Expected SQLite rejection") } catch (_: IllegalStateException) {}
     check(db.examCount(1)==1)
+    val examJson = """{"code":200,"data":{"total_pages":2,"ds_lich_thi":[
+      {"ma_mon":"A","ten_mon":"First","ngay_thi":"2026-11-16","gio_bat_dau":"08:00","so_bao_danh":"01","ma_phong":"P"}
+    ]}}"""
+    val firstPage = RustPortalCore.encodeExamPage(1, true, 1, examJson.toByteArray())
+    val finalPage = RustPortalCore.encodeExamPage(1, true, 2, examJson.replace("First", "Duplicate").toByteArray())
+    val brokenPage = finalPage.bytes.copyOf(finalPage.bytes.size - 1)
+    check(firstPage.nextPage == 2 && finalPage.nextPage == null)
+    check(runCatching { db.commitPortalExamPages(1, true, listOf(firstPage.bytes, brokenPage)) }.isFailure)
+    check(db.examsOnce(1).single().tenMon == "Thi")
+    check(db.commitPortalExamPages(1, true, listOf(firstPage.bytes, finalPage.bytes)))
+    check(db.examsOnce(1).single().tenMon == "First")
+    val empty = RustPortalCore.encodeExamPage(1, true, 1, """{"code":200,"data":{}}""".toByteArray())
+    check(!db.commitPortalExamPages(1, true, listOf(empty.bytes)))
+    check(db.examsOnce(1).single().tenMon == "First")
+    check(RustPortalCore.renewalStart("rotated", "old", null) == RustPortalCore.RenewalStart.REUSE_CURRENT)
+    check(RustPortalCore.renewalStart("old", "old", "refresh") == RustPortalCore.RenewalStart.REFRESH)
+    check(RustPortalCore.renewalStart("old", "old", null) == RustPortalCore.RenewalStart.LOGIN)
+    check(RustPortalCore.requestKind("https", "portal.tnut.edu.vn", "/api/auth/login") == RustPortalCore.RequestKind.LOGIN)
+    check(RustPortalCore.requestKind("https", "example.test", "/api/tkb") == RustPortalCore.RequestKind.OTHER_ORIGIN)
+    check(RustScheduleCore.shouldAutoRefresh(1000, 0))
+    check(!RustScheduleCore.canStartExamSync(true, true, true))
+    check(RustScheduleCore.moveWeek(listOf(week, week.copy(tuanHocKy = 3)), 1, 1) == 3)
+    check(RustScheduleCore.syncFailureDetail("Lỗi.", "Thi lỗi", false) == "Lỗi.\\nLịch thi: Thi lỗi")
+    check(RustScheduleCore.syncFailureDetail("Lỗi.", null, true) == "Lỗi. Lịch đã lưu vẫn được giữ.")
     val events = async(start=CoroutineStart.UNDISPATCHED) { withTimeout(5000) { db.lessonNotes().first { it.isNotEmpty() } } }
     val note = LessonNoteEntity("id","Tiếng Việt ệ",1234567890123)
     db.upsertLessonNote(note)
@@ -89,6 +112,11 @@ fun main(args: Array<String>) = runBlocking {
 }
 ''')
     cp = str(kotlin_home / 'lib/kotlinx-coroutines-core-jvm.jar')
-    files = [str(p) for p in tmp.glob('*.kt')] + [str(source / 'data/AppDatabase.kt')] + [str(source / 'rust' / name) for name in ['RustCacheStore.kt', 'RustScheduleCore.kt', 'DatabaseBinaryEncoder.kt']]
+    files = [str(p) for p in tmp.glob('*.kt')] + [
+        str(source / name) for name in [
+            'data/AppDatabase.kt', 'schools/SchoolProvider.kt', 'rust/RustCacheStore.kt',
+            'rust/RustPortalCore.kt', 'rust/RustScheduleCore.kt', 'rust/DatabaseBinaryEncoder.kt',
+        ]
+    ]
     subprocess.run([str(kotlin_home / 'bin/kotlinc'), *files, '-classpath', cp, '-include-runtime', '-d', str(tmp / 'smoke.jar')], check=True)
     subprocess.run(['java', '-Djava.library.path=' + str(root / 'rust-core/target/debug'), '-cp', str(tmp / 'smoke.jar') + ':' + cp, 'SmokeKt', str(tmp / 'tkb.db')], check=True)

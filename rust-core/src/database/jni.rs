@@ -156,3 +156,35 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_commitPortalTimetable
         }
     }
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_commitPortalExamPagesNative(
+    mut env: JNIEnv<'_>,
+    _: JObject<'_>,
+    handle: jlong,
+    semester: jint,
+    midterm: jni::sys::jboolean,
+    pages: jni::objects::JObjectArray<'_>,
+) -> jni::sys::jboolean {
+    let Ok(count) = env.get_array_length(&pages) else {
+        failure(&mut env);
+        return 0;
+    };
+    if count as usize > crate::portal::MAX_EXAM_PAGES {
+        failure(&mut env);
+        return 0;
+    }
+    let pages = (0..count).map(|index| {
+        let invalid = |_| rusqlite::Error::InvalidQuery;
+        let page = env.get_object_array_element(&pages, index).map_err(invalid)?;
+        let page = env.auto_local(jni::objects::JByteArray::from(page));
+        env.convert_byte_array(&*page).map_err(invalid)
+    });
+    match bridge::commit_exam_pages(handle, semester, midterm != 0, pages) {
+        Ok(committed) => u8::from(committed),
+        Err(_) => {
+            failure(&mut env);
+            0
+        }
+    }
+}

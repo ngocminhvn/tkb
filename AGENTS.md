@@ -47,7 +47,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../schools/SchoolProvider.kt` | Interface `SchoolProvider`, `SchoolSession`, `SchoolRepository`, ID/model chung | Hardcode UI TNUT |
 | `.../schools/SchoolRegistry.kt` | Danh sách school providers, chọn provider theo ID | Quy tắc SQL/HTTP |
 | `.../schools/tnut/TnutApi.kt` | Endpoint Retrofit, form đăng nhập và chuyển response bytes vào Rust | Compose, chỉnh DB |
-| `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh và adapter cho chính sách làm mới phiên Rust | View/layout |
+| `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh, thi hành quyết định gắn header và làm mới phiên của Rust | View/layout |
 | `.../schools/tnut/TnutSchoolProvider.kt` | Adapter kết nối login/session + repository TNUT | Logic trường khác |
 | `.../schools/tnut/TnutRepository.kt` | Điều phối HTTP lịch/thi, gọi Rust kiểm tra và ghi SQLite, xử lý avatar và ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
@@ -134,8 +134,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 
 Khi đồng bộ lịch học, repository chuyển bytes TNUT thẳng vào `RustCacheStore`.
 Rust kiểm tra payload rồi thực hiện transaction SQLite và chỉ báo thành công khi
-commit xong. Lịch thi rỗng giữ cache theo từng loại. Timeline dùng `TKB1Y` để
-nhận chỉ số nguồn, ngày và giờ hiển thị theo một lô.
+commit xong. Các trang lịch thi ở dạng TKB1E đến khi Rust kiểm tra cả lô, loại trùng và commit theo từng loại thi. Lỗi giữa chừng hoặc lịch thi rỗng giữ cache cũ. Timeline dùng `TKB1Y` để nhận chỉ số nguồn, ngày và giờ hiển thị theo một lô. Rust quyết định bước chuyển tuần, điều kiện tự đồng bộ và nội dung kết quả đồng bộ cho ViewModel.
 
 ## 4. Kiểm tra trước khi commit và push
 
