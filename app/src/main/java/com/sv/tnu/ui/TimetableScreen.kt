@@ -116,15 +116,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 internal fun confirmedEdgeWeekDirection(distancePx: Float, thresholdPx: Float, direction: Int, hasAdjacentWeek: Boolean): Int? =
-    direction.takeIf { (it == 1 || it == -1) && hasAdjacentWeek && thresholdPx > 0f && distancePx >= thresholdPx }
+    RustScheduleCore.confirmedEdgeWeekDirection(distancePx, thresholdPx, direction, hasAdjacentWeek)
 
 /** Elastic resistance, moving the real list rather than drawing a progress overlay. */
-internal fun elasticEdgeOffsetPx(distancePx: Float, thresholdPx: Float, direction: Int): Float {
-    if (thresholdPx <= 0f || distancePx <= 0f || (direction != -1 && direction != 1)) return 0f
-    val distance = distancePx.coerceAtMost(thresholdPx * 4f)
-    val stretched = 0.52f * distance / (1f + distance / (thresholdPx * 1.2f))
-    return if (direction < 0) stretched else -stretched
-}
+internal fun elasticEdgeOffsetPx(distancePx: Float, thresholdPx: Float, direction: Int): Float =
+    RustScheduleCore.elasticEdgeOffsetPx(distancePx, thresholdPx, direction)
 
 /** One coherent offline screen state; never expose a partly loaded week/lesson pair. */
 data class TimetableSnapshot(
@@ -147,18 +143,22 @@ internal fun shouldRecreateTimetableAfterFirstSync(
     hadCachedWeeksAtLaunch: Boolean,
     committedWeeks: List<WeekEntity>,
     alreadyRecreated: Boolean,
-): Boolean = !hadCachedWeeksAtLaunch && committedWeeks.isNotEmpty() && !alreadyRecreated
+): Boolean =
+    RustScheduleCore.shouldRecreateTimetableAfterFirstSync(hadCachedWeeksAtLaunch, committedWeeks.size, alreadyRecreated)
 
 internal fun preferJustSyncedCache(
     observedWeeks: List<WeekEntity>,
     observedLessons: List<LessonEntity>,
     justSynced: CachedTimetable?,
 ): CachedTimetable {
-    if (justSynced != null && (
-            (observedWeeks.isEmpty() && justSynced.weeks.isNotEmpty()) ||
-            (observedLessons.isEmpty() && justSynced.lessons.isNotEmpty())
-        )
-    ) {
+    val preferJustSynced = RustScheduleCore.shouldPreferJustSyncedCache(
+        observedWeeksEmpty = observedWeeks.isEmpty(),
+        observedLessonsEmpty = observedLessons.isEmpty(),
+        hasJustSynced = justSynced != null,
+        justSyncedWeeksNotEmpty = justSynced?.weeks?.isNotEmpty() == true,
+        justSyncedLessonsNotEmpty = justSynced?.lessons?.isNotEmpty() == true,
+    )
+    if (preferJustSynced && justSynced != null) {
         return justSynced
     }
     return CachedTimetable(observedWeeks, observedLessons)
@@ -490,15 +490,9 @@ class TimetableViewModel(
         }
     }
 
-    /** Compare normalized local calendar dates, not stale week-flow timestamps. */
-    private fun currentWeekNumber(weekList: List<WeekEntity>, todayYmd: String): Int? {
-        if (weekList.isEmpty()) return null
-        val ordered = weekList
-            .map { Triple(normalizeDateToYmd(it.ngayBatDau), normalizeDateToYmd(it.ngayKetThuc), it.tuanHocKy) }
-            .sortedBy { it.first }
-        return ordered.firstOrNull { (start, end, _) -> todayYmd >= start && todayYmd <= end }?.third
-            ?: if (todayYmd < ordered.first().first) ordered.first().third else ordered.last().third
-    }
+    /** Compare normalized local calendar dates, resolved natively in Rust core. */
+    private fun currentWeekNumber(weekList: List<WeekEntity>, todayYmd: String): Int? =
+        RustScheduleCore.currentWeekNumber(weekList, todayYmd)
 }
 
 
@@ -521,20 +515,14 @@ private fun mondayOfLocalWeek(ymd: String): String =
 
 /**
  * Swipe one CALENDAR DAY, even across a week boundary. Bounds come from
- * actual semester weeks in Room; no fabricated lessons or extra API calls.
+ * actual semester weeks in Room; resolved natively in Rust core.
  */
 internal fun adjacentTimetableDay(
     selectedYmd: String,
     direction: Int,
     weeks: List<WeekEntity>,
-): Pair<String, Int>? {
-    if (direction == 0 || weeks.isEmpty()) return null
-    val next = RustScheduleCore.moveCalendarDay(selectedYmd, direction) ?: return null
-    val week = weeks.firstOrNull { next in
-        normalizeDateToYmd(it.ngayBatDau)..normalizeDateToYmd(it.ngayKetThuc)
-    } ?: return null
-    return next to week.tuanHocKy
-}
+): Pair<String, Int>? =
+    RustScheduleCore.adjacentTimetableDay(selectedYmd, direction, weeks)
 
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
     RustScheduleCore.examEndTime(gioBatDau, soPhut)

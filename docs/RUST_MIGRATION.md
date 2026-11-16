@@ -22,8 +22,10 @@ application ID, change release signing credentials or use destructive DB migrati
 ## Phase 3: State/logic — started
 - [x] Move 06:30 Vietnam once-daily auto-sync decision into Rust, preserving
   the existing no-polling behavior and Kotlin function signatures.
-- [ ] Move week/day selection, lazy loaded date windows, first-frame snapshots,
-  sync statuses and observable state from ViewModel to Rust.
+- [x] Move week/day selection, week bounds lookup, elastic swipe physics,
+  edge navigation confirmation, and cache priority arbitration into Rust (`timeline.rs`).
+- [ ] Move lazy loaded date windows, first-frame snapshots, sync statuses
+  and observable state from ViewModel to Rust.
 
 ## Phase 4: UI — pending
 - Prototype a Rust UI separately (Slint is a candidate) with gestures, smooth

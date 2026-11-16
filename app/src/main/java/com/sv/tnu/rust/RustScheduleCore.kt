@@ -1,5 +1,7 @@
 package com.sv.tnu.rust
 
+import com.sv.tnu.data.WeekEntity
+
 /**
  * Rust schedule engine used by the Android application via JNI (`libtkb_core.so`).
  */
@@ -24,6 +26,19 @@ object RustScheduleCore {
     private external fun vietnamAutoSyncCutoffNative(nowMillis: Long): Long
     private external fun isVietnamDailyAutoSyncDueNative(nowMillis: Long, lastAttemptMillis: Long): Boolean
     private external fun nextVietnamAutoSyncDelayNative(nowMillis: Long, lastAttemptMillis: Long): Long
+    private external fun findWeekNumberNative(weeksPayload: String, dateYmd: String): Int
+    private external fun currentWeekNumberNative(weeksPayload: String, todayYmd: String): Int
+    private external fun adjacentTimetableDayNative(selectedYmd: String, direction: Int, weeksPayload: String): String
+    private external fun elasticEdgeOffsetPxNative(distancePx: Float, thresholdPx: Float, direction: Int): Float
+    private external fun confirmedEdgeWeekDirectionNative(distancePx: Float, thresholdPx: Float, direction: Int, hasAdjacentWeek: Boolean): Int
+    private external fun shouldRecreateTimetableAfterFirstSyncNative(hadCachedWeeks: Boolean, committedWeeksCount: Int, alreadyRecreated: Boolean): Boolean
+    private external fun shouldPreferJustSyncedCacheNative(
+        observedWeeksEmpty: Boolean,
+        observedLessonsEmpty: Boolean,
+        hasJustSynced: Boolean,
+        justSyncedWeeksNotEmpty: Boolean,
+        justSyncedLessonsNotEmpty: Boolean,
+    ): Boolean
 
     fun normalizeDate(value: String): String = normalizeDateNative(value)
 
@@ -87,4 +102,65 @@ object RustScheduleCore {
         val cells = parts[2].split(",").map { it.ifEmpty { null } }
         return Triple(month, year, cells)
     }
+
+    private fun packWeeks(weeks: List<WeekEntity>): String =
+        weeks.joinToString(";") { "${it.tuanHocKy}|${it.ngayBatDau}|${it.ngayKetThuc}" }
+
+    fun findWeekNumber(weeks: List<WeekEntity>, dateYmd: String): Int? {
+        if (weeks.isEmpty()) return null
+        return findWeekNumberNative(packWeeks(weeks), dateYmd).takeIf { it > 0 }
+    }
+
+    fun currentWeekNumber(weeks: List<WeekEntity>, todayYmd: String): Int? {
+        if (weeks.isEmpty()) return null
+        return currentWeekNumberNative(packWeeks(weeks), todayYmd).takeIf { it > 0 }
+    }
+
+    fun adjacentTimetableDay(
+        selectedYmd: String,
+        direction: Int,
+        weeks: List<WeekEntity>,
+    ): Pair<String, Int>? {
+        if (direction == 0 || weeks.isEmpty()) return null
+        val raw = adjacentTimetableDayNative(selectedYmd, direction, packWeeks(weeks))
+        if (raw.isBlank()) return null
+        val parts = raw.split(":")
+        if (parts.size != 2) return null
+        val date = parts[0]
+        val week = parts[1].toIntOrNull() ?: return null
+        return date to week
+    }
+
+    fun elasticEdgeOffsetPx(distancePx: Float, thresholdPx: Float, direction: Int): Float =
+        elasticEdgeOffsetPxNative(distancePx, thresholdPx, direction)
+
+    fun confirmedEdgeWeekDirection(
+        distancePx: Float,
+        thresholdPx: Float,
+        direction: Int,
+        hasAdjacentWeek: Boolean,
+    ): Int? =
+        confirmedEdgeWeekDirectionNative(distancePx, thresholdPx, direction, hasAdjacentWeek).takeIf { it != 0 }
+
+    fun shouldRecreateTimetableAfterFirstSync(
+        hadCachedWeeksAtLaunch: Boolean,
+        committedWeeksCount: Int,
+        alreadyRecreated: Boolean,
+    ): Boolean =
+        shouldRecreateTimetableAfterFirstSyncNative(hadCachedWeeksAtLaunch, committedWeeksCount, alreadyRecreated)
+
+    fun shouldPreferJustSyncedCache(
+        observedWeeksEmpty: Boolean,
+        observedLessonsEmpty: Boolean,
+        hasJustSynced: Boolean,
+        justSyncedWeeksNotEmpty: Boolean,
+        justSyncedLessonsNotEmpty: Boolean,
+    ): Boolean =
+        shouldPreferJustSyncedCacheNative(
+            observedWeeksEmpty,
+            observedLessonsEmpty,
+            hasJustSynced,
+            justSyncedWeeksNotEmpty,
+            justSyncedLessonsNotEmpty,
+        )
 }

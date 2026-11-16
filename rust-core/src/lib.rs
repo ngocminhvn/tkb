@@ -3,6 +3,7 @@
 
 pub mod auth;
 pub mod autosync;
+pub mod timeline;
 
 /// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
 #[inline]

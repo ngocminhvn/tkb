@@ -46,12 +46,6 @@ import kotlin.math.abs
 
 private val weekdayLabels = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
 
-private data class WeekDateBounds(
-    val week: WeekEntity,
-    val start: String,
-    val end: String,
-)
-
 internal fun weekDates(start: String): List<String> = RustScheduleCore.weekDates(start)
 
 internal fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>> {
@@ -59,12 +53,6 @@ internal fun monthDates(anchor: String, offset: Int): Pair<String, List<String?>
         ?: return "" to emptyList()
     val title = String.format(Locale.US, "Tháng %02d/%04d", month, year)
     return title to grid
-}
-
-private fun dateInWeek(ymd: String, week: WeekEntity): Boolean {
-    val start = week.ngayBatDau.substringBefore(" ").trim().let { normalizePortalDay(it) }
-    val end = week.ngayKetThuc.substringBefore(" ").trim().let { normalizePortalDay(it) }
-    return ymd in start..end
 }
 
 internal fun normalizePortalDay(value: String): String = RustScheduleCore.normalizeDate(value)
@@ -169,15 +157,6 @@ fun WeekDatePicker(
     onMoveDay: (Int) -> Unit,
 ) {
     val dates = remember(weekStartYmd) { weekDates(weekStartYmd) }
-    val weekBounds = remember(availableWeeks) {
-        availableWeeks.map { w ->
-            WeekDateBounds(
-                week = w,
-                start = normalizePortalDay(w.ngayBatDau.substringBefore(" ").trim()),
-                end = normalizePortalDay(w.ngayKetThuc.substringBefore(" ").trim()),
-            )
-        }
-    }
     val selectedDayColor = MaterialTheme.colorScheme.primary
     var showMonth by rememberSaveable { mutableStateOf(false) }
     var monthOffset by remember { mutableIntStateOf(0) }
@@ -185,10 +164,10 @@ fun WeekDatePicker(
 
     // Both the seven-day strip and expanded month use this same one-tap
     // selection path. Close the month only after a valid week is selected.
-    fun pickDate(date: String, week: WeekEntity?) {
+    fun pickDate(date: String, weekNumber: Int) {
         if (date < todayYmd) return
         // An unsynced future day has no WeekEntity yet but is still viewable.
-        onPickDate(date, week?.tuanHocKy ?: 0)
+        onPickDate(date, weekNumber)
         showMonth = false
     }
 
@@ -234,8 +213,8 @@ fun WeekDatePicker(
                     hasSchedule = ymd in eventDays,
                     enabled = ymd >= todayYmd,
                     onClick = {
-                        val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
-                        pickDate(ymd, week)
+                        val weekNumber = RustScheduleCore.findWeekNumber(availableWeeks, ymd) ?: 0
+                        pickDate(ymd, weekNumber)
                     },
                     modifier = Modifier.weight(1f),
                     weekend = index >= 5,
@@ -295,7 +274,7 @@ fun WeekDatePicker(
                             if (ymd == null) {
                                 Spacer(modifier = Modifier.weight(1f))
                             } else {
-                                val week = weekBounds.firstOrNull { ymd in it.start..it.end }?.week
+                                val weekNumber = RustScheduleCore.findWeekNumber(availableWeeks, ymd) ?: 0
                                 CalendarDay(
                                     ymd = ymd,
                                     weekday = null,
@@ -303,7 +282,7 @@ fun WeekDatePicker(
                                     todayYmd = todayYmd,
                                     hasSchedule = ymd in eventDays,
                                     enabled = ymd >= todayYmd,
-                                    onClick = { pickDate(ymd, week) },
+                                    onClick = { pickDate(ymd, weekNumber) },
                                     modifier = Modifier.weight(1f),
                                     weekend = dayIndex >= 5,
                                 )

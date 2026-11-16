@@ -1,6 +1,6 @@
 //! JNI entry points for the TKB SV Android app. Data never leaves the process.
 use jni::objects::{JByteArray, JObject, JString};
-use jni::sys::{jbyteArray, jint, jstring};
+use jni::sys::{jboolean, jbyteArray, jfloat, jint, jstring};
 use jni::JNIEnv;
 
 fn from_java(env: &mut JNIEnv<'_>, input: &JString<'_>) -> String {
@@ -330,4 +330,110 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_nextVietnamAutoSync
     last_attempt_millis: jni::sys::jlong,
 ) -> jni::sys::jlong {
     crate::autosync::next_delay_millis(now_millis, last_attempt_millis)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_findWeekNumberNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    weeks_payload: JString<'_>,
+    date_ymd: JString<'_>,
+) -> jint {
+    let payload = from_java(&mut env, &weeks_payload);
+    let date = from_java(&mut env, &date_ymd);
+    let spans = crate::timeline::parse_week_spans(&payload);
+    crate::timeline::find_week_number(&spans, &date).unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_currentWeekNumberNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    weeks_payload: JString<'_>,
+    today_ymd: JString<'_>,
+) -> jint {
+    let payload = from_java(&mut env, &weeks_payload);
+    let today = from_java(&mut env, &today_ymd);
+    let spans = crate::timeline::parse_week_spans(&payload);
+    crate::timeline::current_week_number(&spans, &today).unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_adjacentTimetableDayNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    selected_ymd: JString<'_>,
+    direction: jint,
+    weeks_payload: JString<'_>,
+) -> jstring {
+    let selected = from_java(&mut env, &selected_ymd);
+    let payload = from_java(&mut env, &weeks_payload);
+    let spans = crate::timeline::parse_week_spans(&payload);
+    let result = crate::timeline::adjacent_timetable_day(&selected, direction, &spans)
+        .map(|(date, week)| format!("{date}:{week}"))
+        .unwrap_or_default();
+    into_java(&mut env, result)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_elasticEdgeOffsetPxNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    distance_px: jfloat,
+    threshold_px: jfloat,
+    direction: jint,
+) -> jfloat {
+    crate::timeline::elastic_edge_offset_px(distance_px, threshold_px, direction)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_confirmedEdgeWeekDirectionNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    distance_px: jfloat,
+    threshold_px: jfloat,
+    direction: jint,
+    has_adjacent_week: jboolean,
+) -> jint {
+    crate::timeline::confirmed_edge_week_direction(
+        distance_px,
+        threshold_px,
+        direction,
+        has_adjacent_week != 0,
+    )
+    .unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldRecreateTimetableAfterFirstSyncNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    had_cached_weeks: jboolean,
+    committed_weeks_count: jint,
+    already_recreated: jboolean,
+) -> jboolean {
+    u8::from(crate::timeline::should_recreate_timetable_after_first_sync(
+        had_cached_weeks != 0,
+        committed_weeks_count.max(0) as usize,
+        already_recreated != 0,
+    ))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldPreferJustSyncedCacheNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    observed_weeks_empty: jboolean,
+    observed_lessons_empty: jboolean,
+    has_just_synced: jboolean,
+    just_synced_weeks_not_empty: jboolean,
+    just_synced_lessons_not_empty: jboolean,
+) -> jboolean {
+    u8::from(crate::timeline::should_prefer_just_synced_cache(
+        observed_weeks_empty != 0,
+        observed_lessons_empty != 0,
+        has_just_synced != 0,
+        just_synced_weeks_not_empty != 0,
+        just_synced_lessons_not_empty != 0,
+    ))
 }
