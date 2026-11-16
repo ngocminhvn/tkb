@@ -34,6 +34,9 @@ object RustPortalCore {
     private external fun isLogicalUnauthorizedNative(responseBody: ByteArray): Boolean
     private external fun isOfficialPortalOriginNative(scheme: String, hostname: String): Boolean
     private external fun canReuseRotatedTokenNative(current: String, rejected: String): Boolean
+    private external fun extractBearerTokenNative(authHeader: String): String
+    private external fun shouldAuthenticateRetryNative(isOfficial: Boolean, path: String, responseCount: Int): Boolean
+    private external fun shouldFallbackToLoginNative(httpStatus: Int): Boolean
     private external fun verifyUpdateManifestNative(
         currentVersionCode: Int,
         allowedPrefix: String,
@@ -70,6 +73,15 @@ object RustPortalCore {
 
     fun canReuseRotatedToken(current: String?, rejected: String?): Boolean =
         canReuseRotatedTokenNative(current.orEmpty(), rejected.orEmpty())
+
+    fun extractBearerToken(authHeader: String?): String? =
+        extractBearerTokenNative(authHeader.orEmpty()).ifBlank { null }
+
+    fun shouldAuthenticateRetry(isOfficial: Boolean, path: String, responseCount: Int): Boolean =
+        shouldAuthenticateRetryNative(isOfficial, path, responseCount)
+
+    fun shouldFallbackToLogin(httpStatus: Int): Boolean =
+        shouldFallbackToLoginNative(httpStatus)
 
     fun verifyUpdateManifest(
         currentVersionCode: Int,

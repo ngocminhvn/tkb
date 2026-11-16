@@ -27,6 +27,9 @@ object RustScheduleCore {
     private external fun isVietnamDailyAutoSyncDueNative(nowMillis: Long, lastAttemptMillis: Long): Boolean
     private external fun nextVietnamAutoSyncDelayNative(nowMillis: Long, lastAttemptMillis: Long): Long
     private external fun findWeekNumberNative(weeksPayload: String, dateYmd: String): Int
+    private external fun resolveSelectedWeekNative(weeksPayload: String, manualWeek: Int, todayYmd: String): Int
+    private external fun calculateExtendedDayCountNative(currentCount: Int, lastLoadedDay: String, targetDate: String): Int
+    private external fun generateDateWindowNative(startYmd: String, count: Int): String
     private external fun currentWeekNumberNative(weeksPayload: String, todayYmd: String): Int
     private external fun adjacentTimetableDayNative(selectedYmd: String, direction: Int, weeksPayload: String): String
     private external fun elasticEdgeOffsetPxNative(distancePx: Float, thresholdPx: Float, direction: Int): Float
@@ -115,6 +118,17 @@ object RustScheduleCore {
         if (weeks.isEmpty()) return null
         return currentWeekNumberNative(packWeeks(weeks), todayYmd).takeIf { it > 0 }
     }
+
+    fun resolveSelectedWeek(weeks: List<WeekEntity>, manualWeek: Int?, todayYmd: String): Int? {
+        if (weeks.isEmpty()) return null
+        return resolveSelectedWeekNative(packWeeks(weeks), manualWeek ?: 0, todayYmd).takeIf { it > 0 }
+    }
+
+    fun calculateExtendedDayCount(currentCount: Int, lastLoadedDay: String, targetDate: String): Int =
+        calculateExtendedDayCountNative(currentCount, lastLoadedDay, targetDate)
+
+    fun generateDateWindow(startYmd: String, count: Int): List<String> =
+        generateDateWindowNative(startYmd, count).takeIf { it.isNotBlank() }?.split(",") ?: emptyList()
 
     fun adjacentTimetableDay(
         selectedYmd: String,

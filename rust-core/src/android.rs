@@ -304,6 +304,38 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_canReuseRotatedTokenN
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_extractBearerTokenNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    auth_header: JString<'_>,
+) -> jstring {
+    let header = from_java(&mut env, &auth_header);
+    let token = crate::auth::extract_bearer_token(&header).unwrap_or("").to_string();
+    into_java(&mut env, token)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_shouldAuthenticateRetryNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    is_official: jboolean,
+    path: JString<'_>,
+    response_count: jint,
+) -> jboolean {
+    let path = from_java(&mut env, &path);
+    u8::from(crate::auth::should_authenticate_retry(is_official != 0, &path, response_count))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_shouldFallbackToLoginNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    http_status: jint,
+) -> jboolean {
+    u8::from(crate::auth::should_fallback_to_login(http_status.max(0) as u16))
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_vietnamAutoSyncCutoffNative(
     _env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -436,4 +468,44 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldPreferJustSyn
         just_synced_weeks_not_empty != 0,
         just_synced_lessons_not_empty != 0,
     ))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_resolveSelectedWeekNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    weeks_payload: JString<'_>,
+    manual_week: jint,
+    today_ymd: JString<'_>,
+) -> jint {
+    let payload = from_java(&mut env, &weeks_payload);
+    let today = from_java(&mut env, &today_ymd);
+    let spans = crate::timeline::parse_week_spans(&payload);
+    let manual = (manual_week > 0).then_some(manual_week);
+    crate::timeline::resolve_selected_week(&spans, manual, &today).unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_calculateExtendedDayCountNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    current_count: jint,
+    last_loaded_day: JString<'_>,
+    target_date: JString<'_>,
+) -> jint {
+    let last = from_java(&mut env, &last_loaded_day);
+    let target = from_java(&mut env, &target_date);
+    crate::timeline::calculate_extended_day_count(current_count, &last, &target)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_generateDateWindowNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    start_ymd: JString<'_>,
+    count: jint,
+) -> jstring {
+    let start = from_java(&mut env, &start_ymd);
+    let dates = crate::timeline::generate_date_window(&start, count);
+    into_java(&mut env, dates.join(","))
 }

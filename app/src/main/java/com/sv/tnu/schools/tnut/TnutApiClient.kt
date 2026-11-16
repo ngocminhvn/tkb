@@ -81,7 +81,7 @@ object TnutApiClient {
                     runBlocking { plainApi.refreshToken(refreshToken = refreshToken) }
                 } catch (e: HttpException) {
                     // A server-side outage is not a reason to try the password.
-                    if (e.code() >= 500) return@synchronized null
+                    if (!RustPortalCore.shouldFallbackToLogin(e.code())) return@synchronized null
                     null
                 } catch (_: IOException) {
                     return@synchronized null
@@ -163,14 +163,14 @@ object TnutApiClient {
         // Actual HTTP 401s are handled inside OkHttp's retry/follow-up chain.
         val authenticator = object : Authenticator {
             override fun authenticate(route: Route?, response: Response): Request? {
-                if (!RustPortalCore.isOfficialPortalOrigin(
+                val isOfficial = RustPortalCore.isOfficialPortalOrigin(
                     response.request.url.scheme, response.request.url.host
+                )
+                if (!RustPortalCore.shouldAuthenticateRetry(
+                    isOfficial, response.request.url.encodedPath, responseCount(response)
                 )) return null
-                if (response.request.url.encodedPath.endsWith("auth/login")) return null
-                if (responseCount(response) >= 2) return null
 
-                val rejectedToken = response.request.header("Authorization")
-                    ?.removePrefix("Bearer ")?.takeIf { it.isNotBlank() }
+                val rejectedToken = RustPortalCore.extractBearerToken(response.request.header("Authorization"))
                 val newToken = renewSession(authStore, rejectedToken)
                     ?: return null
                 if (newToken == rejectedToken) return null

@@ -5,8 +5,9 @@ Migrate main in small, testable steps. Never delete the backup, change the
 application ID, change release signing credentials or use destructive DB migrations.
 
 ## Phase 1: HTTP/authentication — started
-- [x] Move official TNUT origin checking and rotated access-token reuse policy
-  to Rust, with unit tests.
+- [x] Move official TNUT origin checking, rotated access-token reuse policy,
+  Bearer header parsing, 401 retry eligibility, and HTTP 5xx outage fallback
+  policy to Rust, with unit tests.
 - [x] Consolidate logical HTTP 200 / code 401 detection in Rust.
 - [ ] Replace Retrofit/OkHttp transport and session renewal ONLY after verified
   login, HTTP 401 and logical 401, refresh token rotation, timeout/retry,
@@ -23,9 +24,10 @@ application ID, change release signing credentials or use destructive DB migrati
 - [x] Move 06:30 Vietnam once-daily auto-sync decision into Rust, preserving
   the existing no-polling behavior and Kotlin function signatures.
 - [x] Move week/day selection, week bounds lookup, elastic swipe physics,
-  edge navigation confirmation, and cache priority arbitration into Rust (`timeline.rs`).
-- [ ] Move lazy loaded date windows, first-frame snapshots, sync statuses
-  and observable state from ViewModel to Rust.
+  edge navigation confirmation, cache priority arbitration, manual week resolution,
+  extended date window calculation, and date window generation into Rust (`timeline.rs`).
+- [ ] Move first-frame Room preload transaction and sync status state machine
+  from ViewModel to Rust.
 
 ## Phase 4: UI — pending
 - Prototype a Rust UI separately (Slint is a candidate) with gestures, smooth

@@ -28,6 +28,62 @@ pub fn parse_week_spans(input: &str) -> Vec<WeekSpan<'_>> {
         .collect()
 }
 
+pub fn resolve_selected_week(
+    weeks: &[WeekSpan<'_>],
+    manual_week: Option<i32>,
+    today_ymd: &str,
+) -> Option<i32> {
+    if let Some(manual) = manual_week {
+        if weeks.iter().any(|w| w.tuan_hoc_ky == manual) {
+            return Some(manual);
+        }
+    }
+    current_week_number(weeks, today_ymd)
+}
+
+pub fn calculate_extended_day_count(
+    current_loaded_count: i32,
+    last_loaded_day: &str,
+    target_date: &str,
+) -> i32 {
+    if target_date <= last_loaded_day {
+        return current_loaded_count;
+    }
+    let mut cursor = last_loaded_day.to_string();
+    let mut count = current_loaded_count;
+    while cursor.as_str() < target_date && count < 1000 {
+        let Some(next) = crate::move_calendar_day(&cursor, 1) else {
+            break;
+        };
+        if next <= cursor {
+            break;
+        }
+        cursor = next;
+        count += 1;
+    }
+    count.saturating_add(7).min(1000)
+}
+
+pub fn generate_date_window(start_ymd: &str, count: i32) -> Vec<String> {
+    if count <= 0 {
+        return Vec::new();
+    }
+    let mut dates = Vec::with_capacity(count as usize);
+    let mut current = crate::normalize_date(start_ymd);
+    dates.push(current.clone());
+    for _ in 1..count {
+        let Some(next) = crate::move_calendar_day(&current, 1) else {
+            break;
+        };
+        if next <= current {
+            break;
+        }
+        current = next;
+        dates.push(current.clone());
+    }
+    dates
+}
+
 pub fn find_week_number(weeks: &[WeekSpan<'_>], date_ymd: &str) -> Option<i32> {
     if weeks.is_empty() {
         return None;
@@ -269,5 +325,43 @@ mod tests {
         assert!(should_prefer_just_synced_cache(false, true, true, false, true));
         assert!(!should_prefer_just_synced_cache(false, false, true, true, true));
         assert!(!should_prefer_just_synced_cache(true, true, false, true, true));
+    }
+
+    #[test]
+    fn resolves_selected_week_with_manual_override() {
+        let weeks = [
+            WeekSpan { tuan_hoc_ky: 1, start: "2026-09-01", end: "2026-09-07" },
+            WeekSpan { tuan_hoc_ky: 2, start: "2026-09-08", end: "2026-09-14" },
+        ];
+        // Manual week 2 exists
+        assert_eq!(resolve_selected_week(&weeks, Some(2), "2026-09-04"), Some(2));
+        // Non-existent manual week falls back to current week (1)
+        assert_eq!(resolve_selected_week(&weeks, Some(99), "2026-09-04"), Some(1));
+        // No manual week falls back to current week (1)
+        assert_eq!(resolve_selected_week(&weeks, None, "2026-09-04"), Some(1));
+    }
+
+    #[test]
+    fn calculates_extended_day_count_for_future_navigation() {
+        // Target before or equal to last loaded day returns current count
+        assert_eq!(calculate_extended_day_count(35, "2026-09-30", "2026-09-20"), 35);
+        assert_eq!(calculate_extended_day_count(35, "2026-09-30", "2026-09-30"), 35);
+        // Target 2 days after last loaded day: 35 + 2 + 7 = 44
+        assert_eq!(calculate_extended_day_count(35, "2026-09-28", "2026-09-30"), 44);
+    }
+
+    #[test]
+    fn generates_date_window_continuously() {
+        let window = generate_date_window("2026-09-29", 4);
+        assert_eq!(
+            window,
+            vec![
+                "2026-09-29".to_string(),
+                "2026-09-30".to_string(),
+                "2026-10-01".to_string(),
+                "2026-10-02".to_string(),
+            ]
+        );
+        assert!(generate_date_window("2026-09-29", 0).is_empty());
     }
 }

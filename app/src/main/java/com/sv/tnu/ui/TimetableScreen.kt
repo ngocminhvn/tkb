@@ -225,8 +225,7 @@ class TimetableViewModel(
         manual: Int?,
         today: String,
     ): TimetableSnapshot {
-        val selected = manual?.takeIf { week -> weekList.any { it.tuanHocKy == week } }
-            ?: currentWeekNumber(weekList, today)
+        val selected = RustScheduleCore.resolveSelectedWeek(weekList, manual, today)
         return TimetableSnapshot(
             weeks = weekList,
             semesterLessons = lessonList,
@@ -704,15 +703,7 @@ fun TimetableScreen(
     fun selectDay(date: String, weekNumber: Int) {
         if (date < todayStr) return
         if (date > lastLoadedDay) {
-            var cursor = lastLoadedDay
-            var count = loadedDayCount
-            while (cursor < date && count < 1000) {
-                val next = RustScheduleCore.moveCalendarDay(cursor, 1) ?: break
-                if (next <= cursor) break
-                cursor = next
-                count++
-            }
-            loadedDayCount = count + 7
+            loadedDayCount = RustScheduleCore.calculateExtendedDayCount(loadedDayCount, lastLoadedDay, date)
         }
         selectedDay = date
         requestedScrollDay = date
@@ -733,17 +724,8 @@ fun TimetableScreen(
     // not a reason to stop pagination.
     val displayedGrouped: Map<String, List<ScheduleItem>> =
         remember(todayStr, loadedDayCount, allGrouped) {
-            buildMap {
-                var date = todayStr
-                var count = 0
-                while (count < loadedDayCount) {
-                    put(date, allGrouped[date].orEmpty())
-                    val next = RustScheduleCore.moveCalendarDay(date, 1) ?: break
-                    if (next <= date) break
-                    date = next
-                    count++
-                }
-            }
+            val windowDates = RustScheduleCore.generateDateWindow(todayStr, loadedDayCount)
+            windowDates.associateWith { date -> allGrouped[date].orEmpty() }
         }
     // Weeks are a database synchronization boundary: an empty day within a
     // saved week is a genuine no-class day; outside it we have no schedule.
