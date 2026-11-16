@@ -236,16 +236,15 @@ class TimetableViewModel(
         )
     }
 
-    // Start a coherent offline read on IO; never block the Activity/Compose thread.
-    private val initialSnapshot = viewModelScope.async(Dispatchers.IO) {
-        try {
+    // Start a coherent offline read on IO; seed the first frame immediately.
+    private val initialSnapshot: TimetableSnapshot? = runCatching {
+        runBlocking(Dispatchers.IO) {
             val cache = repository.cachedTimetable(hocKy)
             buildSnapshot(cache.weeks, cache.lessons, null, _todayYmd.value)
-        } catch (cause: Exception) {
-            if (cause is CancellationException) throw cause
-            Log.w("TimetableViewModel", "Could not preload timetable; waiting for Flow", cause)
-            null
         }
+    }.getOrElse { cause ->
+        Log.w("TimetableViewModel", "Could not preload timetable; waiting for Flow", cause)
+        null
     }
 
     val timetable: StateFlow<TimetableSnapshot?> = combine(
@@ -260,7 +259,6 @@ class TimetableViewModel(
         // Room's replaceTimetable() is transactional. Never pin a previous
         // semester forever when the DB legitimately becomes empty.
         .map<TimetableSnapshot, TimetableSnapshot?> { it }
-        .onStart { initialSnapshot.await()?.let { emit(it) } }
         .distinctUntilChanged()
         .catch { cause ->
             if (cause is CancellationException) throw cause
@@ -268,27 +266,35 @@ class TimetableViewModel(
             _error.value = "Không đọc được thời khóa biểu đã lưu. Hãy thử mở lại ứng dụng."
             // Preserve a successfully seeded offline schedule when observation
             // fails; only use an empty fallback when neither read worked.
-            emit(initialSnapshot.await() ?: TimetableSnapshot(emptyList(), emptyList(), null, emptyList()))
+            emit(initialSnapshot ?: TimetableSnapshot(emptyList(), emptyList(), null, emptyList()))
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot)
 
     // The existing settings and navigation APIs reuse that same Room snapshot.
     val weeks: StateFlow<List<WeekEntity>> = timetable
         .map { it?.weeks.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.weeks.orEmpty())
+
+    private val initialPeriods: List<PeriodEntity> = runCatching {
+        runBlocking(Dispatchers.IO) { repository.cachedPeriods() }
+    }.getOrDefault(emptyList())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, initialPeriods)
 
     private val _showExamsOnHome = MutableStateFlow(authStore.showExamsOnHome)
     val showExamsOnHome: StateFlow<Boolean> = _showExamsOnHome.asStateFlow()
+
+    private val initialExams: List<ExamEntity> = runCatching {
+        runBlocking(Dispatchers.IO) { repository.cachedExams(hocKy) }
+    }.getOrDefault(emptyList())
 
     /** Lịch thi hiển thị ở trang chủ: nếu tắt thì không load để tối ưu bộ nhớ & truy vấn. */
     val exams: StateFlow<List<ExamEntity>> = _showExamsOnHome
         .flatMapLatest { show ->
             if (!show) kotlinx.coroutines.flow.flowOf(emptyList())
             else repository.examsFlow(hocKy)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), initialExams)
 
     /** Dùng riêng cho dialog xem toàn bộ lịch thi ở Settings. */
     val allExams: StateFlow<List<ExamEntity>> = repository.examsFlow(hocKy)
@@ -407,7 +413,7 @@ class TimetableViewModel(
                             val committed = repository.cachedTimetable(hocKy)
                             _justSyncedCache.value = committed
                             if (shouldRecreateTimetableAfterFirstSync(
-                                    hadCachedWeeksAtLaunch = !initialSnapshot.await()?.weeks.isNullOrEmpty(),
+                                    hadCachedWeeksAtLaunch = !initialSnapshot?.weeks.isNullOrEmpty(),
                                     committedWeeks = committed.weeks,
                                     alreadyRecreated = _firstLoginRenderEpoch.value != 0,
                                 )

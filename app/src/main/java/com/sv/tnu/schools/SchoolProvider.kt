@@ -37,6 +37,8 @@ interface SchoolRepository {
     fun lessonNotesFlow(): Flow<List<LessonNoteEntity>>
     suspend fun cachedTimetable(hocKy: Int): CachedTimetable
     fun cachedTimetableFlow(hocKy: Int): Flow<CachedTimetable>
+    suspend fun cachedPeriods(): List<PeriodEntity> = emptyList()
+    suspend fun cachedExams(hocKy: Int): List<ExamEntity> = emptyList()
     suspend fun saveLessonNote(lessonId: String, note: String)
     suspend fun refresh(hocKy: Int): Result<Unit>
     suspend fun prepareOfflineCache(hocKy: Int)
