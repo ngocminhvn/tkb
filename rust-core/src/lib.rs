@@ -3,6 +3,7 @@
 
 pub mod auth;
 pub mod autosync;
+pub mod database;
 pub mod timeline;
 mod update;
 mod widget;

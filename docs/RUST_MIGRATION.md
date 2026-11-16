@@ -1,8 +1,80 @@
 # Rust migration — TKB SV
 
-Backup snapshot: backup branch at commit 682843618559870809f9bed7fe0b03f0153f9327.
-Migrate main in small, testable steps. Never delete the backup, change the
-application ID, change release signing credentials or use destructive DB migrations.
+## Continuation from d6ecd60 (2026-11-16)
+
+Work directly on `main`, per the latest user instruction. The temporary branch
+`backup-kotlin-to-rust-d6ecd60` was deleted locally and remotely; no new branch
+is retained. The older migration history below is retained for context.
+Do not repeat the features implemented by `2dfa4d2` or `d6ecd60`.
+
+### Stage A — SQLite backend preparation (not Android activation)
+
+- [x] Add `rusqlite` with bundled SQLite and a locked dependency graph.
+- [x] Implement typed rows and all DAO read/insert/delete operations in
+  `rust-core/src/database/{mod,records}.rs`. Reactive Flow observation still
+  belongs to the future Kotlin adapter; these are synchronous worker APIs.
+- [x] Implement atomic timetable, semester exams and exam-type replacements;
+  keep notes independent and reject records with mismatched semester/type.
+- [x] Read weeks and lessons from one SQLite transaction.
+- [x] Implement schema v1→v2→v3→v4 upgrades at the existing file path, without
+  user-data deletion, schema version changes or copying a live database file.
+- [x] Reject future, unversioned-with-user-tables and incompatible schemas.
+- [x] Preserve an existing v4 Room identity; after older-schema upgrades,
+  remove only `room_master_table` metadata so Room can revalidate the schema
+  and regenerate its hash if a Room-based v4 APK is installed later.
+- [x] Test rollback after partial insertion failures, independent exam types,
+  exact legacy-fixture cleanup, notes, UTF-8, bound parameters, auto IDs,
+  each supported schema version, committed WAL reads and coherent snapshots.
+- [x] Cross-check native columns and SQLite types against the actual Kotlin
+  Room entities in `AppDatabase.kt`.
+- [x] Add host test and strict Clippy checks before the CI release build.
+- [ ] Connect a JNI database adapter with binary batch transfers, explicit
+  errors, serialized connection ownership and off-main-thread operations.
+- [ ] Replace Room Flow invalidation with commit-driven StateFlow emissions;
+  cover repository, widget and reminder writers and readers.
+- [ ] Switch `AppDatabase.get` after installed-APK upgrade tests pass.
+- [ ] Remove Room/KSP dependencies and old Kotlin implementation only after
+  the replacement is verified. **APK still uses Room today.**
+
+Do not open the same file simultaneously through Android Room/platform SQLite
+and the bundled native SQLite library. Close the old backend before opening the
+new one; they have separate invalidation/connection lifecycles. The host WAL test
+uses two connections to the same bundled SQLite library, and does not prove
+mixed-library access is safe. JNI must get the existing `tkb.db` path from
+`Context.getDatabasePath`; retain WAL/SHM files and SQLite recovery behavior.
+
+### Required validation before activation
+
+Host tests verify backend semantics; they do not verify Room's actual generated
+schema/identity validation or installed Android behavior. Test upgrade from real
+v1/v2/v3/v4 APK databases and rollback to the current Room-based v4 APK, retaining
+notes, cache and exam IDs. Test a fresh installation, worker-thread reads,
+concurrent sync, widget/reminder reads, and Flow emission only after commit.
+
+Login/Keystore, HTTP transport, refresh locking and credentials are untouched.
+`com.tkb.sv`, JNI contracts already used by Android, signing configuration and
+Compose are unchanged. Network/session/state migration, remaining ViewModel
+work, Settings/alarm work and on-device performance measurements remain pending.
+Do not infer completion of those phases from the new database backend.
+
+### Validation results for this stage
+
+- `cargo test --locked --manifest-path rust-core/Cargo.toml`: 44 tests passed
+  (9 database tests and 35 existing tests).
+- `cargo clippy --locked --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings`:
+  passed with no warnings.
+- `bash scripts/build-rust-android.sh`: passed with NDK r27d and the locked
+  dependency graph for arm64-v8a, armeabi-v7a, x86_64 and x86. ELF architectures
+  match; all 58 existing JNI entry points are present in every library. No
+  dynamic dependency on Android's platform libsqlite is introduced.
+- `assembleDebug`: attempted. Using a writable Gradle cache and the environment
+  proxy resolved the initial wrapper-download failure. Gradle then failed
+  because `/usr/lib/jvm/java-21-openjdk-amd64` lacks `JAVA_COMPILER` capability.
+  Android SDK and emulator are also not installed in this environment; no APK
+  build success is claimed. CI still sets up JDK 17 and Android tooling.
+- Fresh login, signed upgrade/install-over, refresh/offline sync, notification,
+  widget, APK update, first-frame/scroll/startup performance: not run; require an
+  Android device/emulator, built APK and an authorized TNUT test session.
 
 ## Phase 1: HTTP/authentication — started
 - [x] Move official TNUT origin checking, rotated access-token reuse policy,
@@ -15,7 +87,7 @@ application ID, change release signing credentials or use destructive DB migrati
   redirect-host, TLS and Android Keystore compatibility tests on device.
 - Preserve existing encrypted preferences and synchronized refresh lock.
 
-## Phase 2: Database — pending
+## Phase 2: Database — backend prepared; Android activation pending
 - Replace Room with a Rust SQLite adapter while preserving tkb.db, schema v4,
   migrations v1 to v4, notes, exams and all cached lessons.
 - Port Room transaction semantics before switching the UI to Rust state.
@@ -31,10 +103,10 @@ application ID, change release signing credentials or use destructive DB migrati
 - [x] Move lesson selection, timeline ordering and row offsets, prefetch thresholds, exam sync outcomes, and widget sizing to Rust. Cache the week payload in the JNI adapter.
 - [ ] Evaluate ViewModel sync state with Android lifecycle tests. The first-frame cache snapshot uses a single Room transaction.
 
-## Phase 4: UI — pending
-- Prototype a Rust UI separately (Slint is a candidate) with gestures, smooth
-  scrolling, IME, accessibility and dark mode. Do not delete Compose until
-  device tests demonstrate feature parity and supported minSdk.
+## Phase 4: UI — retained in Kotlin/Compose
+- Keep the existing Compose interface unchanged, per the current request.
+- Avoid moving frequent, small UI calculations across JNI unless measurements
+  demonstrate lower latency. No Rust UI prototype is in scope.
 
 ## Phase 5: Android bridge — pending
 - [x] Move release-manifest parsing, SHA-256 verification, and XZ decompression to Rust.

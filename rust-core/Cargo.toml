@@ -16,6 +16,7 @@ chrono = { version = "0.4.42", default-features = false, features = ["std"] }
 jni = "0.21.1"
 lzma-rust2 = { version = "0.25", default-features = false, features = ["std", "xz"] }
 sha2 = "0.11"
+rusqlite = { version = "0.38", features = ["bundled"] }
 
 [profile.release]
 opt-level = 3

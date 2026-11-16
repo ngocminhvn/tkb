@@ -30,7 +30,7 @@ cargo ndk --platform 24 \
   -t x86_64 \
   -t x86 \
   -o "$REPO_ROOT/app/src/main/jniLibs" \
-  build --release
+  build --release --locked
 
 for abi in arm64-v8a armeabi-v7a x86_64 x86; do
   test -s "$REPO_ROOT/app/src/main/jniLibs/$abi/libtkb_core.so" || {

@@ -30,6 +30,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+          components: clippy
+
+      - name: Test Rust core and SQLite compatibility
+        run: |
+          cargo test --locked --manifest-path rust-core/Cargo.toml
+          cargo clippy --locked --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
       - name: Install cargo-ndk
         uses: taiki-e/install-action@v2

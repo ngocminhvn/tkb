@@ -25,6 +25,12 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 
 ## 1. Bản đồ thư mục thực tế
 
+Tiếp tục từ `d6ecd60`: `rust-core/src/database/` chứa backend rusqlite đang chuẩn
+bị, chưa được Android gọi. Room trong `data/AppDatabase.kt` vẫn là backend đang
+hoạt động. Không xóa adapter/dependency Room trước khi xác minh JNI/Flow và cài
+đè trên Android. Các test database Rust kiểm tra schema, migration, rollback,
+WAL và bảo toàn ghi chú; chúng không thay thế kiểm thử APK/Room trên thiết bị.
+
 Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt đầu bằng `.../` bên dưới được tính từ thư mục này.
 
 | Thư mục/file | Sở hữu trách nhiệm | Không nên đặt logic gì ở đây? |

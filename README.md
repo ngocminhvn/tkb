@@ -106,6 +106,11 @@ Các đường dẫn rút gọn trong bảng tính từ `app/src/main/java/com/s
 
 ## Build
 
+Đợt chuyển tiếp sau `d6ecd60`: backend `rusqlite` nằm trong
+`rust-core/src/database/` (CRUD, transaction, migration tương thích schema v4).
+Backend này **chưa được nối vào Android**; APK hiện vẫn dùng Room và Flow cũ.
+Xem tiến độ và điều kiện chuyển backend tại [docs/RUST_MIGRATION.md](docs/RUST_MIGRATION.md).
+
 Yêu cầu: JDK 17, Android SDK/NDK tương thích, Rust toolchain và `cargo-ndk`. Đứng tại thư mục gốc repository:
 
 ```bash
