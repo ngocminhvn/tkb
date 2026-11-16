@@ -197,9 +197,62 @@ pub fn should_prefer_just_synced_cache(
             || (observed_lessons_empty && just_synced_lessons_not_empty))
 }
 
+/// Stable order matches Kotlin String comparison and the input order for ties.
+pub fn schedule_order(fields: &[String]) -> Vec<i32> {
+    let (items, _) = fields.as_chunks::<2>();
+    let mut indices: Vec<_> = (0..items.len()).collect();
+    indices.sort_by(|&left, &right| {
+        let [left_date, left_time] = &items[left];
+        let [right_date, right_time] = &items[right];
+        left_date.encode_utf16().cmp(right_date.encode_utf16())
+            .then_with(|| left_time.encode_utf16().cmp(right_time.encode_utf16()))
+    });
+    indices.into_iter().map(|index| index as i32).collect()
+}
+
+/// The first row of each day, followed by the total row count.
+pub fn day_row_offsets(counts: &[i32]) -> Option<Vec<i32>> {
+    let mut offsets = vec![0];
+    let mut total = 0_i32;
+    for &count in counts {
+        total = total.checked_add(count.max(1))?;
+        offsets.push(total);
+    }
+    Some(offsets)
+}
+
+pub fn week_lesson_indices(lesson_weeks: &[i32], selected: i32) -> Vec<i32> {
+    lesson_weeks.iter().enumerate().filter_map(|(index, &week)| {
+        (week == selected).then_some(index as i32)
+    }).collect()
+}
+
+pub fn should_append_days(last_visible: i32, row_count: i32, last_day: &str) -> bool {
+    row_count > 0 && last_visible >= row_count.saturating_sub(6).max(0)
+        && crate::move_calendar_day(last_day, 1).is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_stable_schedule_order_and_empty_day_rows() {
+        let fields = ["2026-11-17", "09:00", "2026-11-16", "10:00",
+            "2026-11-16", "08:00", "2026-11-16", "08:00"].map(str::to_owned);
+        assert_eq!(schedule_order(&fields), [2, 3, 1, 0]);
+        assert_eq!(day_row_offsets(&[0, 3, 1]), Some(vec![0, 1, 4, 5]));
+        assert_eq!(day_row_offsets(&[]), Some(vec![0]));
+        assert_eq!(day_row_offsets(&[i32::MAX, 1]), None);
+    }
+
+    #[test]
+    fn selects_week_lessons_and_prefetches_at_existing_boundary() {
+        assert_eq!(week_lesson_indices(&[3, 2, 3, 4], 3), [0, 2]);
+        assert!(!should_append_days(13, 20, "2026-11-16"));
+        assert!(should_append_days(14, 20, "2026-11-16"));
+        assert!(!should_append_days(0, 0, "2026-11-16"));
+    }
 
     #[test]
     fn parses_compact_week_spans() {

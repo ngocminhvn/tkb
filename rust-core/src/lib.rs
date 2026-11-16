@@ -5,6 +5,7 @@ pub mod auth;
 pub mod autosync;
 pub mod timeline;
 mod update;
+mod widget;
 
 /// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
 #[inline]

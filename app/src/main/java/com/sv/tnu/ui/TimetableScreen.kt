@@ -231,7 +231,7 @@ class TimetableViewModel(
             semesterLessons = lessonList,
             selectedWeek = selected,
             lessons = if (selected == null) emptyList()
-                else lessonList.filter { it.tuanHocKy == selected },
+                else RustScheduleCore.lessonsInWeek(lessonList, selected),
         )
     }
 
@@ -651,12 +651,6 @@ fun TimetableScreen(
     // not represented by a synced WeekEntity in SQLite.
     val startDayYmd = remember(selectedDay) { mondayOfLocalWeek(selectedDay) }
 
-    // Dots are driven by real portal data only, not a hard-coded calendar.
-    val eventDays = remember(semesterLessons, exams) {
-        (semesterLessons.map { normalizeDateToYmd(it.ngayHoc) } +
-            exams.filterNot { it.isHoanThi }.map { normalizeDateToYmd(it.ngayThi) }).toSet()
-    }
-
     // Reuse time labels across week navigation and lazy list recycling.
     val lessonTimes = remember(semesterLessons, periods) {
         val periodsByNumber = periods.associateBy { it.tiet }
@@ -686,11 +680,15 @@ fun TimetableScreen(
                 date = normalizeDateToYmd(exam.ngayThi),
             )
         }
-        (lessonItems + examItems)
-            .groupBy { it.date }
-            .mapValues { (_, items) -> items.sortedBy { it.sortKey } }
-            .toSortedMap()
+        val items = lessonItems + examItems
+        val fields = Array(items.size * 2) { index ->
+            val item = items[index / 2]
+            if (index % 2 == 0) item.date else item.sortKey
+        }
+        RustScheduleCore.scheduleOrder(fields).map(items::get).groupBy { it.date }
     }
+
+    val eventDays = allGrouped.keys
 
     // Keep dates earlier than today inaccessible, including via horizontal swipes.
     // A far-future calendar tap extends the data window only as far as needed.
@@ -730,34 +728,27 @@ fun TimetableScreen(
         }
     }
     // Precompute day labels once for lazy composition.
-    val flatRows = remember(displayedGrouped) {
-        buildList {
-            displayedGrouped.forEach { (date, dayItems) ->
+    val (flatRows, firstRowByDay) = remember(displayedGrouped) {
+        val days = displayedGrouped.entries.toList()
+        val offsets = RustScheduleCore.dayRowOffsets(days.map { it.value.size }.toIntArray())
+        val rows = buildList(offsets.last()) {
+            days.forEachIndexed { dayIndex, (date, dayItems) ->
                 val rail = RustScheduleCore.dayRail(date)
-                if (dayItems.isEmpty()) {
-                    add(TimetableListRow(date, null, true, true, rail, "empty-$date"))
-                } else {
-                    dayItems.forEachIndexed { index, item ->
-                        val itemKey = when (item) {
-                            is ScheduleItem.Lesson -> "lesson-${item.lesson.idTkb}"
-                            is ScheduleItem.Exam -> "exam-${item.exam.id}-$index"
-                        }
-                        add(TimetableListRow(
-                            date = date,
-                            item = item,
-                            firstInDay = index == 0,
-                            lastInDay = index == dayItems.lastIndex,
-                            rail = rail,
-                            key = "$date-$itemKey",
-                        ))
+                val first = offsets[dayIndex]
+                val end = offsets[dayIndex + 1]
+                for (row in first until end) {
+                    val index = row - first
+                    val item = dayItems.getOrNull(index)
+                    val itemKey = when (item) {
+                        null -> "empty-$date"
+                        is ScheduleItem.Lesson -> "$date-lesson-${item.lesson.idTkb}"
+                        is ScheduleItem.Exam -> "$date-exam-${item.exam.id}-$index"
                     }
+                    add(TimetableListRow(date, item, row == first, row + 1 == end, rail, itemKey))
                 }
             }
         }
-    }
-    val firstRowByDay = remember(flatRows) {
-        flatRows.withIndex().filter { it.value.firstInDay }
-            .associate { it.value.date to it.index }
+        rows to days.mapIndexed { index, day -> day.key to offsets[index] }.toMap()
     }
     // Day zero is always today. Preserve scroll while new pages arrive, but
     // reset to today's boundary when the local date or semester changes.
@@ -784,8 +775,7 @@ fun TimetableScreen(
         }.distinctUntilChanged().collect { lastVisible ->
             val lastLoaded = flatRows.lastOrNull()?.date
             if (lastLoaded != null &&
-                lastVisible >= (flatRows.size - 6).coerceAtLeast(0) &&
-                RustScheduleCore.moveCalendarDay(lastLoaded, 1) != null
+                RustScheduleCore.shouldAppendDays(lastVisible, flatRows.size, lastLoaded)
             ) {
                 loadedDayCount += 7
             }

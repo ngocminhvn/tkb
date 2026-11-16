@@ -239,21 +239,8 @@ class TnutRepository(
         if (updated) {
             TimetableWidgetProvider.updateAll(context)
         }
-        if (failures.isNotEmpty()) {
-            return Result.failure(
-                IllegalStateException(
-                    "Đồng bộ lịch thi chưa hoàn tất: ${failures.joinToString("; ")}. " +
-                        "Dữ liệu hợp lệ đã tải được lưu, dữ liệu còn lại được giữ nguyên."
-                )
-            )
-        }
-        if (updated) return Result.success(Unit)
-        return Result.failure(
-            IllegalStateException(
-                "Portal trả danh sách thi giữa kỳ và cuối kỳ rỗng cho học kỳ $hocKy. " +
-                    "Không có dữ liệu mới để đồng bộ; lịch đã lưu được giữ nguyên."
-            )
-        )
+        val issue = RustPortalCore.examSyncIssue(hocKy, updated, failures)
+        return if (issue == null) Result.success(Unit) else Result.failure(IllegalStateException(issue))
     }
 
     override fun clearAvatar() {

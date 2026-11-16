@@ -107,11 +107,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
                 val availableHeight = maxOf(minHeight, maxHeight)
                 val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
-                val layoutMode = when {
-                    minWidth <= 220 || minWidth <= minHeight + 32 -> LayoutMode.SQUARE
-                    minWidth < 320 -> LayoutMode.MEDIUM
-                    else -> LayoutMode.WIDE
-                }
+                val layoutMode = LayoutMode.entries[RustScheduleCore.widgetLayout(minWidth, minHeight)]
                 val isSquare = layoutMode == LayoutMode.SQUARE
 
                 val examItems = exams.map { exam ->
@@ -293,41 +289,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         availableHeight: Int,
         layoutMode: LayoutMode,
     ): LessonDensity {
-        if (lessonCount <= 0) return LessonDensity(12f, 11f, 8, 4)
-        val usableHeight = (availableHeight - if (layoutMode == LayoutMode.SQUARE) 48 else 52)
-            .coerceAtLeast(40)
-        val heightPerLesson = usableHeight / lessonCount
-        val baseSubject = when (layoutMode) {
-            LayoutMode.SQUARE -> 12f
-            LayoutMode.MEDIUM -> 12f
-            LayoutMode.WIDE -> 14f
-        }
-        val countReduction = when {
-            lessonCount <= 2 -> 0f
-            lessonCount == 3 -> 1f
-            lessonCount == 4 -> 2f
-            else -> 4f
-        }
-        val heightReduction = when {
-            heightPerLesson >= 48 -> 0f
-            heightPerLesson >= 36 -> 1f
-            heightPerLesson >= 28 -> 2f
-            else -> 4f
-        }
-        val subjectSize = (baseSubject - maxOf(countReduction, heightReduction)).coerceAtLeast(7f)
-        val timeSize = (subjectSize - 1f).coerceAtLeast(7f)
-        val verticalPadding = when {
-            heightPerLesson >= 52 && lessonCount <= 2 -> 6
-            heightPerLesson >= 38 -> 4
-            heightPerLesson >= 28 -> 2
-            else -> 0
-        }
-        val horizontalPadding = when (layoutMode) {
-            LayoutMode.SQUARE -> if (lessonCount >= 4) 5 else 8
-            LayoutMode.MEDIUM -> if (lessonCount >= 4) 7 else 10
-            LayoutMode.WIDE -> if (lessonCount >= 5) 8 else 12
-        }
-        return LessonDensity(subjectSize, timeSize, horizontalPadding, verticalPadding)
+        val (subject, time, horizontal, vertical) =
+            RustScheduleCore.widgetDensity(lessonCount, availableHeight, layoutMode.ordinal)
+        return LessonDensity(subject.toFloat(), time.toFloat(), horizontal, vertical)
     }
 
     private fun isDayFinished(

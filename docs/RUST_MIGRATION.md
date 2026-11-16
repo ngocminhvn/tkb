@@ -28,6 +28,7 @@ application ID, change release signing credentials or use destructive DB migrati
   edge navigation confirmation, cache priority arbitration, manual week resolution,
   extended date window calculation, and date window generation into Rust (`timeline.rs`).
 - [x] Move local-date formatting, lesson time labels, widget end-of-day decisions, and reminder text ordering to Rust.
+- [x] Move lesson selection, timeline ordering and row offsets, prefetch thresholds, exam sync outcomes, and widget sizing to Rust. Cache the week payload in the JNI adapter.
 - [ ] Evaluate ViewModel sync state with Android lifecycle tests. The first-frame cache snapshot uses a single Room transaction.
 
 ## Phase 4: UI — pending

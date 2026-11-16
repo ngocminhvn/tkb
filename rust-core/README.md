@@ -5,7 +5,8 @@ The Rust core provides the platform-independent logic behind the existing Androi
 ## Rust code used by the Android app
 
 - Date normalization, week and month navigation, local dates using the device's UTC offset, Vietnam auto-sync timing, timetable selection and gestures.
-- Lesson time labels, exam end times, the widget's end-of-day decision and sorted reminder text.
+- Weekly lesson selection, stable timeline ordering, day-row offsets and timeline prefetch. The Kotlin adapter reuses the packed week payload.
+- Lesson time labels, exam end times, widget sizing and end-of-day decisions, and sorted reminder text.
 - TNUT login and refresh response parsing, avatar profile extraction, timetable and exam request bodies, logical unauthorized response handling and retry policy.
 - Timetable and exam validation, pagination and cross-page deduplication before Room transactions.
 - GitHub Pages release manifest validation, SHA-256 verification and streaming XZ decompression of downloaded APK packages in app-private storage.

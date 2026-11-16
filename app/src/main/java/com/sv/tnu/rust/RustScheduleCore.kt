@@ -1,5 +1,6 @@
 package com.sv.tnu.rust
 
+import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.WeekEntity
 import java.util.TimeZone
 
@@ -83,6 +84,14 @@ object RustScheduleCore {
         examDurations: IntArray,
     ): Boolean = widgetDayFinishedNative(nowMinutes, lessonEnds, examStarts, examDurations)
 
+    private external fun widgetLayoutNative(width: Int, minHeight: Int): Int
+    private external fun widgetDensityNative(count: Int, height: Int, layout: Int): IntArray
+
+    fun widgetLayout(width: Int, minHeight: Int): Int = widgetLayoutNative(width, minHeight)
+
+    fun widgetDensity(count: Int, height: Int, layout: Int): IntArray =
+        widgetDensityNative(count, height, layout)
+
     fun normalizeDate(value: String): String = normalizeDateNative(value)
 
     fun examEndTime(start: String, minutes: Int): String = examEndTimeNative(start, minutes)
@@ -150,8 +159,37 @@ object RustScheduleCore {
         return Triple(month, year, cells)
     }
 
-    private fun packWeeks(weeks: List<WeekEntity>): String =
-        weeks.joinToString(";") { "${it.tuanHocKy}|${it.ngayBatDau}|${it.ngayKetThuc}" }
+    private var cachedWeeks: List<WeekEntity> = emptyList()
+    private var cachedWeekPayload = ""
+
+    @Synchronized
+    private fun packWeeks(weeks: List<WeekEntity>): String {
+        if (weeks != cachedWeeks) {
+            cachedWeeks = weeks.toList()
+            cachedWeekPayload = cachedWeeks.joinToString(";") {
+                "${it.tuanHocKy}|${it.ngayBatDau}|${it.ngayKetThuc}"
+            }
+        }
+        return cachedWeekPayload
+    }
+
+    private external fun scheduleOrderNative(fields: Array<String>): IntArray
+    private external fun dayRowOffsetsNative(counts: IntArray): IntArray
+    private external fun weekLessonIndicesNative(weeks: IntArray, selected: Int): IntArray
+    private external fun shouldAppendDaysNative(lastVisible: Int, rowCount: Int, lastDay: String): Boolean
+
+    fun scheduleOrder(fields: Array<String>): IntArray = scheduleOrderNative(fields)
+
+    fun dayRowOffsets(counts: IntArray): IntArray = dayRowOffsetsNative(counts)
+
+    fun lessonsInWeek(lessons: List<LessonEntity>, selected: Int): List<LessonEntity> {
+        val weeks = IntArray(lessons.size)
+        lessons.forEachIndexed { index, lesson -> weeks[index] = lesson.tuanHocKy }
+        return weekLessonIndicesNative(weeks, selected).map(lessons::get)
+    }
+
+    fun shouldAppendDays(lastVisible: Int, rowCount: Int, lastDay: String): Boolean =
+        shouldAppendDaysNative(lastVisible, rowCount, lastDay)
 
     fun findWeekNumber(weeks: List<WeekEntity>, dateYmd: String): Int? {
         if (weeks.isEmpty()) return null

@@ -811,3 +811,30 @@ mod migration_tests {
         assert!(read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).is_err());
     }
 }
+
+pub fn exam_sync_issue(semester: i32, updated: bool, errors: &[String]) -> Option<String> {
+    if !errors.is_empty() {
+        return Some(format!(
+            "Đồng bộ lịch thi chưa hoàn tất: {}. Dữ liệu hợp lệ đã tải được lưu, dữ liệu còn lại được giữ nguyên.",
+            errors.join("; ")
+        ));
+    }
+    (!updated).then(|| format!(
+        "Portal trả danh sách thi giữa kỳ và cuối kỳ rỗng cho học kỳ {semester}. Không có dữ liệu mới để đồng bộ; lịch đã lưu được giữ nguyên."
+    ))
+}
+
+#[cfg(test)]
+mod exam_sync_tests {
+    use super::exam_sync_issue;
+
+    #[test]
+    fn distinguishes_success_empty_and_partial_failure() {
+        assert!(exam_sync_issue(20261, true, &[]).is_none());
+        assert!(exam_sync_issue(20261, false, &[]).unwrap().contains("20261"));
+        let errors = ["timeout".into(), "mất mạng".into()];
+        for updated in [false, true] {
+            assert!(exam_sync_issue(20261, updated, &errors).unwrap().contains("timeout; mất mạng"));
+        }
+    }
+}

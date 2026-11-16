@@ -40,7 +40,7 @@ TnutApi / TnutRepository             ▲
                                      └─ binary TKB1 → Room entities
 
 RustScheduleCore (JNI) → rust-core/src/lib.rs
-  tính ngày/tuần, khung giờ, nội dung nhắc và thời điểm widget chuyển ngày
+  tính ngày/tuần và khung giờ, sắp thứ tự timeline, phân trang, nội dung nhắc và bố cục widget
 
 rust-core/src/update.rs
   xác minh SHA-256 và giải nén gói cập nhật APK

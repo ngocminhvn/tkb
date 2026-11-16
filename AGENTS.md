@@ -42,7 +42,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
 | `.../ui/MainScreen.kt` | Khung màn hình chính, tab/navigation, mở cài đặt, kết nối update | TNUT parsing |
-| `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
+| `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi và ánh xạ chỉ số timeline từ Rust, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
 | `.../ui/WeekDatePicker.kt` | Thanh ngày, chọn ngày/tuần, lịch tháng, thao tác kéo/chạm | Lấy token/API |
 | `.../ui/SettingsScreen.kt` | Compose cài đặt giao diện, nhắc lịch, tài khoản, kiểm tra cập nhật (đã bỏ chỉnh số tuần) | SQL migration |
 | `.../ui/UpdateDialog.kt` | UI hộp thoại cập nhật APK | Tải file HTTP |

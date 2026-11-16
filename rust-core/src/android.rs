@@ -757,3 +757,105 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapLoginNative(
     };
     into_byte_array(&mut env, crate::portal::map_login_wire(&bytes))
 }
+
+fn int_array<'local>(env: &JNIEnv<'local>, values: &[i32]) -> jni::errors::Result<JIntArray<'local>> {
+    let output = env.new_int_array(values.len() as jint)?;
+    env.set_int_array_region(&output, 0, values)?;
+    Ok(output)
+}
+
+fn read_ints(env: &JNIEnv<'_>, input: JIntArray<'_>) -> jni::errors::Result<Vec<i32>> {
+    let mut values = vec![0; env.get_array_length(&input)? as usize];
+    env.get_int_array_region(&input, 0, &mut values)?;
+    Ok(values)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_scheduleOrderNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    fields: JObjectArray<'_>,
+) -> jintArray {
+    let Ok(fields) = read_strings(&mut env, &fields) else { return std::ptr::null_mut(); };
+    int_array(&env, &crate::timeline::schedule_order(&fields))
+        .map(JIntArray::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_dayRowOffsetsNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    counts: JIntArray<'_>,
+) -> jintArray {
+    let Ok(counts) = read_ints(&env, counts) else { return std::ptr::null_mut(); };
+    let Some(offsets) = crate::timeline::day_row_offsets(&counts) else {
+        let _ = env.throw_new("java/lang/IllegalArgumentException", "Too many timetable rows");
+        return std::ptr::null_mut();
+    };
+    int_array(&env, &offsets).map(JIntArray::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_weekLessonIndicesNative(
+    env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    lesson_weeks: JIntArray<'_>,
+    selected: jint,
+) -> jintArray {
+    let Ok(weeks) = read_ints(&env, lesson_weeks) else { return std::ptr::null_mut(); };
+    int_array(&env, &crate::timeline::week_lesson_indices(&weeks, selected))
+        .map(JIntArray::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldAppendDaysNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    last_visible: jint,
+    row_count: jint,
+    last_day: JString<'_>,
+) -> jboolean {
+    let day = from_java(&mut env, &last_day);
+    u8::from(crate::timeline::should_append_days(last_visible, row_count, &day))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_widgetLayoutNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    width: jint,
+    min_height: jint,
+) -> jint {
+    crate::widget::layout(width, min_height) as jint
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_widgetDensityNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    count: jint,
+    height: jint,
+    layout: jint,
+) -> jintArray {
+    let Ok(layout) = crate::widget::Layout::try_from(layout) else {
+        let _ = env.throw_new("java/lang/IllegalArgumentException", "Unknown widget layout");
+        return std::ptr::null_mut();
+    };
+    int_array(&env, &crate::widget::density(count, height, layout))
+        .map(JIntArray::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_examSyncIssueNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    semester: jint,
+    updated: jboolean,
+    errors: JObjectArray<'_>,
+) -> jstring {
+    let Ok(errors) = read_strings(&mut env, &errors) else { return std::ptr::null_mut(); };
+    match crate::portal::exam_sync_issue(semester, updated != 0, &errors) {
+        Some(issue) => into_java(&mut env, issue),
+        None => std::ptr::null_mut(),
+    }
+}

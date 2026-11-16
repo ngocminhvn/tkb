@@ -137,6 +137,11 @@ object RustPortalCore {
         return PortalBinaryDecoder.decodeUpdateManifest(bytes)
     }
 
+    private external fun examSyncIssueNative(semester: Int, updated: Boolean, errors: Array<String>): String?
+
+    fun examSyncIssue(semester: Int, updated: Boolean, errors: List<String>): String? =
+        examSyncIssueNative(semester, updated, errors.toTypedArray())
+
     fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> {
         if (rows.size < 2) return rows
         val keys = ArrayList<String>(rows.size * 6)
