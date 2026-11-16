@@ -185,9 +185,11 @@ class TimetableViewModel(
     private val _refreshing = MutableStateFlow(false)
     // True from launch until the automatic daily sync has either started or
     // been skipped; avoids flashing "no timetable" before the first sync begins.
-    private val _awaitingSync = MutableStateFlow(true)
-    private var checkingAutoSync = false
-    private var attemptedAutoSync = false
+    private val _awaitingSync = MutableStateFlow(
+        authStore.lastAutoSyncAttempt.let { last ->
+            RustScheduleCore.shouldAutoRefresh(System.currentTimeMillis(), last)
+        },
+    )
     val awaitingSync: StateFlow<Boolean> = _awaitingSync.asStateFlow()
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
@@ -452,29 +454,16 @@ class TimetableViewModel(
     }
 
     fun refreshIfNeeded() {
-        if (_refreshing.value || checkingAutoSync) return
-        checkingAutoSync = true
-        viewModelScope.launch {
-            try {
-                val startup = initialSnapshot.await()
-                if (_refreshing.value) return@launch
-                val snapshot = timetable.value ?: startup
-                val hasCache = !snapshot?.weeks.isNullOrEmpty() || !snapshot?.semesterLessons.isNullOrEmpty()
-                val now = System.currentTimeMillis()
-                val lastAttempt = authStore.lastAutoSyncAttempt
-                val recover = RustScheduleCore.shouldRecoverEmptyTimetable(
-                    hasCache, lastAttempt, authStore.lastSyncTime, attemptedAutoSync,
-                )
-                if (recover || RustScheduleCore.shouldAutoRefresh(now, lastAttempt)) {
-                    attemptedAutoSync = true
-                    authStore.lastAutoSyncAttempt = now
-                    refresh(showDialog = false)
-                } else {
-                    _awaitingSync.value = false
-                }
-            } finally {
-                checkingAutoSync = false
-            }
+        if (_refreshing.value) return
+        val now = System.currentTimeMillis()
+        val lastAttempt = authStore.lastAutoSyncAttempt
+        // First login syncs immediately; subsequent automatic syncs run once
+        // per Vietnam day after 06:30. No extra backfill request is needed.
+        if (RustScheduleCore.shouldAutoRefresh(now, lastAttempt)) {
+            authStore.lastAutoSyncAttempt = now
+            refresh(showDialog = false)
+        } else {
+            _awaitingSync.value = false
         }
     }
 
@@ -559,7 +548,7 @@ fun TimetableScreen(
     val periods by viewModel.periods.collectAsState()
     val refreshing by viewModel.refreshing.collectAsState()
     val awaitingSync by viewModel.awaitingSync.collectAsState()
-    val hasOfflineSchedule = weeks.isNotEmpty() || semesterLessons.isNotEmpty() || exams.isNotEmpty()
+    val lastSyncTime by viewModel.lastSyncTime.collectAsState()
     val error by viewModel.error.collectAsState()
     val lessonNotes by viewModel.lessonNotes.collectAsState()
     val returnToTodayRequest by viewModel.returnToTodayRequest.collectAsState()
@@ -686,7 +675,6 @@ fun TimetableScreen(
             weekBounds.any { (start, end, _) -> day in start..end }
         }
     }
-    val hasVisibleSchedule = syncedDays.isNotEmpty() || displayedGrouped.values.any { it.isNotEmpty() }
     // Precompute day labels once for lazy composition.
     val (flatRows, firstRowByDay) = remember(displayedGrouped) {
         val days = displayedGrouped.entries.toList()
@@ -892,7 +880,7 @@ fun TimetableScreen(
                 }
             }
 
-            if (!hasVisibleSchedule && (timetable == null || refreshing || awaitingSync)) {
+            if (timetable == null || (weeks.isEmpty() && exams.isEmpty() && (refreshing || awaitingSync))) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -902,7 +890,7 @@ fun TimetableScreen(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(28.dp))
                 }
-            } else if (!hasOfflineSchedule || displayedGrouped.isEmpty()) {
+            } else if (displayedGrouped.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -988,7 +976,7 @@ fun TimetableScreen(
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Text(
-                                                text = if (row.date in syncedDays)
+                                                text = if (row.date in syncedDays || lastSyncTime > 0L)
                                                     "Không có lịch học hoặc lịch thi."
                                                 else "Chưa đồng bộ",
                                                 style = MaterialTheme.typography.bodySmall,

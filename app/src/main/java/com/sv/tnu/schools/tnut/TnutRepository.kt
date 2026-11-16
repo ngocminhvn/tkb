@@ -137,25 +137,29 @@ class TnutRepository(
             Result.failure(e)
         }
 
-        examSync.await().onFailure { error ->
+        val examResult = examSync.await()
+        examResult.onFailure { error ->
             Log.w("TnutRepository", "Exam sync failed independently of timetable", error)
             _lastSyncWarning.value = error.message ?: error.javaClass.simpleName
         }
-        timetableResult
+        if (examResult.isSuccess && timetableResult.isFailure) {
+            authStore.hocKy = hocKy
+            authStore.lastSyncTime = System.currentTimeMillis()
+            TimetableWidgetProvider.updateAll(context)
+        }
+        if (examResult.isSuccess && timetableResult.exceptionOrNull()?.message?.contains("lịch học rỗng") == true) {
+            Result.success(Unit)
+        } else {
+            timetableResult
+        }
     }
 
     /**
-     * Retain only live portal cache on startup. Older releases inserted one
-     * user's demo exam list into all accounts; remove only the exact known
-     * legacy fixture. Never replace genuine saved lessons, exams or notes.
+     * Retain live portal cache on startup. Never replace or delete genuine
+     * saved lessons, exams or personal notes.
      */
     override suspend fun prepareOfflineCache(hocKy: Int) = withContext(Dispatchers.IO) {
-        // Old demo rows share their identity with genuine portal rows.
-        if (authStore.lastSyncTime == 0L && !authStore.hasCommittedFinalExams(hocKy) &&
-            dao.removeLegacySampleExamsIfExact(hocKy)
-        ) {
-            TimetableWidgetProvider.updateAll(context)
-        }
+        // Preserves genuine saved lessons, exams and notes. Never delete live cache.
     }
 
     override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> = withContext(Dispatchers.IO) {
