@@ -24,9 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Nguồn dữ liệu thời khóa biểu: API portal -> Room, UI đọc Flow từ Room nên
@@ -46,6 +45,8 @@ class TnutRepository(
     // computed directly by Rust native core.
     private fun todayInVietnam(): String =
         com.sv.tnu.rust.RustScheduleCore.todayVietnamYmd()
+
+    private val jsonMediaType = "application/json; charset=UTF-8".toMediaType()
 
     private val _avatarPath = MutableStateFlow<String?>(authStore.avatarPath)
     override val avatarPath: StateFlow<String?> = _avatarPath.asStateFlow()
@@ -84,19 +85,6 @@ class TnutRepository(
         }
     }
 
-    suspend fun loadSemesters(): Result<List<Semester>> {
-        return try {
-            val res = api.semesters()
-            if (res.code == 200 && res.data != null) {
-                Result.success(res.data.dsHocKy)
-            } else {
-                Result.failure(IllegalStateException(res.message ?: "Không tải được danh sách học kỳ (${res.code})"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     /**
      * Synchronize the timetable and exams on every requested portal sync.
      * These API sources are independent: failed/empty timetable requests must
@@ -123,7 +111,7 @@ class TnutRepository(
             val data = withContext(Dispatchers.IO) {
                 val todayYmd = todayInVietnam()
                 val raw = api.weeklyTimetable(
-                    WeeklyRequest(filter = WeeklyFilter(hocKy = hocKy))
+                    RustPortalCore.timetableRequest(hocKy).toRequestBody(jsonMediaType)
                 ).use { it.bytes() }
                 RustPortalCore.mapTimetable(hocKy, todayYmd, raw)
             }
@@ -177,18 +165,13 @@ class TnutRepository(
 
     override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> = withContext(Dispatchers.IO) {
         try {
-            val res = api.avatar(maSv)
-            val profile = res.data?.thongTinSinhVien
-            val name = listOf(profile?.hoTen, profile?.tenSinhVien, profile?.tenSv)
-                .firstOrNull { !it.isNullOrBlank() }?.trim()
-            if (!name.isNullOrBlank()) {
-                authStore.studentName = name
-                _studentName.value = name
+            val profile = api.avatar(maSv, "{}".toByteArray().toRequestBody(jsonMediaType)).use { RustPortalCore.mapAvatar(it.bytes()) }
+            if (profile.name.isNotEmpty()) {
+                authStore.studentName = profile.name
+                _studentName.value = profile.name
             }
-            val rawImage = profile?.image?.takeIf { it.isNotBlank() }
-            if (rawImage != null) {
-                val base64Str = if (rawImage.contains(",")) rawImage.substringAfter(",") else rawImage
-                val bytes = Base64.decode(base64Str, Base64.DEFAULT)
+            if (profile.base64 != null) {
+                val bytes = Base64.decode(profile.base64, Base64.DEFAULT)
                 val file = File(context.filesDir, "avatar_${maSv}.jpg")
                 file.writeBytes(bytes)
                 val path = file.absolutePath
@@ -212,12 +195,11 @@ class TnutRepository(
      */
     private suspend fun loadPortalExams(hocKy: Int, isGiuaKy: Boolean): List<ExamEntity> {
         val all = mutableListOf<ExamEntity>()
-        val maxPages = 50
         var page = 1
         while (true) {
             val mapped = withContext(Dispatchers.IO) {
                 val raw = api.exams(
-                    ExamRequest.forSemester(hocKy, isGiuaKy, page)
+                    RustPortalCore.examRequest(hocKy, isGiuaKy, page).toRequestBody(jsonMediaType)
                 ).use { it.bytes() }
                 // Rust rejects invalid portal pages before any Room replacement.
                 RustPortalCore.mapExamPage(hocKy, isGiuaKy, raw)
@@ -225,10 +207,7 @@ class TnutRepository(
             all.addAll(mapped.rows)
             // Portal may omit total_pages. In that case a short page means end.
             // Never commit a partially fetched multi-page schedule.
-            val hasNext = RustPortalCore.hasNextExamPage(page, mapped.totalPages, mapped.rowCount)
-            if (!hasNext) break
-            check(page < maxPages) { "Lịch thi vượt quá $maxPages trang; giữ dữ liệu cũ." }
-            page++
+            page = RustPortalCore.nextExamPage(page, mapped) ?: break
         }
         return RustPortalCore.dedupeExams(all)
     }

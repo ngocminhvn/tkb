@@ -180,7 +180,7 @@ class TimetableViewModel(
     val studentId: String = authStore.username.orEmpty()
 
     private val _selectedWeek = MutableStateFlow<Int?>(null)
-    private val _todayYmd = MutableStateFlow(localTodayYmd())
+    private val _todayYmd = MutableStateFlow(RustScheduleCore.localTodayYmd())
     private val _refreshing = MutableStateFlow(false)
     // True from launch until the automatic daily sync has either started or
     // been skipped; avoids flashing "no timetable" before the first sync begins.
@@ -382,7 +382,7 @@ class TimetableViewModel(
 
     /** Re-evaluate the local date after returning from the background. */
     fun updateToday() {
-        val actualToday = localTodayYmd()
+        val actualToday = RustScheduleCore.localTodayYmd()
         if (_todayYmd.value != actualToday) {
             _todayYmd.value = actualToday
             _selectedWeek.value = null // Follow the new current week at midnight.
@@ -498,17 +498,6 @@ class TimetableViewModel(
 private fun normalizeDateToYmd(dateStr: String): String =
     RustScheduleCore.normalizeDate(dateStr)
 
-private fun localTodayYmd(): String {
-    val cal = Calendar.getInstance()
-    return String.format(
-        Locale.US,
-        "%04d-%02d-%02d",
-        cal.get(Calendar.YEAR),
-        cal.get(Calendar.MONTH) + 1,
-        cal.get(Calendar.DAY_OF_MONTH),
-    )
-}
-
 private fun mondayOfLocalWeek(ymd: String): String =
     RustScheduleCore.mondayOfWeek(ymd) ?: ymd
 
@@ -526,11 +515,12 @@ internal fun adjacentTimetableDay(
 private fun calculateExamEndTime(gioBatDau: String, soPhut: Int): String =
     RustScheduleCore.examEndTime(gioBatDau, soPhut)
 
-private fun timeRange(periods: Map<Int, PeriodEntity>, tietBatDau: Int, soTiet: Int): String {
-    val start = periods[tietBatDau]?.gioBatDau ?: return "Tiết $tietBatDau"
-    val end = periods[tietBatDau + soTiet - 1]?.gioKetThuc.orEmpty()
-    return if (end.isNotBlank()) "$start – $end" else start
-}
+private fun timeRange(periods: Map<Int, PeriodEntity>, tietBatDau: Int, soTiet: Int): String =
+    RustScheduleCore.formatLessonTime(
+        tietBatDau,
+        periods[tietBatDau]?.gioBatDau,
+        periods[tietBatDau + soTiet - 1]?.gioKetThuc,
+    )
 
 private sealed interface ScheduleItem {
     val date: String
@@ -591,7 +581,7 @@ fun TimetableScreen(
 
     // The visible timeline starts at today and never exposes past lessons.
     // Re-evaluate the local date after midnight without background polling.
-    var todayStr by remember { mutableStateOf(localTodayYmd()) }
+    var todayStr by remember { mutableStateOf(RustScheduleCore.localTodayYmd()) }
     // Day selection is local UI state, initialized from the phone's calendar.
     var selectedDay by remember { mutableStateOf(todayStr) }
     // Derive the visible week from the selected day immediately. The timeline
@@ -624,7 +614,7 @@ fun TimetableScreen(
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val actualToday = localTodayYmd()
+                val actualToday = RustScheduleCore.localTodayYmd()
                 if (actualToday != todayStr) {
                     todayStr = actualToday
                     selectedDay = actualToday
@@ -648,7 +638,7 @@ fun TimetableScreen(
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
             delay((nextMidnight - System.currentTimeMillis() + 100L).coerceAtLeast(1000L))
-            val actualToday = localTodayYmd()
+            val actualToday = RustScheduleCore.localTodayYmd()
             if (todayStr != actualToday) {
                 todayStr = actualToday
                 selectedDay = actualToday
@@ -670,8 +660,13 @@ fun TimetableScreen(
     // Reuse time labels across week navigation and lazy list recycling.
     val lessonTimes = remember(semesterLessons, periods) {
         val periodsByNumber = periods.associateBy { it.tiet }
+        val byPeriodRange = mutableMapOf<Pair<Int, Int>, String>()
         semesterLessons.associate { lesson ->
-            lesson.idTkb to timeRange(periodsByNumber, lesson.tietBatDau, lesson.soTiet)
+            val range = lesson.tietBatDau to lesson.soTiet
+            val display = byPeriodRange.getOrPut(range) {
+                timeRange(periodsByNumber, lesson.tietBatDau, lesson.soTiet)
+            }
+            lesson.idTkb to display
         }
     }
     // Process the entire semester just once per data update; the LazyColumn

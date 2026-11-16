@@ -1,7 +1,6 @@
 package com.sv.tnu.update
 
 import android.content.ClipData
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -10,14 +9,11 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.rust.RustScheduleCore
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
-import java.util.Locale
-import org.json.JSONObject
-import org.tukaani.xz.XZInputStream
 
 data class AppUpdateInfo(
     val versionCode: Long,
@@ -83,99 +79,37 @@ object AppUpdateManager {
                 setRequestProperty("User-Agent", "TKB-SV-Updater/$currentName")
             }
 
-            val code = connection.responseCode
-            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader()
-                ?.use { it.readText() }
-                .orEmpty()
-            connection.disconnect()
-
-            if (code !in 200..299) {
-                return AppUpdateCheckResult(
-                    currentVersionCode = currentCode,
-                    currentVersionName = currentName,
-                    error = "HTTP $code khi đọc thông tin cập nhật.",
-                )
+            val manifest = try {
+                val code = connection.responseCode
+                if (code !in 200..299) {
+                    return AppUpdateCheckResult(
+                        currentVersionCode = currentCode,
+                        currentVersionName = currentName,
+                        error = "HTTP $code khi đọc thông tin cập nhật.",
+                    )
+                }
+                val payload = connection.inputStream.use { it.readBytes() }
+                RustPortalCore.readReleaseUpdate(currentCode, EXPECTED_UPDATE_PREFIX, payload)
+            } finally {
+                connection.disconnect()
             }
 
-            val json = JSONObject(body)
-            val remoteCode = json.optLong("versionCode", -1L)
-            val remoteName = json.optString("versionName").trim()
-            val apkUrl = json.optString("apkUrl").trim()
-            val packageUrl = json.optString("packageUrl").trim().ifBlank { apkUrl }
-            val compression = json.optString("compression")
-                .trim()
-                .lowercase(Locale.ROOT)
-                .ifBlank { "none" }
-            val legacySha256 = json.optString("sha256").trim().lowercase(Locale.ROOT)
-            val sha256 = json.optString("packageSha256")
-                .trim()
-                .lowercase(Locale.ROOT)
-                .ifBlank { legacySha256 }
-            val legacySizeBytes = json.optLong("sizeBytes", -1L).takeIf { it > 0L }
-            val sizeBytes = json.optLong("packageSizeBytes", -1L)
-                .takeIf { it > 0L }
-                ?: legacySizeBytes
-            val changelog = json.optString("changelog").trim()
-
-            when {
-                remoteCode <= 0L ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                        error = "update.json thiếu versionCode hợp lệ.",
+            AppUpdateCheckResult(
+                update = manifest?.let {
+                    AppUpdateInfo(
+                        versionCode = it.versionCode,
+                        versionName = it.versionName,
+                        apkUrl = it.apkUrl,
+                        packageUrl = it.packageUrl,
+                        compression = it.compression,
+                        sha256 = it.sha256,
+                        sizeBytes = it.sizeBytes,
+                        changelog = it.changelog,
                     )
-
-                remoteName.isBlank() ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                        error = "update.json thiếu versionName.",
-                    )
-
-                !packageUrl.startsWith(EXPECTED_UPDATE_PREFIX) ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                        error = "Nguồn cập nhật TKB SV không hợp lệ.",
-                    )
-
-                compression !in setOf("none", "xz") ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                        error = "Kiểu nén cập nhật không được hỗ trợ.",
-                    )
-
-                !sha256.matches(Regex("^[0-9a-f]{64}$")) ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                        error = "update.json thiếu SHA-256 hợp lệ.",
-                    )
-
-                remoteCode <= currentCode ->
-                    AppUpdateCheckResult(
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                    )
-
-                else ->
-                    AppUpdateCheckResult(
-                        update = AppUpdateInfo(
-                            versionCode = remoteCode,
-                            versionName = remoteName,
-                            apkUrl = apkUrl,
-                            packageUrl = packageUrl,
-                            compression = compression,
-                            sha256 = sha256,
-                            sizeBytes = sizeBytes,
-                            changelog = changelog.ifBlank { "Bản cập nhật TKB SV mới." },
-                        ),
-                        currentVersionCode = currentCode,
-                        currentVersionName = currentName,
-                    )
-            }
+                },
+                currentVersionCode = currentCode,
+                currentVersionName = currentName,
+            )
         } catch (t: Throwable) {
             AppUpdateCheckResult(
                 currentVersionCode = currentCode,
@@ -216,7 +150,6 @@ object AppUpdateManager {
             }
 
             val totalBytes = update.sizeBytes ?: connection.contentLengthLong.takeIf { it > 0L }
-            val digest = MessageDigest.getInstance("SHA-256")
             val buffer = ByteArray(256 * 1024)
             var downloaded = 0L
             var lastProgressAt = 0L
@@ -228,7 +161,6 @@ object AppUpdateManager {
                         val count = input.read(buffer)
                         if (count < 0) break
                         out.write(buffer, 0, count)
-                        digest.update(buffer, 0, count)
                         downloaded += count
 
                         val now = android.os.SystemClock.elapsedRealtime()
@@ -242,23 +174,12 @@ object AppUpdateManager {
             }
             connection.disconnect()
 
-            val actualSha256 = digest.digest().joinToString("") { "%02x".format(Locale.US, it) }
-            if (!actualSha256.equals(update.sha256, ignoreCase = true)) {
-                tempFile.delete()
+            if (!RustPortalCore.unpackUpdate(
+                    tempFile.absolutePath, destinationApk.absolutePath,
+                    update.sha256, update.compression == "xz",
+                )
+            ) {
                 return AppUpdateDownloadResult(error = "Mã SHA-256 không khớp. File tải đã bị hủy.")
-            }
-
-            // Decompress / copy to destination APK
-            destinationApk.outputStream().buffered(256 * 1024).use { out ->
-                when (update.compression) {
-                    "xz" -> XZInputStream(tempFile.inputStream().buffered(256 * 1024)).use { input ->
-                        input.copyTo(out, 256 * 1024)
-                    }
-                    else -> tempFile.inputStream().buffered(256 * 1024).use { input ->
-                        input.copyTo(out, 256 * 1024)
-                    }
-                }
-                out.flush()
             }
 
             // Save to MediaStore.Downloads or fallback to FileProvider

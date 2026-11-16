@@ -1,6 +1,6 @@
 //! JNI entry points for the TKB SV Android app. Data never leaves the process.
-use jni::objects::{JByteArray, JObject, JString};
-use jni::sys::{jboolean, jbyteArray, jfloat, jint, jstring};
+use jni::objects::{JByteArray, JIntArray, JObject, JObjectArray, JString};
+use jni::sys::{jboolean, jbyteArray, jfloat, jint, jintArray, jlong, jobjectArray, jstring};
 use jni::JNIEnv;
 
 fn from_java(env: &mut JNIEnv<'_>, input: &JString<'_>) -> String {
@@ -518,4 +518,242 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_generateDateWindowN
     let start = from_java(&mut env, &start_ymd);
     let dates = crate::timeline::generate_date_window(&start, count);
     into_java(&mut env, dates.join(","))
+}
+
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_timetableRequestNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    semester: jint,
+) -> jbyteArray {
+    into_byte_array(&mut env, Ok(crate::portal::timetable_request(semester)))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_examRequestNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    semester: jint,
+    midterm: jboolean,
+    page: jint,
+) -> jbyteArray {
+    if page < 1 {
+        return into_byte_array(&mut env, Err("Trang lịch thi phải >= 1".into()));
+    }
+    into_byte_array(
+        &mut env,
+        Ok(crate::portal::exam_request(semester, midterm != 0, page as usize)),
+    )
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_nextExamPageNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    page: jint,
+    total_pages: jint,
+    row_count: jint,
+) -> jint {
+    match crate::portal::next_exam_page(
+        page.max(1) as usize,
+        usize::try_from(total_pages).ok(),
+        row_count.max(0) as usize,
+    ) {
+        Ok(next) => next.unwrap_or(0) as jint,
+        Err(message) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", message);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_readReleaseUpdateNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    current_version: jlong,
+    allowed_prefix: JString<'_>,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let prefix = from_java(&mut env, &allowed_prefix);
+    let Ok(bytes) = env.convert_byte_array(&source) else {
+        return std::ptr::null_mut();
+    };
+    into_byte_array(
+        &mut env,
+        crate::portal::read_release_update(current_version, &prefix, &bytes),
+    )
+}
+
+fn read_strings(env: &mut JNIEnv<'_>, input: &JObjectArray<'_>) -> jni::errors::Result<Vec<String>> {
+    let len = env.get_array_length(input)?;
+    let mut strings = Vec::with_capacity(len as usize);
+    for index in 0..len {
+        let element = env.get_object_array_element(input, index)?;
+        let local = env.auto_local(JString::from(element));
+        strings.push(env.get_string(&local)?.into());
+    }
+    Ok(strings)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_uniqueExamIndicesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    flat_keys: JObjectArray<'_>,
+) -> jintArray {
+    let Ok(fields) = read_strings(&mut env, &flat_keys) else {
+        return std::ptr::null_mut();
+    };
+    let (keys, remainder) = fields.as_chunks::<6>();
+    if !remainder.is_empty() {
+        let _ = env.throw_new("java/lang/IllegalArgumentException", "Invalid exam identity");
+        return std::ptr::null_mut();
+    }
+    let indices = crate::portal::first_exam_indices(keys);
+    let Ok(array) = env.new_int_array(indices.len() as jint) else {
+        return std::ptr::null_mut();
+    };
+    if env.set_int_array_region(&array, 0, &indices).is_err() {
+        return std::ptr::null_mut();
+    }
+    array.into_raw()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_widgetDayFinishedNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now_minutes: jint,
+    lesson_ends: JObjectArray<'_>,
+    exam_starts: JObjectArray<'_>,
+    exam_durations: JIntArray<'_>,
+) -> jboolean {
+    let (Ok(lesson_ends), Ok(exam_starts)) = (
+        read_strings(&mut env, &lesson_ends),
+        read_strings(&mut env, &exam_starts),
+    ) else {
+        return 0;
+    };
+    let Ok(count) = env.get_array_length(&exam_durations) else {
+        return 0;
+    };
+    if count as usize != exam_starts.len() {
+        let _ = env.throw_new("java/lang/IllegalArgumentException", "Invalid widget exam schedule");
+        return 0;
+    }
+    let mut durations = vec![0; count as usize];
+    if env.get_int_array_region(&exam_durations, 0, &mut durations).is_err() {
+        return 0;
+    }
+    u8::from(crate::widget_day_finished(
+        now_minutes,
+        lesson_ends.iter().map(String::as_str),
+        exam_starts.iter().map(String::as_str).zip(durations),
+    ))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_formatLessonTimeNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    period: jint,
+    start: JString<'_>,
+    end: JString<'_>,
+    compact: jboolean,
+) -> jstring {
+    let start = (!start.is_null()).then(|| from_java(&mut env, &start));
+    let end = from_java(&mut env, &end);
+    into_java(&mut env, crate::format_lesson_time(period, start.as_deref(), &end, compact != 0))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_localYmdNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    epoch_ms: jlong,
+    offset_ms: jint,
+) -> jstring {
+    into_java(&mut env, crate::local_ymd(epoch_ms, offset_ms).unwrap_or_default())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapAvatarNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let Ok(bytes) = env.convert_byte_array(&source) else {
+        return std::ptr::null_mut();
+    };
+    into_byte_array(&mut env, crate::portal::map_avatar_wire(&bytes))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_reminderMessageNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    fields: JObjectArray<'_>,
+) -> jobjectArray {
+    let Ok(fields) = read_strings(&mut env, &fields) else {
+        return std::ptr::null_mut();
+    };
+    if fields.len() % 2 != 0 {
+        let _ = env.throw_new("java/lang/IllegalArgumentException", "Invalid reminder rows");
+        return std::ptr::null_mut();
+    }
+    let mut fields = fields.into_iter();
+    let rows = std::iter::from_fn(|| Some((fields.next()?, fields.next()?))).collect();
+    let (summary, message) = crate::reminder_message(rows);
+    let Ok(output) = env.new_object_array(2, "java/lang/String", JObject::null()) else {
+        return std::ptr::null_mut();
+    };
+    for (index, value) in [(0, summary), (1, message)] {
+        let Ok(value) = env.new_string(value) else {
+            return std::ptr::null_mut();
+        };
+        if env.set_object_array_element(&output, index, value).is_err() {
+            return std::ptr::null_mut();
+        }
+    }
+    output.into_raw()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_unpackUpdateNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    package: JString<'_>,
+    destination: JString<'_>,
+    checksum: JString<'_>,
+    compressed: jboolean,
+) -> jboolean {
+    let package = from_java(&mut env, &package);
+    let destination = from_java(&mut env, &destination);
+    let checksum = from_java(&mut env, &checksum);
+    match crate::update::unpack(
+        std::path::Path::new(&package),
+        std::path::Path::new(&destination),
+        &checksum,
+        compressed != 0,
+    ) {
+        Ok(verified) => u8::from(verified),
+        Err(error) => {
+            let _ = env.throw_new("java/io/IOException", error.to_string());
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapLoginNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    source: JByteArray<'_>,
+) -> jbyteArray {
+    let Ok(bytes) = env.convert_byte_array(&source) else {
+        return std::ptr::null_mut();
+    };
+    into_byte_array(&mut env, crate::portal::map_login_wire(&bytes))
 }

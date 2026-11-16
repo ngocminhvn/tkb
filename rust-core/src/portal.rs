@@ -256,12 +256,56 @@ pub fn normalize_username(input: &str) -> String {
     input.trim().split('@').next().unwrap_or("").to_string()
 }
 
+pub const EXAM_PAGE_SIZE: usize = 100;
+const MAX_EXAM_PAGES: usize = 50;
+
+pub fn timetable_request(semester: i32) -> Vec<u8> {
+    serde_json::json!({"filter": {"hoc_ky": semester}}).to_string().into_bytes()
+}
+
+pub fn exam_request(semester: i32, is_midterm: bool, page: usize) -> Vec<u8> {
+    serde_json::json!({
+        "filter": {"hoc_ky": semester, "is_giua_ky": is_midterm},
+        "additional": {
+            "paging": {"limit": EXAM_PAGE_SIZE, "page": page},
+            "ordering": [{"name": null, "order_type": null}]
+        }
+    })
+    .to_string()
+    .into_bytes()
+}
+
+pub fn next_exam_page(
+    page: usize,
+    total_pages: Option<usize>,
+    rows: usize,
+) -> Result<Option<usize>, String> {
+    if !exam_has_next(page, total_pages, rows) {
+        return Ok(None);
+    }
+    if page >= MAX_EXAM_PAGES {
+        return Err(format!("Lịch thi vượt quá {MAX_EXAM_PAGES} trang; giữ dữ liệu cũ."));
+    }
+    Ok(Some(page + 1))
+}
+
 /// Follow TNUT page metadata if provided, otherwise use the 100-item page size.
 pub fn exam_has_next(page: usize, total_pages: Option<usize>, rows: usize) -> bool {
     match total_pages.filter(|total| *total > 0) {
         Some(total) => page < total,
-        None => rows >= 100,
+        None => rows >= EXAM_PAGE_SIZE,
     }
+}
+
+/// Keep the first row for each identity, preserving the order of fetched pages.
+pub fn first_exam_indices<T: Eq + std::hash::Hash>(
+    keys: impl IntoIterator<Item = T>,
+) -> Vec<i32> {
+    let mut seen = std::collections::HashSet::new();
+    keys.into_iter()
+        .zip(0..)
+        .filter_map(|(key, index)| seen.insert(key).then_some(index))
+        .collect()
 }
 
 /// Decode one exam page; failure does not erase previously cached exams.
@@ -418,6 +462,92 @@ pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Ve
     pack_exams(exam_rows(semester, is_midterm, data)?)
 }
 
+fn portal_string<'de, D: serde::Deserializer<'de>>(input: D) -> Result<Option<String>, D::Error> {
+    match Value::deserialize(input)? {
+        Value::Null => Ok(None),
+        Value::String(value) => Ok(Some(value)),
+        Value::Number(value) => Ok(Some(value.to_string())),
+        Value::Bool(value) => Ok(Some(value.to_string())),
+        _ => Err(serde::de::Error::custom("expected a scalar portal field")),
+    }
+}
+
+#[derive(Deserialize)]
+struct LoginResponse {
+    #[serde(default, deserialize_with = "portal_string")]
+    access_token: Option<String>,
+    #[serde(default, deserialize_with = "portal_string")]
+    refresh_token: Option<String>,
+    #[serde(default, deserialize_with = "portal_string")]
+    idpc: Option<String>,
+}
+
+pub fn map_login_wire(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    if bytes.len() > 128 * 1024 {
+        return Err("Phản hồi đăng nhập TNUT quá lớn.".into());
+    }
+    let response: LoginResponse = serde_json::from_slice(bytes)
+        .map_err(|_| "Phản hồi đăng nhập TNUT không hợp lệ.".to_string())?;
+    let mut out = binary_header(b'L');
+    binary_str(&mut out, response.access_token.as_deref().unwrap_or_default())?;
+    for field in [response.refresh_token, response.idpc] {
+        out.push(u8::from(field.is_some()));
+        if let Some(value) = field {
+            binary_str(&mut out, &value)?;
+        }
+    }
+    Ok(out)
+}
+
+#[derive(Deserialize)]
+struct AvatarResponse {
+    data: Option<AvatarData>,
+}
+
+#[derive(Deserialize)]
+struct AvatarData {
+    thong_tin_sinh_vien: Option<StudentImage>,
+}
+
+#[derive(Deserialize)]
+struct StudentImage {
+    #[serde(default, deserialize_with = "portal_string")]
+    ho_ten: Option<String>,
+    #[serde(default, deserialize_with = "portal_string")]
+    ten_sinh_vien: Option<String>,
+    #[serde(default, deserialize_with = "portal_string")]
+    ten_sv: Option<String>,
+    #[serde(default, deserialize_with = "portal_string")]
+    image: Option<String>,
+}
+
+pub fn map_avatar_wire(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    if bytes.len() > MAX_WIRE_PAYLOAD {
+        return Err("TNUT avatar payload exceeds the 8 MiB limit".into());
+    }
+    let response: AvatarResponse = serde_json::from_slice(bytes)
+        .map_err(|error| format!("Invalid TNUT avatar response: {error}"))?;
+    let mut name = String::new();
+    let mut image = None;
+    if let Some(profile) = response.data.and_then(|data| data.thong_tin_sinh_vien) {
+        name = [profile.ho_ten, profile.ten_sinh_vien, profile.ten_sv]
+            .into_iter()
+            .flatten()
+            .find(|name| !name.trim().is_empty())
+            .map(|name| name.trim().to_owned())
+            .unwrap_or_default();
+        image = profile.image.filter(|image| !image.trim().is_empty());
+    }
+    let mut out = binary_header(b'A');
+    binary_str(&mut out, &name)?;
+    out.push(u8::from(image.is_some()));
+    if let Some(image) = image {
+        let base64 = image.split_once(',').map_or(image.as_str(), |(_, body)| body);
+        binary_str(&mut out, base64)?;
+    }
+    Ok(out)
+}
+
 /// Fast native inspection of a peeked HTTP 200 portal body to detect logical 401
 /// or `"notallowed"` responses without allocating regexes on the JVM.
 pub fn is_logical_unauthorized(bytes: &[u8]) -> bool {
@@ -543,4 +673,141 @@ pub fn verify_update_manifest(
     binary_str(&mut out, item.notes.trim())?;
     binary_str(&mut out, item.published_at.trim())?;
     Ok(Some(out))
+}
+
+
+/// Read the released GitHub Pages format, including older uncompressed releases.
+pub fn read_release_update(
+    current_version: i64,
+    allowed_prefix: &str,
+    input: &[u8],
+) -> Result<Vec<u8>, String> {
+    if input.len() > 256 * 1024 {
+        return Err("Update manifest exceeds 256 KiB".into());
+    }
+    let json: serde_json::Map<String, Value> = serde_json::from_slice(input)
+        .map_err(|err| format!("Invalid update manifest: {err}"))?;
+    let string = |key| match json.get(key) {
+        Some(Value::String(value)) => value.trim().to_owned(),
+        Some(value) => value.to_string(),
+        None => String::new(),
+    };
+    let number = |key| match json.get(key) {
+        Some(Value::Number(value)) => value.as_i64().or_else(|| value.as_f64().map(|n| n as i64)),
+        Some(Value::String(value)) => value.trim().parse::<f64>().ok().map(|n| n as i64),
+        _ => None,
+    }
+    .filter(|&n| n > 0);
+    let fallback = |preferred: String, legacy: String| {
+        if preferred.is_empty() { legacy } else { preferred }
+    };
+    let version = number("versionCode").ok_or("update.json thiếu versionCode hợp lệ.")?;
+    let name = string("versionName");
+    if name.is_empty() {
+        return Err("update.json thiếu versionName.".into());
+    }
+    let apk_url = string("apkUrl");
+    let package_url = fallback(string("packageUrl"), apk_url.clone());
+    if !package_url.starts_with(allowed_prefix) {
+        return Err("Nguồn cập nhật TKB SV không hợp lệ.".into());
+    }
+    let compression = fallback(string("compression").to_ascii_lowercase(), "none".into());
+    if !matches!(compression.as_str(), "none" | "xz") {
+        return Err("Kiểu nén cập nhật không được hỗ trợ.".into());
+    }
+    let checksum = fallback(string("packageSha256"), string("sha256")).to_ascii_lowercase();
+    if !valid_sha256_hex(&checksum) {
+        return Err("update.json thiếu SHA-256 hợp lệ.".into());
+    }
+    if version <= current_version {
+        return Ok(Vec::new());
+    }
+
+    let size = number("packageSizeBytes").or_else(|| number("sizeBytes"));
+    let notes = fallback(string("changelog"), "Bản cập nhật TKB SV mới.".into());
+    let mut out = binary_header(b'P');
+    binary_i64(&mut out, version);
+    for field in [&name, &apk_url, &package_url, &compression, &checksum] {
+        binary_str(&mut out, field)?;
+    }
+    binary_i64(&mut out, size.unwrap_or(0));
+    binary_str(&mut out, &notes)?;
+    Ok(out)
+}
+
+#[cfg(test)]
+mod migration_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn preserves_timetable_and_exam_request_payloads() {
+        let timetable: Value = serde_json::from_slice(&timetable_request(20261)).unwrap();
+        let exam: Value = serde_json::from_slice(&exam_request(20261, false, 3)).unwrap();
+        assert_eq!(timetable, json!({"filter": {"hoc_ky": 20261}}));
+        assert_eq!(exam, json!({
+            "filter": {"hoc_ky": 20261, "is_giua_ky": false},
+            "additional": {
+                "paging": {"limit": 100, "page": 3},
+                "ordering": [{"name": null, "order_type": null}]
+            }
+        }));
+    }
+
+    #[test]
+    fn preserves_exam_page_limit_and_first_occurrence_order() {
+        assert_eq!(next_exam_page(1, Some(3), 1), Ok(Some(2)));
+        assert_eq!(next_exam_page(50, Some(50), 100), Ok(None));
+        assert!(next_exam_page(50, None, 100).is_err());
+        assert_eq!(next_exam_page(2, None, 99), Ok(None));
+        assert_eq!(first_exam_indices([("A", false), ("B", false), ("A", false), ("A", true)]),
+            vec![0, 1, 3]);
+    }
+
+    #[test]
+    fn packs_login_tokens_with_nullable_rotation_fields() {
+        let login = br#"{"access_token":"new","refresh_token":null,"idpc":1}"#;
+        assert_eq!(map_login_wire(login).unwrap(), b"TKB1L\0\0\0\x03new\0\x01\0\0\0\x011");
+        let malformed = br#"{"access_token":["token"]}"#;
+        assert_eq!(map_login_wire(malformed).unwrap_err(), "Phản hồi đăng nhập TNUT không hợp lệ.");
+    }
+
+    #[test]
+    fn picks_first_nonblank_portal_name_and_extracts_data_uri() {
+        let response = br#"{"data":{"thong_tin_sinh_vien":{
+            "ho_ten":" ","ten_sinh_vien":" An ","ten_sv":"Other","image":"data:image/png;base64,YQ=="
+        }}}"#;
+        assert_eq!(map_avatar_wire(response).unwrap(), b"TKB1A\0\0\0\x02An\x01\0\0\0\x04YQ==");
+        assert_eq!(map_avatar_wire(b"{}").unwrap(), b"TKB1A\0\0\0\0\0");
+    }
+
+    #[test]
+    fn checks_current_and_legacy_release_metadata() {
+        let prefix = "https://example.test/tkb/";
+        let plain = format!("{prefix}TKB-SV.apk");
+        let compressed = format!("{plain}.xz");
+        let apk_hash = "a".repeat(64);
+        let package_hash = "B".repeat(64);
+        let mut item = json!({
+            "versionCode": 3_000_000_001_i64, "versionName": "1.0.1",
+            "apkUrl": plain, "sha256": apk_hash, "sizeBytes": 120,
+            "packageUrl": compressed, "packageSha256": package_hash, "packageSizeBytes": 100,
+            "compression": "XZ", "changelog": "New version",
+        });
+        let wire = read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).unwrap();
+        assert!(wire.starts_with(b"TKB1P"));
+        assert_eq!(i64::from_be_bytes(wire[5..13].try_into().unwrap()), 3_000_000_001);
+        assert!(wire.windows(64).any(|bytes| bytes == package_hash.to_ascii_lowercase().as_bytes()));
+        assert!(read_release_update(3_000_000_001, prefix, &serde_json::to_vec(&item).unwrap())
+            .unwrap().is_empty());
+
+        let object = item.as_object_mut().unwrap();
+        for key in ["packageUrl", "packageSha256", "packageSizeBytes", "compression"] {
+            object.remove(key);
+        }
+        let wire = read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).unwrap();
+        assert!(wire.windows(64).any(|bytes| bytes == apk_hash.as_bytes()));
+        item["packageUrl"] = json!("https://example.test/other/file.apk");
+        assert!(read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).is_err());
+    }
 }

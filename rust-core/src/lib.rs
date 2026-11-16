@@ -4,6 +4,7 @@
 pub mod auth;
 pub mod autosync;
 pub mod timeline;
+mod update;
 
 /// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
 #[inline]
@@ -80,7 +81,7 @@ pub fn exam_end_time(start: &str, duration_minutes: i32) -> Option<String> {
         return None;
     }
     let start_mins = parse_hhmm_minutes(start)?;
-    let total = (start_mins + duration_minutes).rem_euclid(1440);
+    let total = (start_mins + duration_minutes.rem_euclid(1440)).rem_euclid(1440);
     Some(format!("{:02}:{:02}", total / 60, total % 60))
 }
 
@@ -243,6 +244,56 @@ pub fn is_day_schedule_finished(
     last_end > 0 && now_minutes >= last_end
 }
 
+/// Widget advances only when all times are known and the last event has ended.
+pub fn widget_day_finished<'a>(
+    now_minutes: i32,
+    lesson_ends: impl IntoIterator<Item = &'a str>,
+    exams: impl IntoIterator<Item = (&'a str, i32)>,
+) -> bool {
+    lesson_ends.into_iter().all(|end| {
+        parse_hhmm_minutes(end).is_some_and(|end| end <= now_minutes)
+    }) && exams.into_iter().all(|(start, duration)| {
+        let duration = if duration > 0 { duration } else { 90 };
+        parse_hhmm_minutes(start)
+            .is_some_and(|start| start.saturating_add(duration) <= now_minutes)
+    })
+}
+
+pub fn format_lesson_time(period: i32, start: Option<&str>, end: &str, compact: bool) -> String {
+    if !compact && start.is_none() {
+        return format!("Tiết {period}");
+    }
+    let start = start.map_or_else(|| format!("Tiết {period}"), str::to_owned);
+    if end.trim().is_empty() {
+        return start;
+    }
+    let separator = if compact { "–" } else { " – " };
+    format!("{start}{separator}{end}")
+}
+
+pub fn local_ymd(epoch_ms: i64, offset_ms: i32) -> Option<String> {
+    let time = chrono::DateTime::from_timestamp_millis(epoch_ms.checked_add(i64::from(offset_ms))?)?;
+    Some(time.format("%Y-%m-%d").to_string())
+}
+
+pub fn reminder_message(mut rows: Vec<(String, String)>) -> (String, String) {
+    if rows.is_empty() {
+        let empty = "Không có lịch học hoặc lịch thi.".to_string();
+        return (empty.clone(), empty);
+    }
+
+    // Match the stable ordering used by the Android notification.
+    rows.sort_by(|a, b| a.0.encode_utf16().cmp(b.0.encode_utf16()));
+    const MAX_LINES: usize = 7;
+    let mut lines: Vec<String> = rows.iter().take(MAX_LINES)
+        .map(|(time, label)| format!("{time}  {label}"))
+        .collect();
+    if rows.len() > MAX_LINES {
+        lines.push(format!("Và {} buổi khác", rows.len() - MAX_LINES));
+    }
+    (lines[0].clone(), lines.join("\n"))
+}
+
 /// Format byte counts as human-readable `KB` or `MB` strings (US decimal point).
 pub fn format_bytes(bytes: i64) -> String {
     let clamped = bytes.max(0) as f64;
@@ -252,5 +303,45 @@ pub fn format_bytes(bytes: i64) -> String {
     } else {
         let kb = (clamped / 1024.0).max(1.0);
         format!("{kb:.0} KB")
+    }
+}
+
+#[cfg(test)]
+mod android_behavior_tests {
+    use super::*;
+
+    #[test]
+    fn respects_local_timezone_at_midnight() {
+        assert_eq!(local_ymd(0, -3_600_000).as_deref(), Some("1969-12-31"));
+        assert_eq!(local_ymd(-3_600_000, 25_200_000).as_deref(), Some("1970-01-01"));
+    }
+
+    #[test]
+    fn widget_waits_for_known_end_times_and_defaults_exam_duration_to_90_minutes() {
+        assert!(widget_day_finished(0, [], []));
+        assert!(widget_day_finished(570, ["09:29"], [("08:00", 0)]));
+        assert!(!widget_day_finished(569, ["09:29"], [("08:00", 0)]));
+        assert!(!widget_day_finished(1439, [""], []));
+        assert!(!widget_day_finished(1439, [], [("unknown", 30)]));
+        assert!(!widget_day_finished(1439, [], [("08:00", i32::MAX)]));
+    }
+
+    #[test]
+    fn formats_lesson_times_for_screen_and_widget() {
+        assert_eq!(format_lesson_time(3, Some("08:00"), "09:00", false), "08:00 – 09:00");
+        assert_eq!(format_lesson_time(3, Some("08:00"), "09:00", true), "08:00–09:00");
+        assert_eq!(format_lesson_time(3, None, "09:00", false), "Tiết 3");
+        assert_eq!(format_lesson_time(3, None, "09:00", true), "Tiết 3–09:00");
+    }
+
+    #[test]
+    fn limits_reminder_to_seven_sorted_rows() {
+        let mut rows: Vec<_> = (1..=8).rev().map(|n| (format!("0{n}:00"), n.to_string())).collect();
+        rows.push(("01:00".into(), "tie".into()));
+        let (summary, message) = reminder_message(rows);
+        assert_eq!(summary, "01:00  1");
+        assert!(message.starts_with("01:00  1\n01:00  tie\n"));
+        assert!(message.ends_with("\nVà 2 buổi khác"));
+        assert_eq!(message.lines().count(), 8);
     }
 }

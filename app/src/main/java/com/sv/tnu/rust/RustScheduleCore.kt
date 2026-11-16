@@ -1,6 +1,7 @@
 package com.sv.tnu.rust
 
 import com.sv.tnu.data.WeekEntity
+import java.util.TimeZone
 
 /**
  * Rust schedule engine used by the Android application via JNI (`libtkb_core.so`).
@@ -43,6 +44,44 @@ object RustScheduleCore {
         justSyncedWeeksNotEmpty: Boolean,
         justSyncedLessonsNotEmpty: Boolean,
     ): Boolean
+
+    private external fun reminderMessageNative(fields: Array<String>): Array<String>
+    private external fun localYmdNative(epochMillis: Long, offsetMillis: Int): String
+    private external fun formatLessonTimeNative(
+        period: Int,
+        start: String?,
+        end: String,
+        compact: Boolean,
+    ): String
+    private external fun widgetDayFinishedNative(
+        nowMinutes: Int,
+        lessonEnds: Array<String>,
+        examStarts: Array<String>,
+        examDurations: IntArray,
+    ): Boolean
+
+    fun reminderMessage(rows: List<Pair<String, String>>): Pair<String, String> {
+        val fields = ArrayList<String>(rows.size * 2)
+        for ((time, label) in rows) {
+            fields.add(time)
+            fields.add(label)
+        }
+        val (summary, message) = reminderMessageNative(fields.toTypedArray())
+        return summary to message
+    }
+
+    fun localTodayYmd(nowMillis: Long = System.currentTimeMillis()): String =
+        localYmdNative(nowMillis, TimeZone.getDefault().getOffset(nowMillis))
+
+    fun formatLessonTime(period: Int, start: String?, end: String?, compact: Boolean = false): String =
+        formatLessonTimeNative(period, start, end.orEmpty(), compact)
+
+    fun widgetDayFinished(
+        nowMinutes: Int,
+        lessonEnds: Array<String>,
+        examStarts: Array<String>,
+        examDurations: IntArray,
+    ): Boolean = widgetDayFinishedNative(nowMinutes, lessonEnds, examStarts, examDurations)
 
     fun normalizeDate(value: String): String = normalizeDateNative(value)
 

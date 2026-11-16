@@ -9,6 +9,7 @@ application ID, change release signing credentials or use destructive DB migrati
   Bearer header parsing, 401 retry eligibility, and HTTP 5xx outage fallback
   policy to Rust, with unit tests.
 - [x] Consolidate logical HTTP 200 / code 401 detection in Rust.
+- [x] Parse login and refresh tokens and avatar responses in Rust. Build timetable and exam requests and handle exam pagination and deduplication in Rust.
 - [ ] Replace Retrofit/OkHttp transport and session renewal ONLY after verified
   login, HTTP 401 and logical 401, refresh token rotation, timeout/retry,
   redirect-host, TLS and Android Keystore compatibility tests on device.
@@ -26,8 +27,8 @@ application ID, change release signing credentials or use destructive DB migrati
 - [x] Move week/day selection, week bounds lookup, elastic swipe physics,
   edge navigation confirmation, cache priority arbitration, manual week resolution,
   extended date window calculation, and date window generation into Rust (`timeline.rs`).
-- [ ] Move first-frame Room preload transaction and sync status state machine
-  from ViewModel to Rust.
+- [x] Move local-date formatting, lesson time labels, widget end-of-day decisions, and reminder text ordering to Rust.
+- [ ] Evaluate ViewModel sync state with Android lifecycle tests. The first-frame cache snapshot uses a single Room transaction.
 
 ## Phase 4: UI — pending
 - Prototype a Rust UI separately (Slint is a candidate) with gestures, smooth
@@ -35,6 +36,7 @@ application ID, change release signing credentials or use destructive DB migrati
   device tests demonstrate feature parity and supported minSdk.
 
 ## Phase 5: Android bridge — pending
+- [x] Move release-manifest parsing, SHA-256 verification, and XZ decompression to Rust.
 - Preserve receivers, reminders, widget, Keystore and APK install integration.
   NativeActivity alone is not a replacement for BroadcastReceiver/AppWidgetProvider.
 

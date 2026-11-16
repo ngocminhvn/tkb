@@ -4,7 +4,7 @@
 
 - Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
 - Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Cài đặt hiển thị nhận diện tài khoản SV TNUT, số buổi thi đã lưu và học kỳ hiện tại.
-- Giao diện **Kotlin + Jetpack Compose (Material 3)**; một phần xử lý dữ liệu lịch chạy bằng **Rust** qua JNI.
+- Giao diện **Kotlin + Jetpack Compose (Material 3)**; nghiệp vụ lịch, giao thức dữ liệu TNUT và xử lý gói cập nhật chạy bằng **Rust** qua JNI.
 - **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 
 > **Dành cho AI/code agent:** Đọc [AGENTS.md](AGENTS.md) trước khi sửa. File này xác định nơi chịu trách nhiệm cho từng tính năng, luồng dữ liệu, các bất biến về Room/JNI và bộ test bắt buộc.
@@ -40,10 +40,13 @@ TnutApi / TnutRepository             ▲
                                      └─ binary TKB1 → Room entities
 
 RustScheduleCore (JNI) → rust-core/src/lib.rs
-  tính toán ngày/tuần, thời gian và chuẩn hóa dữ liệu
+  tính ngày/tuần, khung giờ, nội dung nhắc và thời điểm widget chuyển ngày
+
+rust-core/src/update.rs
+  xác minh SHA-256 và giải nén gói cập nhật APK
 ```
 
-**Phân chia trách nhiệm:** Kotlin vẫn giữ HTTP, làm mới token, Android lifecycle, truy cập Room, giao diện, thông báo, widget và cập nhật APK. Rust xử lý logic độc lập Android, chỉ mã hóa các tuần/buổi học từ ngày hiện tại theo giờ Việt Nam vào kết quả nhị phân TKB1. **Chưa phải ứng dụng 100% Rust.** Endpoint TNUT hiện được tích hợp theo bộ lọc học kỳ; chưa xác minh được tham số lọc từ ngày phía máy chủ, nên HTTP vẫn nhận kết quả học kỳ đầy đủ rồi Rust mới loại dữ liệu quá khứ trước khi chuyển sang Kotlin/Room.
+Kotlin quản lý giao diện, HTTP/TLS trực tiếp với TNUT, khóa làm mới phiên, Room, Keystore và các API hệ thống Android. Rust tạo phần thân yêu cầu lịch học/lịch thi, đọc phản hồi đăng nhập, ảnh đại diện và lịch, quyết định phân trang và loại trùng lịch thi. Bộ cập nhật dùng Rust để đọc manifest phát hành, xác minh SHA-256 và giải nén XZ. Endpoint lịch học lọc theo học kỳ. Rust loại các tuần và buổi học đã qua theo giờ Việt Nam trước khi chuyển dữ liệu TKB1 sang Room.
 
 ## Bản đồ thư mục (đọc trước khi sửa)
 
@@ -66,6 +69,7 @@ RustScheduleCore (JNI) → rust-core/src/lib.rs
 | `rust-core/` | Rust crate, Cargo manifest/lock và nghiệp vụ độc lập Android | Thay đổi xử lý dữ liệu Rust |
 | `rust-core/src/lib.rs` | Ngày tháng, lịch tuần, lịch tháng, giờ học/thi, helper thuần Rust | Logic thời gian |
 | `rust-core/src/portal.rs` | Kiểm tra và ánh xạ JSON TNUT, phân trang/chống trùng, tạo binary `TKB1` | Sai dữ liệu lịch, lịch thi |
+| `rust-core/src/update.rs` | Kiểm tra SHA-256 rồi giải nén hoặc chép APK đã xác thực | Tải và chuẩn bị cập nhật |
 | `rust-core/src/android.rs` | Hàm JNI export cho ứng dụng Android | Chữ ký hàm JNI, giao tiếp native |
 | `scripts/` | `build-rust-android.sh` tạo thư viện `libtkb_core.so` cho 4 ABI | Biên dịch thư viện Rust Android |
 | `.github/workflows/build.yml` | Build Rust 4 ABI, đóng gói APK Release có chữ ký và triển khai GitHub Pages | Build Actions, đóng gói, phát hành |
@@ -106,7 +110,8 @@ Yêu cầu: JDK 17, Android SDK/NDK tương thích, Rust toolchain và `cargo-nd
 
 ```bash
 # Kiểm tra mã Rust
-cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path rust-core/Cargo.toml
+cargo clippy --locked --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
 # Biên dịch thư viện Rust cho arm64-v8a, armeabi-v7a, x86_64, x86
 cargo install cargo-ndk --locked

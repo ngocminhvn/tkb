@@ -1,5 +1,7 @@
 package com.sv.tnu.schools.tnut
 
+import com.sv.tnu.rust.RustPortalCore
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.Field
@@ -16,33 +18,34 @@ interface TnutApi {
         @Field("uri") uri: String = "https://portal.tnut.edu.vn/#/home",
         @Field("vaitro") vaitro: String = "",
         @Field("mgr") mgr: String = "0",
-    ): LoginResponse
+    ): ResponseBody
 
     @FormUrlEncoded
     @POST("auth/login")
     suspend fun refreshToken(
         @Field("grant_type") grantType: String = "refresh_token",
         @Field("refresh_token") refreshToken: String,
-    ): LoginResponse
-
-    @POST("sch/w-locdshockytkbuser")
-    suspend fun semesters(
-        @Body body: Map<String, String> = emptyMap(),
-    ): ApiWrapper<SemesterListData>
+    ): ResponseBody
 
     @POST("sch/w-locdstkbtuanusertheohocky")
     suspend fun weeklyTimetable(
-        @Body body: WeeklyRequest,
+        @Body body: RequestBody,
     ): ResponseBody
 
     @POST("sms/w-locthongtinimagesinhvien")
     suspend fun avatar(
         @retrofit2.http.Query("MaSV") maSv: String,
-        @retrofit2.http.Body body: Map<String, String> = emptyMap(),
-    ): AvatarResponse
+        @Body body: RequestBody,
+    ): ResponseBody
 
     @POST("epm/w-locdslichthisvtheohocky")
     suspend fun exams(
-        @Body body: ExamRequest,
+        @Body body: RequestBody,
     ): ResponseBody
 }
+
+internal suspend fun TnutApi.loginSession(username: String, password: String) =
+    login(username = username, password = password).use { RustPortalCore.mapLogin(it.bytes()) }
+
+internal suspend fun TnutApi.refreshSession(refreshToken: String) =
+    refreshToken(refreshToken = refreshToken).use { RustPortalCore.mapLogin(it.bytes()) }

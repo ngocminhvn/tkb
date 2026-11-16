@@ -1,43 +1,20 @@
 # TKB SV — Rust business core (Android only)
 
-This is an **incremental** migration of the Android app, not a rewrite
-of the UI. TKB SV keeps Kotlin + Jetpack Compose + Material 3 and the
-existing `com.tkb.sv` application ID.
+The Rust core provides the platform-independent logic behind the existing Android app and `com.tkb.sv` application ID.
 
-## Rust code now used by the Android app
+## Rust code used by the Android app
 
-- Calendar date normalization, next/previous day, arbitrary day offsets, Monday-of-week resolution, seven-day week generation, full Monday-aligned month calendar grid (`month_calendar_grid`), Vietnamese weekday/date formatting (`day_rail`, `day_label_vi`, `format_dmy`, `format_dm`), and human-readable byte formatting (`format_bytes`).
-- Exam end time and `HH:mm` clock minute parsing (`parse_hhmm_minutes`, `is_day_schedule_finished`).
-- Timetable payload validation, pre-normalized week/lesson ISO dates, and conversion of TNUT period/week/lesson
-  responses into the original Room entity columns.
-- Each TNUT exam page: validation of required course/date fields, conversion
-  into original exam columns, preserved postponed and midterm flags.
-- Exam pagination decision and duplicate filtering across fetched pages.
-- Student-ID normalization at login, lesson-note whitespace normalization, logical HTTP-200 unauthorized detection (`is_logical_unauthorized`), and update manifest verification (`verify_update_manifest` / `TKB1U`).
+- Date normalization, week and month navigation, local dates using the device's UTC offset, Vietnam auto-sync timing, timetable selection and gestures.
+- Lesson time labels, exam end times, the widget's end-of-day decision and sorted reminder text.
+- TNUT login and refresh response parsing, avatar profile extraction, timetable and exam request bodies, logical unauthorized response handling and retry policy.
+- Timetable and exam validation, pagination and cross-page deduplication before Room transactions.
+- GitHub Pages release manifest validation, SHA-256 verification and streaming XZ decompression of downloaded APK packages in app-private storage.
 
-The Rust engine is called via `RustPortalCore` and `RustScheduleCore`.
-The JNI bridge now takes the **original HTTP response bytes** and returns
-a compact versioned binary format (`TKB1`). Rust parses the TNUT JSON once,
-then Kotlin reads binary Room-ready rows. The old Kotlin DTO -> JSON -> Rust ->
-JSON -> Kotlin sequence is eliminated; cross-page duplicate filtering also
-works directly on Room records without another JSON round-trip.
+`RustPortalCore` passes original HTTP response bytes to Rust through JNI. It decodes the returned `TKB1` records into Room rows, session values, avatar details and release metadata. The timetable and exam records retain the existing layouts. The updater supports compressed and uncompressed packages. Rust verifies the downloaded bytes before writing the final APK.
 
-The network and native conversion run on `Dispatchers.IO` so reading the
-response stream does not block Compose. Rust rejects malformed responses
-before Room begins a replacement transaction. Errors preserve offline cache.
+## Android integration
 
-## Still Android/Kotlin (not fully migrated)
-
-- Retrofit/OkHttp network calls and session renewal, including HTTP 200
-  responses containing logical code 401 and the fallback login flow.
-- Room database connection, transactional replacement and reactive Flow.
-  SQLite remains `tkb.db`, schema version 4; no migration runs during
-  this change, and existing lessons/notes/exams are retained.
-- Android Keystore-backed preferences, notifications, widget, APK updating.
-- Jetpack Compose UI and UI-bound ViewModels.
-
-**Do not remove Kotlin network/DB adapters without tests for sessions,
-transaction atomicity and Room migration compatibility.**
+Kotlin owns Compose, Room transactions and Flow, Keystore-backed preferences, HTTP/TLS via Retrofit and OkHttp, the synchronized session refresh, Android alarms and notifications, RemoteViews, and the system APK installer. Network calls and native portal conversion run off the UI thread. Each timetable and exam source keeps its cached data when a request or validation fails.
 
 ## Build
 
@@ -45,9 +22,10 @@ Install the Android NDK, Rust and cargo-ndk:
 
 ```bash
 cargo install cargo-ndk --locked
-cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path rust-core/Cargo.toml
+cargo clippy --locked --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 bash scripts/build-rust-android.sh
-gradle assembleDebug
+./gradlew assembleDebug
 ```
 
 The native `libtkb_core.so` is built for arm64-v8a, armeabi-v7a,

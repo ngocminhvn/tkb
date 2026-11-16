@@ -4,6 +4,7 @@ import com.sv.tnu.data.ExamEntity
 import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
+import com.sv.tnu.schools.SchoolSessionTokens
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
 import java.nio.charset.StandardCharsets
@@ -27,6 +28,23 @@ object RustPortalCore {
         semester: Int,
         isMidterm: Boolean,
         responseBody: ByteArray,
+    ): ByteArray
+    private external fun mapLoginNative(payload: ByteArray): ByteArray
+    private external fun mapAvatarNative(payload: ByteArray): ByteArray
+    private external fun timetableRequestNative(semester: Int): ByteArray
+    private external fun examRequestNative(semester: Int, midterm: Boolean, page: Int): ByteArray
+    private external fun uniqueExamIndicesNative(keys: Array<String>): IntArray
+    private external fun nextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Int
+    private external fun unpackUpdateNative(
+        packagePath: String,
+        destinationPath: String,
+        sha256: String,
+        compressed: Boolean,
+    ): Boolean
+    private external fun readReleaseUpdateNative(
+        currentVersion: Long,
+        allowedPrefix: String,
+        payload: ByteArray,
     ): ByteArray
     private external fun hasNextExamPageNative(page: Int, totalPages: Int, rowCount: Int): Boolean
     private external fun normalizeNoteNative(value: String): String
@@ -57,6 +75,32 @@ object RustPortalCore {
         rawResponse: ByteArray,
     ): PortalBinaryDecoder.ExamPageRows =
         PortalBinaryDecoder.decodeExams(mapExamBytesNative(semester, isMidterm, rawResponse))
+
+    fun mapLogin(rawResponse: ByteArray): SchoolSessionTokens =
+        PortalBinaryDecoder.decodeLogin(mapLoginNative(rawResponse))
+
+    fun mapAvatar(rawResponse: ByteArray): PortalBinaryDecoder.Avatar =
+        PortalBinaryDecoder.decodeAvatar(mapAvatarNative(rawResponse))
+
+    fun timetableRequest(semester: Int): ByteArray = timetableRequestNative(semester)
+
+    fun examRequest(semester: Int, midterm: Boolean, page: Int): ByteArray =
+        examRequestNative(semester, midterm, page)
+
+    fun nextExamPage(page: Int, mapped: PortalBinaryDecoder.ExamPageRows): Int? =
+        nextExamPageNative(page, mapped.totalPages ?: -1, mapped.rowCount).takeIf { it > 0 }
+
+    fun unpackUpdate(packagePath: String, destinationPath: String, sha256: String, compressed: Boolean): Boolean =
+        unpackUpdateNative(packagePath, destinationPath, sha256, compressed)
+
+    fun readReleaseUpdate(
+        currentVersion: Long,
+        allowedPrefix: String,
+        payload: ByteArray,
+    ): PortalBinaryDecoder.ReleaseUpdate? =
+        readReleaseUpdateNative(currentVersion, allowedPrefix, payload)
+            .takeIf { it.isNotEmpty() }
+            ?.let(PortalBinaryDecoder::decodeReleaseUpdate)
 
     fun hasNextExamPage(page: Int, totalPages: Int?, rowCount: Int): Boolean =
         hasNextExamPageNative(page, totalPages ?: -1, rowCount)
@@ -93,21 +137,19 @@ object RustPortalCore {
         return PortalBinaryDecoder.decodeUpdateManifest(bytes)
     }
 
-    // Cross-page dedup is linear and tiny. Do it once on already decoded Room
-    // rows instead of turning all records back into JSON for another JNI call.
-    private data class ExamKey(
-        val postponed: Boolean,
-        val course: String,
-        val date: String,
-        val time: String,
-        val candidate: String,
-        val room: String,
-    )
-
-    fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> =
-        rows.distinctBy {
-            ExamKey(it.isHoanThi, it.maMon, it.ngayThi, it.gioBatDau, it.soBaoDanh, it.maPhong)
+    fun dedupeExams(rows: List<ExamEntity>): List<ExamEntity> {
+        if (rows.size < 2) return rows
+        val keys = ArrayList<String>(rows.size * 6)
+        for (row in rows) {
+            keys.add(if (row.isHoanThi) "1" else "0")
+            keys.add(row.maMon)
+            keys.add(row.ngayThi)
+            keys.add(row.gioBatDau)
+            keys.add(row.soBaoDanh)
+            keys.add(row.maPhong)
         }
+        return uniqueExamIndicesNative(keys.toTypedArray()).map(rows::get)
+    }
 }
 
 /** Versioned native binary bridge, big-endian integers and length-prefixed UTF-8. */
@@ -122,6 +164,19 @@ object PortalBinaryDecoder {
         val rows: List<ExamEntity>,
         val totalPages: Int?,
         val rowCount: Int,
+    )
+
+    data class Avatar(val name: String, val base64: String?)
+
+    data class ReleaseUpdate(
+        val versionCode: Long,
+        val versionName: String,
+        val apkUrl: String,
+        val packageUrl: String,
+        val compression: String,
+        val sha256: String,
+        val sizeBytes: Long?,
+        val changelog: String,
     )
 
     data class UpdateManifest(
@@ -172,6 +227,8 @@ object PortalBinaryDecoder {
             data.readFully(raw)
             return String(raw, StandardCharsets.UTF_8)
         }
+
+        fun optionalString(): String? = if (bool()) string() else null
 
         fun finish() {
             require(data.available() == 0) { "Unexpected trailing Rust binary bytes" }
@@ -246,6 +303,37 @@ object PortalBinaryDecoder {
         reader.finish()
         require(rowCount == rows.size) { "Rust exam page row count mismatch" }
         return ExamPageRows(rows, totalPages, rowCount)
+    }
+
+    fun decodeLogin(bytes: ByteArray): SchoolSessionTokens {
+        val reader = Reader(bytes, 'L'.code.toByte())
+        val session = SchoolSessionTokens(reader.string(), reader.optionalString(), reader.optionalString())
+        reader.finish()
+        return session
+    }
+
+    fun decodeAvatar(bytes: ByteArray): Avatar {
+        val reader = Reader(bytes, 'A'.code.toByte())
+        val name = reader.string()
+        val base64 = reader.optionalString()
+        reader.finish()
+        return Avatar(name, base64)
+    }
+
+    fun decodeReleaseUpdate(bytes: ByteArray): ReleaseUpdate {
+        val reader = Reader(bytes, 'P'.code.toByte())
+        val update = ReleaseUpdate(
+            versionCode = reader.long(),
+            versionName = reader.string(),
+            apkUrl = reader.string(),
+            packageUrl = reader.string(),
+            compression = reader.string(),
+            sha256 = reader.string(),
+            sizeBytes = reader.long().takeIf { it > 0 },
+            changelog = reader.string(),
+        )
+        reader.finish()
+        return update
     }
 
     fun decodeUpdateManifest(bytes: ByteArray): UpdateManifest {

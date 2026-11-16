@@ -18,7 +18,6 @@ import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -104,15 +103,8 @@ object ScheduleReminders {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED) return
 
-        val date = Calendar.getInstance()
         val isTomorrow = kind == ACTION_TOMORROW
-        val todayYmd = String.format(
-            Locale.US,
-            "%04d-%02d-%02d",
-            date.get(Calendar.YEAR),
-            date.get(Calendar.MONTH) + 1,
-            date.get(Calendar.DAY_OF_MONTH),
-        )
+        val todayYmd = RustScheduleCore.localTodayYmd()
         val target = if (isTomorrow) {
             RustScheduleCore.addCalendarDays(todayYmd, 1) ?: todayYmd
         } else {
@@ -134,14 +126,8 @@ object ScheduleReminders {
             exams.forEach { exam ->
                 add(exam.gioBatDau to "THI: ${exam.tenMon} • ${exam.maPhong}")
             }
-        }.sortedBy { it.first }
-            .map { (time, label) -> "$time  $label" }
-        val message = if (contents.isEmpty()) {
-            "Không có lịch học hoặc lịch thi."
-        } else {
-            contents.take(7).joinToString("\n") +
-                (if (contents.size > 7) "\nVà ${contents.size - 7} buổi khác" else "")
         }
+        val (summary, message) = RustScheduleCore.reminderMessage(contents)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -166,7 +152,7 @@ object ScheduleReminders {
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText(contents.firstOrNull() ?: message)
+            .setContentText(summary)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

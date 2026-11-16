@@ -2,12 +2,9 @@ package com.sv.tnu.schools.tnut
 
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.rust.RustPortalCore
-import com.sv.tnu.schools.SchoolSessionTokens
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
 import okhttp3.Authenticator
 import okhttp3.Interceptor
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -15,18 +12,11 @@ import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.HttpException
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object TnutApiClient {
     const val BASE_URL = "https://portal.tnut.edu.vn/api/"
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        coerceInputValues = true
-    }
 
     // No auth interceptor here: refreshing credentials must never recursively
     // trigger the same authenticator or logical-401 interceptor.
@@ -38,14 +28,11 @@ object TnutApiClient {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(plainClient)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(TnutApi::class.java)
     }
 
     private val refreshLock = Any()
-
-    fun json(): Json = json
 
     private fun isLogicalUnauthorized(response: Response): Boolean {
         if (!response.isSuccessful) return false
@@ -78,7 +65,7 @@ object TnutApiClient {
             val refreshToken = authStore.refreshToken?.takeIf { it.isNotBlank() }
             val refreshed = if (refreshToken != null) {
                 try {
-                    runBlocking { plainApi.refreshToken(refreshToken = refreshToken) }
+                    runBlocking { plainApi.refreshSession(refreshToken) }
                 } catch (e: HttpException) {
                     // A server-side outage is not a reason to try the password.
                     if (!RustPortalCore.shouldFallbackToLogin(e.code())) return@synchronized null
@@ -97,7 +84,7 @@ object TnutApiClient {
                 val password = authStore.password?.takeIf { it.isNotBlank() }
                 if (username == null || password == null) return@synchronized null
                 try {
-                    runBlocking { plainApi.login(username = username, password = password) }
+                    runBlocking { plainApi.loginSession(username, password) }
                 } catch (_: Exception) {
                     return@synchronized null
                 }
@@ -107,9 +94,7 @@ object TnutApiClient {
 
             val validSession = session?.takeIf { it.accessToken.isNotBlank() }
                 ?: return@synchronized null
-            authStore.saveTokens(SchoolSessionTokens(
-                validSession.accessToken, validSession.refreshToken, validSession.idpc,
-            ))
+            authStore.saveTokens(validSession)
             validSession.accessToken
         }
 
@@ -208,7 +193,6 @@ object TnutApiClient {
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(TnutApi::class.java)
     }

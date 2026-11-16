@@ -18,7 +18,6 @@ import com.sv.tnu.data.LessonEntity
 import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,14 +67,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val dao = AppDatabase.get(context).tkbDao()
-                val todayCalendar = Calendar.getInstance()
-                val date = String.format(
-                    Locale.US,
-                    "%04d-%02d-%02d",
-                    todayCalendar.get(Calendar.YEAR),
-                    todayCalendar.get(Calendar.MONTH) + 1,
-                    todayCalendar.get(Calendar.DAY_OF_MONTH),
-                )
+                val date = RustScheduleCore.localTodayYmd()
                 val preferences = widgetPreferences(context)
                 val storedOffset = preferences.let {
                     val key = offsetKey(appWidgetId)
@@ -96,7 +88,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 } else {
                     val todayLessons = dao.lessonsOn(date)
                     val todayExams = dao.examsOn(date)
-                    val autoOffset = if ((todayLessons.isEmpty() && todayExams.isEmpty()) || isDayFinished(todayLessons, todayExams, periods)) 1 else 0
+                    val autoOffset = if (isDayFinished(todayLessons, todayExams, periods)) 1 else 0
                     if (autoOffset == 0) {
                         offset = 0
                         targetDate = date
@@ -343,25 +335,15 @@ class TimetableWidgetProvider : AppWidgetProvider() {
         exams: List<ExamEntity>,
         periods: List<PeriodEntity>,
     ): Boolean {
-        if (lessons.isEmpty() && exams.isEmpty()) return true
         val now = Calendar.getInstance()
         val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-
-        val lastLessonEnd = lessons.maxOfOrNull { lesson ->
+        val lessonEnds = lessons.map { lesson ->
             val lastPeriod = lesson.tietBatDau + lesson.soTiet - 1
-            periods.firstOrNull { it.tiet == lastPeriod }
-                ?.gioKetThuc
-                .toMinutesOrNull()
-                ?: Int.MAX_VALUE
-        } ?: 0
-
-        val lastExamEnd = exams.maxOfOrNull { exam ->
-            val startMinutes = exam.gioBatDau.toMinutesOrNull() ?: return@maxOfOrNull Int.MAX_VALUE
-            startMinutes + (if (exam.soPhut > 0) exam.soPhut else 90)
-        } ?: 0
-
-        val latestEnd = maxOf(lastLessonEnd, lastExamEnd)
-        return nowMinutes >= latestEnd
+            periods.firstOrNull { it.tiet == lastPeriod }?.gioKetThuc.orEmpty()
+        }.toTypedArray()
+        val examStarts = Array(exams.size) { exams[it].gioBatDau }
+        val examDurations = IntArray(exams.size) { exams[it].soPhut }
+        return RustScheduleCore.widgetDayFinished(nowMinutes, lessonEnds, examStarts, examDurations)
     }
 
     private fun scheduleTitle(targetDate: String, offset: Int, isSquare: Boolean): String {
@@ -421,15 +403,14 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
     private fun offsetKey(appWidgetId: Int) = "day_offset_$appWidgetId"
 
-    private fun String?.toMinutesOrNull(): Int? =
-        this?.let { RustScheduleCore.parseHhMmMinutes(it) }
-
     private fun lessonTime(lesson: LessonEntity, periods: List<PeriodEntity>): String {
-        val start = periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau
-            ?: "Tiết ${lesson.tietBatDau}"
         val lastPeriod = lesson.tietBatDau + lesson.soTiet - 1
-        val end = periods.firstOrNull { it.tiet == lastPeriod }?.gioKetThuc
-        return if (end.isNullOrBlank()) start else "$start–$end"
+        return RustScheduleCore.formatLessonTime(
+            lesson.tietBatDau,
+            periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau,
+            periods.firstOrNull { it.tiet == lastPeriod }?.gioKetThuc,
+            compact = true,
+        )
     }
 
     private fun dp(context: Context, value: Int): Int =

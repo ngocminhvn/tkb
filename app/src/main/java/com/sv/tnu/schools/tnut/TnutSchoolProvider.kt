@@ -9,7 +9,8 @@ import com.sv.tnu.schools.SchoolInfo
 import com.sv.tnu.schools.SchoolProvider
 import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.schools.SchoolSession
-import com.sv.tnu.schools.SchoolSessionTokens
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** TNUT-only auth, HTTP transport and timetable parsing. */
 object TnutSchoolProvider : SchoolProvider {
@@ -23,13 +24,13 @@ object TnutSchoolProvider : SchoolProvider {
 
             override suspend fun login(username: String, password: String) {
                 val normalized = RustPortalCore.normalizeUsername(username)
-                val response = api.login(username = normalized, password = password)
+                val response = withContext(Dispatchers.IO) {
+                    api.loginSession(normalized, password)
+                }
                 check(response.accessToken.isNotBlank()) {
                     "Đăng nhập thất bại: không nhận được phiên làm việc."
                 }
-                authStore.saveLogin(normalized, password, SchoolSessionTokens(
-                    response.accessToken, response.refreshToken, response.idpc,
-                ))
+                authStore.saveLogin(normalized, password, response)
                 // Optional avatar failure must not prevent valid login.
                 timetable.fetchAndSaveAvatar(normalized)
             }

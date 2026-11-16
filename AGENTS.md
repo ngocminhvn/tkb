@@ -34,9 +34,8 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../data/AuthStore.kt` | Preferences mã hóa, session tokens, học kỳ, thiết lập giao diện/nhắc lịch/đồng bộ | Gọi trực tiếp portal |
 | `.../schools/SchoolProvider.kt` | Interface `SchoolProvider`, `SchoolSession`, `SchoolRepository`, ID/model chung | Hardcode UI TNUT |
 | `.../schools/SchoolRegistry.kt` | Danh sách school providers, chọn provider theo ID | Quy tắc SQL/HTTP |
-| `.../schools/tnut/TnutApi.kt` | Định nghĩa Retrofit endpoint và request signature | Compose, chỉnh DB |
+| `.../schools/tnut/TnutApi.kt` | Endpoint Retrofit, form đăng nhập và chuyển response bytes vào Rust | Compose, chỉnh DB |
 | `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh, fallback login | View/layout |
-| `.../schools/tnut/TnutModels.kt` | DTO của API TNUT cho login/học kỳ/avatar/request | Dữ liệu UI Compose |
 | `.../schools/tnut/TnutSchoolProvider.kt` | Adapter kết nối login/session + repository TNUT | Logic trường khác |
 | `.../schools/tnut/TnutRepository.kt` | Điều phối gọi portal, đồng bộ lịch/thi, validate qua Rust, ghi Room, avatar, ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
@@ -52,7 +51,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../ui/theme/Theme.kt` | Theme Compose | Xử lý lịch |
 | `.../notifications/ScheduleReminders.kt` | AlarmManager, thông báo, receivers lên lịch lại sau reboot/time change | Đồng bộ portal trong background |
 | `.../widget/TimetableWidgetProvider.kt` | AppWidgetProvider/RemoteViews, widget ngày & query Room | Màn hình Compose |
-| `.../update/AppUpdateManager.kt` | Metadata cập nhật, tải/xác minh, cài APK | UI state |
+| `.../update/AppUpdateManager.kt` | HTTP cập nhật, gọi Rust xác minh/giải nén, chuyển APK cho trình cài đặt | UI state |
 | `.../update/AppUpdateViewModel.kt` | Trạng thái tải/kiểm tra update cho Compose | Portal TNUT |
 | `app/src/main/res/drawable/` | Icon, nền, hình XML | UI ViewModel |
 | `app/src/main/res/layout/` | Layout XML dành cho widget | Compose timetable chính |
@@ -60,7 +59,8 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `app/src/main/res/xml/` | Cấu hình widget và FileProvider | Nghiệp vụ lịch |
 | `app/src/main/AndroidManifest.xml` | Permission, Activity, FileProvider, notification/widget receivers | SQL |
 | `rust-core/src/lib.rs` | Pure Rust: chuẩn hóa ngày, tuần 7 ngày, lịch tháng, đổi ngày, thời gian học/thi | JNI/Android Context |
-| `rust-core/src/portal.rs` | Parse/validate payload TNUT, chống trùng, phân trang, ánh xạ và encode `TKB1` | Gọi mạng, mật khẩu |
+| `rust-core/src/portal.rs` | Tạo body lịch học/thi, đọc phản hồi TNUT và manifest phát hành, chống trùng, phân trang và mã hóa `TKB1` | Gọi mạng, mật khẩu |
+| `rust-core/src/update.rs` | Xác minh checksum và giải nén XZ cho APK tải về | HTTP, cài APK |
 | `rust-core/src/android.rs` | `extern "system"` JNI entrypoints tương ứng wrapper Kotlin | UI, persistence |
 | `rust-core/Cargo.toml`, `Cargo.lock` | Cấu hình & khóa dependency Rust | Android UI |
 | `scripts/build-rust-android.sh` | Cargo NDK build 4 ABI, đặt `.so` vào `jniLibs` | Business logic |
@@ -116,7 +116,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - `rust-core/src/android.rs` phải export tên JNI khớp 100% với `RustPortalCore.kt` và `RustScheduleCore.kt`.
 - `RustPortalCore.kt` giải mã nhị phân `TKB1` từ Rust (`portal.rs`), **không** tự ý khôi phục tuyến Kotlin DTO → JSON → JNI → JSON → Kotlin.
 - Nếu thay cấu trúc record, trường, thứ tự hoặc version của `TKB1`: cập nhật encoder Rust, decoder Kotlin, test fixture và kiểm tra thực tế trên Android.
-- `RustScheduleCore.kt` có fallback cho host JVM tests; Android runtime phải có thư viện native thực, không im lặng fallback trên thiết bị.
+- Các bridge Kotlin tải `libtkb_core.so`. `TKB1L` chuyển token từ phản hồi đăng nhập/refresh sang AuthStore. `TKB1A` chuyển tên và dữ liệu ảnh. `TKB1P` chuyển manifest khớp `update.json` do CI phát hành.
 - Chạm lại tab TKB gọi `requestReturnToToday` và đưa danh sách về ngày hôm nay ngay lập tức; không animate cuộn qua các ngày trung gian.
 - Kiểm tra symbol JNI và R8 keep rules trong `app/proguard-rules.pro` nếu rename class/method.
 

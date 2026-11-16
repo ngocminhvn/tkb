@@ -14,6 +14,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4.42", default-features = false, features = ["std"] }
 jni = "0.21.1"
+lzma-rust2 = { version = "0.25", default-features = false, features = ["std", "xz"] }
+sha2 = "0.11"
 
 [profile.release]
 opt-level = 3

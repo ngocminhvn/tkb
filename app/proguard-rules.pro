@@ -11,19 +11,6 @@
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**
 
-# Kotlinx Serialization
--dontnote kotlinx.serialization.SerializationKt
--keepclassmembers class * {
-    *** Companion;
-}
--keepclasseswithmembers class * {
-    kotlinx.serialization.KSerializer serializer(...);
-}
--keepclassmembers class * implements kotlinx.serialization.internal.GeneratedSerializer {
-    <fields>;
-    <methods>;
-}
-
 # Preserve data & network models
 -keep class com.sv.tnu.schools.tnut.** { *; }
 -keep class com.sv.tnu.data.** { *; }
