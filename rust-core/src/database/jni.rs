@@ -88,3 +88,43 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_editNoteNative(
         failure(&mut env);
     }
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_queryNative(
+    mut env: JNIEnv<'_>,
+    _: JObject<'_>,
+    handle: jlong,
+    op: jint,
+    semester: jint,
+    week: jint,
+    date: JString<'_>,
+) -> jbyteArray {
+    let result = env
+        .get_string(&date)
+        .map(String::from)
+        .ok()
+        .and_then(|date| bridge::query(handle, op, semester, week, &date).ok());
+    bytes(&mut env, result.ok_or(rusqlite::Error::InvalidQuery))
+}
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustCacheStore_executeNative(
+    mut env: JNIEnv<'_>,
+    _: JObject<'_>,
+    handle: jlong,
+    op: jint,
+    semester: jint,
+    midterm: jni::sys::jboolean,
+    payload: jni::objects::JByteArray<'_>,
+) -> jlong {
+    let result = env
+        .convert_byte_array(&payload)
+        .ok()
+        .and_then(|payload| bridge::execute(handle, op, semester, midterm != 0, &payload).ok());
+    match result {
+        Some(n) => n,
+        None => {
+            failure(&mut env);
+            0
+        }
+    }
+}

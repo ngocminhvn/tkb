@@ -5,6 +5,7 @@ pub(crate) mod bridge;
 mod wire;
 mod jni;
 mod records;
+mod batch;
 use records::{insert, query};
 pub use records::{Exam, Lesson, LessonNote, Period, Week};
 use rusqlite::{params, Connection, OpenFlags, Result, TransactionBehavior};

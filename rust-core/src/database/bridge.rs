@@ -70,6 +70,78 @@ fn with_database<T>(handle: i64, f: impl FnOnce(&mut Database) -> Result<T>) -> 
         .get_mut(&handle)
         .ok_or(rusqlite::Error::InvalidQuery)?)
 }
+pub(crate) fn query(handle: i64, op: i32, semester: i32, week: i32, date: &str) -> Result<Vec<u8>> {
+    with_database(handle, |db| {
+        use super::batch;
+        match op {
+            1 => batch::timetable(&db.periods()?, &[], &[]),
+            2 => batch::timetable(&[], &db.weeks(semester)?, &[]),
+            3 => batch::timetable(&[], &[], &db.semester_lessons(semester)?),
+            4 => batch::timetable(&[], &[], &db.lessons(semester, week)?),
+            5 => batch::timetable(&[], &[], &db.lessons_on(date)?),
+            6 => batch::exams(&db.exams_on(date)?),
+            7 => batch::timetable(&[], &[], &db.reminder_lessons_on(semester, date)?),
+            8 => batch::exams(&db.reminder_exams_on(semester, date)?),
+            9 => batch::exams(&db.exams(semester)?),
+            10 => super::wire::cache(db, semester),
+            11 | 12 => {
+                let n = if op == 11 {
+                    db.week_count(semester)?
+                } else {
+                    db.exam_count(semester)?
+                };
+                let n = i32::try_from(n).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let mut out = b"TKB1C".to_vec();
+                out.extend_from_slice(&n.to_be_bytes());
+                Ok(out)
+            }
+            _ => Err(rusqlite::Error::InvalidQuery),
+        }
+    })
+}
+pub(crate) fn execute(
+    handle: i64,
+    op: i32,
+    semester: i32,
+    midterm: bool,
+    payload: &[u8],
+) -> Result<i64> {
+    with_database(handle, |db| {
+        use super::batch;
+        match op {
+            1..=3 | 5 => {
+                let (p, w, l) = batch::read_timetable(payload)?;
+                match op {
+                    1 => db.insert_periods(&p)?,
+                    2 => db.insert_weeks(&w)?,
+                    3 => db.insert_lessons(&l)?,
+                    _ => db.replace_timetable(semester, &p, &w, &l)?,
+                }
+            }
+            4 | 6 | 7 => {
+                let rows = batch::read_exams(payload)?;
+                match op {
+                    4 => db.insert_exams(&rows)?,
+                    6 => db.replace_exams(semester, &rows)?,
+                    _ => db.replace_exams_by_type(semester, midterm, &rows)?,
+                }
+            }
+            8 => db.delete_periods()?,
+            9 => db.delete_weeks(semester)?,
+            10 => db.delete_lessons(semester)?,
+            11 => db.delete_exams(semester)?,
+            12 => db.delete_exams_by_type(semester, midterm)?,
+            13 => {
+                return db
+                    .remove_legacy_sample_exams_if_exact(semester)
+                    .map(i64::from)
+            }
+            _ => return Err(rusqlite::Error::InvalidQuery),
+        }
+        Ok(0)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

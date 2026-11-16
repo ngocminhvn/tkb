@@ -15,14 +15,18 @@ The Rust core provides the platform-independent logic behind the existing Androi
 
 ## Android integration
 
-`src/database/` prepares a rusqlite backend for the existing `tkb.db` schema v4.
-It implements the DAO's queries, inserts, deletes, coherent cache reads,
-timetable/exam replacements and exact legacy-fixture cleanup. SQLite is bundled
-for all four ABIs. Android still uses Room; there is no database JNI adapter yet.
-The migration and rollback tests are host tests, not installed-APK validation.
-See [the migration checklist](../docs/RUST_MIGRATION.md) before activating it.
+`src/database/` owns SQLite queries, CRUD and transactions for `tkb.db` v4.
+`RustCacheStore` implements the complete Kotlin DAO with bounded binary batches.
+The process-owned facade serves UI, widgets and reminders. Cache Flow reads
+weeks/lessons atomically; note and timetable invalidation are separate.
+Opening is lazy on IO, and the ViewModel preloads asynchronously.
+`LegacyRoomDatabase` remains for validation and must never open concurrently.
 
-Kotlin owns Compose, Room transactions and Flow, Keystore-backed preferences, HTTP/TLS via Retrofit and OkHttp, the synchronized session refresh, Android alarms and notifications, RemoteViews, and the system APK installer. Network calls and native portal conversion run off the UI thread. Each timetable and exam source keeps its cached data when a request or validation fails.
+Kotlin still owns Compose, Flow adaptation, Keystore, Retrofit/OkHttp transport,
+session refresh locking, alarms, notifications, RemoteViews and APK installation.
+Host JNI smoke tests compile the actual Kotlin adapter, use real native SQLite,
+and verify persistence and Flow. Device upgrade/login/performance tests remain
+pending; see [the migration checklist](../docs/RUST_MIGRATION.md).
 
 ## Build
 

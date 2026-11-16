@@ -62,6 +62,12 @@ class TnutRepository(
     /** One-shot, transactionally consistent cache read for the first frame. */
     override suspend fun cachedTimetable(hocKy: Int): CachedTimetable = dao.cachedTimetable(hocKy)
 
+    override fun cachedTimetableFlow(hocKy: Int): Flow<CachedTimetable> =
+        (dao as? com.sv.tnu.rust.RustCacheStore)?.cachedTimetableFlow(hocKy)
+            ?: kotlinx.coroutines.flow.combine(dao.weeks(hocKy), dao.semesterLessons(hocKy)) { weeks, lessons ->
+                CachedTimetable(weeks, lessons)
+            }
+
     fun lessonsFlow(hocKy: Int, tuan: Int): Flow<List<LessonEntity>> = dao.lessons(hocKy, tuan)
 
     override fun semesterLessonsFlow(hocKy: Int): Flow<List<LessonEntity>> = dao.semesterLessons(hocKy)

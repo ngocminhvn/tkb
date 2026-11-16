@@ -36,6 +36,7 @@ interface SchoolRepository {
     fun examsFlow(hocKy: Int): Flow<List<ExamEntity>>
     fun lessonNotesFlow(): Flow<List<LessonNoteEntity>>
     suspend fun cachedTimetable(hocKy: Int): CachedTimetable
+    fun cachedTimetableFlow(hocKy: Int): Flow<CachedTimetable>
     suspend fun saveLessonNote(lessonId: String, note: String)
     suspend fun refresh(hocKy: Int): Result<Unit>
     suspend fun prepareOfflineCache(hocKy: Int)

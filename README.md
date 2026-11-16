@@ -3,7 +3,7 @@
 Ứng dụng Android mã nguồn mở để xem **thời khóa biểu, lịch thi và ghi chú môn học** cho sinh viên Đại học Kỹ thuật Công nghiệp Thái Nguyên (TNUT).
 
 - Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
-- Lưu dữ liệu trong **Room/SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Cài đặt hiển thị nhận diện tài khoản SV TNUT, số buổi thi đã lưu và học kỳ hiện tại.
+- Lưu dữ liệu trong **Rust SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Cài đặt hiển thị nhận diện tài khoản SV TNUT, số buổi thi đã lưu và học kỳ hiện tại.
 - Giao diện **Kotlin + Jetpack Compose (Material 3)**; nghiệp vụ lịch, giao thức dữ liệu TNUT và xử lý gói cập nhật chạy bằng **Rust** qua JNI.
 - **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 
@@ -29,7 +29,7 @@ Android UI (Compose)
                       │
        ┌──────────────┴──────────────┐
        │                             │
-TNUT HTTP/Authentication        Room/SQLite
+TNUT HTTP/Authentication        Rust SQLite
 Retrofit + OkHttp               tkb.db (schema v4)
 TnutApiClient                   cache, lịch thi, ghi chú
 TnutApi / TnutRepository             ▲
@@ -57,7 +57,7 @@ Kotlin quản lý giao diện, HTTP/TLS trực tiếp với TNUT, khóa làm m�
 | `.../data/` | `AppDatabase.kt`: Entity/DAO/migration Room; `AuthStore.kt`: token, tài khoản và cài đặt cục bộ | SQLite, offline, lưu ghi chú, thiết lập |
 | `.../schools/` | Contract chung `SchoolProvider.kt` và danh sách `SchoolRegistry.kt` | Thêm/chỉnh cách tích hợp trường |
 | `.../schools/tnut/` | API TNUT, OkHttp/Retrofit, model, đăng nhập, refresh và đồng bộ lịch vào Room | Lỗi portal, token, lịch học/lịch thi |
-| `.../rust/` | Adapter Kotlin ↔ Rust JNI; giải mã nhị phân `TKB1` thành Room Entity | Thay đổi kiểu dữ liệu / giao thức JNI |
+| `.../rust/` | Adapter Kotlin ↔ Rust JNI; giải mã nhị phân `TKB1` thành database Entity | Thay đổi kiểu dữ liệu / giao thức JNI |
 | `.../ui/` | Compose, ViewModel, lịch tuần/ngày, login, cài đặt, chọn ngày, dialog cập nhật | Giao diện, cuộn/chuyển ngày, trạng thái tải |
 | `.../ui/components/` | Thành phần giao diện dùng lại, ví dụ avatar | Sửa UI tái sử dụng |
 | `.../ui/glass/` | Hiệu ứng Liquid Glass trong UI | Sửa hiệu ứng hiển thị |
@@ -106,10 +106,11 @@ Các đường dẫn rút gọn trong bảng tính từ `app/src/main/java/com/s
 
 ## Build
 
-Đợt chuyển tiếp sau `d6ecd60`: backend `rusqlite` nằm trong
-`rust-core/src/database/` (CRUD, transaction, migration tương thích schema v4).
-Backend này **chưa được nối vào Android**; APK hiện vẫn dùng Room và Flow cũ.
-Xem tiến độ và điều kiện chuyển backend tại [docs/RUST_MIGRATION.md](docs/RUST_MIGRATION.md).
+Database hiện chạy qua `rusqlite` trong `rust-core/src/database/`, JNI batch
+`TKB1T/TKB1E/TKB1N/TKB1C` và `RustCacheStore` triển khai toàn bộ `TkbDao`.
+Giữ `tkb.db`, schema v4; Kotlin Flow nhận cập nhật sau commit.
+`LegacyRoomDatabase` còn được giữ để đối chiếu, không mở cùng file với Rust.
+Xem [tiến độ và giới hạn kiểm thử](docs/RUST_MIGRATION.md).
 
 Yêu cầu: JDK 17, Android SDK/NDK tương thích, Rust toolchain và `cargo-ndk`. Đứng tại thư mục gốc repository:
 
@@ -143,8 +144,3 @@ bash scripts/build-rust-android.sh
 ## Đóng góp / giao việc cho AI
 
 Khi nhờ AI chỉnh repo, đưa yêu cầu cụ thể và yêu cầu đọc [AGENTS.md](AGENTS.md). AI cần chỉ rõ **đường đi dữ liệu, file dự định sửa, test liên quan, rủi ro đối với cache/login/JNI và kết quả build thực tế**; tránh đổi kiến trúc hoặc viết lại hàng loạt nếu chỉ cần sửa một hành vi.
-
-Tiến độ JNI database: `RustCacheStore.kt` + `database/{bridge,jni,wire}.rs`
-đã có adapter thử nghiệm đọc snapshot cache và CRUD/Flow ghi chú qua binary
-TKB1T/TKB1N. Chưa được gọi từ `AppDatabase.get`; Room vẫn hoạt động.
-Không mở adapter này cùng file khi Room đang mở. Chưa thay toàn bộ DAO/Flow.

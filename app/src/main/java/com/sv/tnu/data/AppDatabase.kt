@@ -255,7 +255,7 @@ interface TkbDao {
     version = 4,
     exportSchema = false,
 )
-abstract class AppDatabase : RoomDatabase() {
+abstract class LegacyRoomDatabase : RoomDatabase() {
     abstract fun tkbDao(): TkbDao
 
     companion object {
@@ -308,19 +308,37 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         @Volatile
-        private var instance: AppDatabase? = null
+        private var instance: LegacyRoomDatabase? = null
 
-        fun get(context: Context): AppDatabase {
+        fun get(context: Context): LegacyRoomDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
-                    AppDatabase::class.java,
+                    LegacyRoomDatabase::class.java,
                     "tkb.db",
                 )
                     .addMigrations(migration1To2, migration2To3, migration3To4)
                     .build()
                     .also { instance = it }
             }
+        }
+    }
+}
+
+/** Production facade: one native DAO shared by UI, widgets and reminders.
+ * The legacy Room implementation above remains available for parity validation,
+ * but is never opened concurrently with the bundled SQLite engine.
+ */
+class AppDatabase private constructor(context: Context) {
+    private val dao: TkbDao = com.sv.tnu.rust.RustCacheStore.create(
+        context.applicationContext.getDatabasePath("tkb.db"),
+    )
+    fun tkbDao(): TkbDao = dao
+
+    companion object {
+        @Volatile private var instance: AppDatabase? = null
+        fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
+            instance ?: AppDatabase(context.applicationContext).also { instance = it }
         }
     }
 }

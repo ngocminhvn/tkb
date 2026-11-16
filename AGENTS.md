@@ -25,11 +25,11 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 
 ## 1. Bản đồ thư mục thực tế
 
-Tiếp tục từ `d6ecd60`: `rust-core/src/database/` chứa backend rusqlite đang chuẩn
-bị, chưa được Android gọi. Room trong `data/AppDatabase.kt` vẫn là backend đang
-hoạt động. Không xóa adapter/dependency Room trước khi xác minh JNI/Flow và cài
-đè trên Android. Các test database Rust kiểm tra schema, migration, rollback,
-WAL và bảo toàn ghi chú; chúng không thay thế kiểm thử APK/Room trên thiết bị.
+Backend hiện tại là `rusqlite` qua `RustCacheStore` (triển khai đầy đủ TkbDao).
+`AppDatabase.get` giữ singleton DAO, mở file `tkb.db` lazily trên IO.
+`LegacyRoomDatabase` giữ lại để đối chiếu; không mở đồng thời cùng file.
+Snapshot Flow đọc tuần + lessons từ một transaction. Không xóa Room/KSP trước
+khi kiểm thử Android cài đè đạt yêu cầu. Host JNI parity không thay thế test thiết bị.
 
 Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt đầu bằng `.../` bên dưới được tính từ thư mục này.
 
@@ -159,8 +159,3 @@ Không tạo branch/PR, chạy release, xóa workflow, đổi application ID, đ
 - [README.md](README.md): giới thiệu, thư mục, lệnh build, đường tải APK.
 - [rust-core/README.md](rust-core/README.md): phạm vi Rust migration, giao thức gọi native và giới hạn.
 - [docs/ADDING_SCHOOL.md](docs/ADDING_SCHOOL.md): cách thêm trường; vấn đề cách ly cache và migration.
-
-Tiến độ JNI database: `RustCacheStore.kt` + `database/{bridge,jni,wire}.rs`
-đã có adapter thử nghiệm đọc snapshot cache và CRUD/Flow ghi chú qua binary
-TKB1T/TKB1N. Chưa được gọi từ `AppDatabase.get`; Room vẫn hoạt động.
-Không mở adapter này cùng file khi Room đang mở. Chưa thay toàn bộ DAO/Flow.

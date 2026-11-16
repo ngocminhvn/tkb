@@ -1,5 +1,34 @@
 # Rust migration — TKB SV
 
+## Current stage C — full native DAO and production handoff
+
+`AppDatabase.get` now owns a singleton `RustCacheStore`, opened lazily on IO.
+All DAO methods, including timetable/exam replacements and legacy fixture
+cleanup, call native SQLite. `LegacyRoomDatabase` is retained for validation;
+no Room connection opens in production. DB filename/schema/package/signing
+are unchanged. Kotlin model annotations and Room/KSP remain until device
+parity tests allow deleting the old adapter.
+
+New bounded batch codec reuses TKB1T/TKB1E; TKB1C carries counts. Existing
+TKB1N carries notes. Invalid headers, counts, UTF-8, truncation and trailing
+bytes fail before any delete/insert. Transactions execute in one native call.
+Flow publishes after commit; notes have independent invalidation. Repository
+cache Flow reads weeks and lessons together. ViewModel preloads asynchronously
+and retains cancellation and first-login cache guard behavior.
+
+Validation: 48 Rust tests and strict Clippy pass. The actual Kotlin DAO/encoder/
+decoder compiles and runs against the host JNI library: binary round-trips,
+read/write, failed-scope preservation, exam isolation, note Flow, persistent
+reopen, deletes and closed-handle errors pass. The smoke harness strips only
+Room/Android annotations from actual entity/DAO contracts, and is added to CI
+before signed APK packaging. It does not validate Android framework behavior.
+
+Four-ABI build and the signed APK CI run are reported for this commit. Android
+installed upgrade/downgrade, real login/refresh, notification/widget/update and
+first-frame/scroll/startup measurements remain unverified on device. HTTP,
+refresh lock and credentials remain unchanged; network/session/state migration
+is not complete. Older stage notes below describe historical intermediate work.
+
 ## Continuation from d6ecd60 (2026-11-16)
 
 Work directly on `main`, per the latest user instruction. The temporary branch

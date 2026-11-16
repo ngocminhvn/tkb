@@ -113,7 +113,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.onStart
 
 internal fun confirmedEdgeWeekDirection(distancePx: Float, thresholdPx: Float, direction: Int, hasAdjacentWeek: Boolean): Int? =
     RustScheduleCore.confirmedEdgeWeekDirection(distancePx, thresholdPx, direction, hasAdjacentWeek)
@@ -235,48 +236,46 @@ class TimetableViewModel(
         )
     }
 
-    // Preserve the working first-frame cache behavior. A single Room transaction
-    // gives both tables from the same point in time; the blocking seed is kept
-    // intentionally until a non-blocking splash handoff is implemented.
-    // If the one-shot read fails, wait for the regular Room Flow rather than
-    // incorrectly displaying "not synced" while offline data may still exist.
-    private val initialSnapshot: TimetableSnapshot? = runCatching {
-        runBlocking(Dispatchers.IO) {
+    // Start a coherent offline read on IO; never block the Activity/Compose thread.
+    private val initialSnapshot = viewModelScope.async(Dispatchers.IO) {
+        try {
             val cache = repository.cachedTimetable(hocKy)
             buildSnapshot(cache.weeks, cache.lessons, null, _todayYmd.value)
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            Log.w("TimetableViewModel", "Could not preload timetable; waiting for Flow", cause)
+            null
         }
-    }.getOrElse { cause ->
-        Log.w("TimetableViewModel", "Could not preload Room timetable; waiting for Flow", cause)
-        null
     }
 
     val timetable: StateFlow<TimetableSnapshot?> = combine(
-        repository.weeksFlow(hocKy),
-        repository.semesterLessonsFlow(hocKy),
+        repository.cachedTimetableFlow(hocKy),
         _selectedWeek,
         _todayYmd,
         _justSyncedCache,
-    ) { weekList, lessonList, manual, today, justSynced ->
-        val cache = preferJustSyncedCache(weekList, lessonList, justSynced)
+    ) { observed, manual, today, justSynced ->
+        val cache = preferJustSyncedCache(observed.weeks, observed.lessons, justSynced)
         buildSnapshot(cache.weeks, cache.lessons, manual, today)
     }.flowOn(Dispatchers.Default)
         // Room's replaceTimetable() is transactional. Never pin a previous
         // semester forever when the DB legitimately becomes empty.
         .map<TimetableSnapshot, TimetableSnapshot?> { it }
+        .onStart { initialSnapshot.await()?.let { emit(it) } }
+        .distinctUntilChanged()
         .catch { cause ->
             if (cause is CancellationException) throw cause
             Log.e("TimetableViewModel", "Room timetable observation failed", cause)
             _error.value = "Không đọc được thời khóa biểu đã lưu. Hãy thử mở lại ứng dụng."
             // Preserve a successfully seeded offline schedule when observation
             // fails; only use an empty fallback when neither read worked.
-            emit(initialSnapshot ?: TimetableSnapshot(emptyList(), emptyList(), null, emptyList()))
+            emit(initialSnapshot.await() ?: TimetableSnapshot(emptyList(), emptyList(), null, emptyList()))
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // The existing settings and navigation APIs reuse that same Room snapshot.
     val weeks: StateFlow<List<WeekEntity>> = timetable
         .map { it?.weeks.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.weeks.orEmpty())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val periods: StateFlow<List<PeriodEntity>> = repository.periodsFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -305,12 +304,12 @@ class TimetableViewModel(
 
     val selectedWeek: StateFlow<Int?> = timetable
         .map { it?.selectedWeek }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.selectedWeek)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Settings counts the whole semester, not just whichever week is selected.
     val semesterLessons: StateFlow<List<LessonEntity>> = timetable
         .map { it?.semesterLessons.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, initialSnapshot?.semesterLessons.orEmpty())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _isFetchingExams = MutableStateFlow(false)
     val isFetchingExams: StateFlow<Boolean> = _isFetchingExams.asStateFlow()
@@ -415,7 +414,7 @@ class TimetableViewModel(
                             val committed = repository.cachedTimetable(hocKy)
                             _justSyncedCache.value = committed
                             if (shouldRecreateTimetableAfterFirstSync(
-                                    hadCachedWeeksAtLaunch = !initialSnapshot?.weeks.isNullOrEmpty(),
+                                    hadCachedWeeksAtLaunch = !initialSnapshot.await()?.weeks.isNullOrEmpty(),
                                     committedWeeks = committed.weeks,
                                     alreadyRecreated = _firstLoginRenderEpoch.value != 0,
                                 )
