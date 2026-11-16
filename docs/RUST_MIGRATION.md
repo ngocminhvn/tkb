@@ -118,3 +118,31 @@ Run cargo test and cargo clippy --all-targets -D warnings for the Rust crate;
 build all four ABIs and APK with Gradle, then test upgrade, login, refresh
 failure, offline cold start, first sync, notifications, widget and app updates
 on a real Android device. Compilation does not prove runtime parity.
+
+## Stage B — staged cache/notes JNI adapter
+
+Baseline: 5eb9d21. Backup for this continuation: `backup-rusqlite-5eb9d21`,
+retained on GitHub per the latest request. Work commits remain on main.
+
+- `database/bridge.rs`: synchronized checked handle registry; queries and close
+  share ownership lock, closed handles cannot access freed memory.
+- `database/jni.rs`: explicit Java exceptions on database failure; no silent empty
+  cache on failure and no SQLite details/user data in exception text.
+- `database/wire.rs`: cache reuses existing TKB1T layout with zero period rows;
+  notes use TKB1N + count + UTF-8 id/note + big-endian i64 timestamp.
+- `RustCacheStore.kt`: IO dispatch, coroutine Mutex, cancellation-safe opening
+  and closing, commit-driven note Flow with distinctUntilChanged, no polling.
+  All writes/observers must share one instance. Existing Room must be closed
+  before opening this adapter against the existing Context database path.
+- Existing PortalBinaryDecoder decodes TKB1N using its checked reader. Existing
+  TKB1 formats and exported methods are unchanged. R8 preserves new JNI names.
+
+This is not the production database switch: remaining timetable/exam DAO bridge
+methods, corresponding invalidation, actual Room-to-native handoff and Android
+upgrade/instrumentation validation are still pending. Login, 06:30 auto-sync,
+Compose, signing and production database selection are unchanged.
+
+Validation: cargo test (46 passed), strict all-target Clippy passed. Native
+four-ABI build result is recorded in the stage report. Android Flow/JNI runtime,
+installed upgrade, account login/refresh, widget/reminder/update and performance
+tests have not run; no device/emulator or authorized TNUT session is available.

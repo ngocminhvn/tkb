@@ -1,6 +1,9 @@
 //! rusqlite backend for the existing tkb.db. Not enabled in Android until the
 //! JNI/Flow adapter and installed-APK upgrade tests have been verified.
 //! A connection is owned by one worker; do not run these blocking calls on UI.
+pub(crate) mod bridge;
+mod wire;
+mod jni;
 mod records;
 use records::{insert, query};
 pub use records::{Exam, Lesson, LessonNote, Period, Week};

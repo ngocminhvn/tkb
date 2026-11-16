@@ -35,3 +35,6 @@
 # Tink's Error Prone annotations are source/static-analysis metadata only.
 # They have no runtime behavior; suppress R8 missing-annotation warnings.
 -dontwarn com.google.errorprone.annotations.**
+
+-keep class com.sv.tnu.rust.RustCacheStore { *; }
+-keep class com.sv.tnu.rust.RustCacheStore$Companion { *; }

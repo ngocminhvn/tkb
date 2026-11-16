@@ -159,3 +159,8 @@ Không tạo branch/PR, chạy release, xóa workflow, đổi application ID, đ
 - [README.md](README.md): giới thiệu, thư mục, lệnh build, đường tải APK.
 - [rust-core/README.md](rust-core/README.md): phạm vi Rust migration, giao thức gọi native và giới hạn.
 - [docs/ADDING_SCHOOL.md](docs/ADDING_SCHOOL.md): cách thêm trường; vấn đề cách ly cache và migration.
+
+Tiến độ JNI database: `RustCacheStore.kt` + `database/{bridge,jni,wire}.rs`
+đã có adapter thử nghiệm đọc snapshot cache và CRUD/Flow ghi chú qua binary
+TKB1T/TKB1N. Chưa được gọi từ `AppDatabase.get`; Room vẫn hoạt động.
+Không mở adapter này cùng file khi Room đang mở. Chưa thay toàn bộ DAO/Flow.

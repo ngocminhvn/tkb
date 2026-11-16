@@ -143,3 +143,8 @@ bash scripts/build-rust-android.sh
 ## Đóng góp / giao việc cho AI
 
 Khi nhờ AI chỉnh repo, đưa yêu cầu cụ thể và yêu cầu đọc [AGENTS.md](AGENTS.md). AI cần chỉ rõ **đường đi dữ liệu, file dự định sửa, test liên quan, rủi ro đối với cache/login/JNI và kết quả build thực tế**; tránh đổi kiến trúc hoặc viết lại hàng loạt nếu chỉ cần sửa một hành vi.
+
+Tiến độ JNI database: `RustCacheStore.kt` + `database/{bridge,jni,wire}.rs`
+đã có adapter thử nghiệm đọc snapshot cache và CRUD/Flow ghi chú qua binary
+TKB1T/TKB1N. Chưa được gọi từ `AppDatabase.get`; Room vẫn hoạt động.
+Không mở adapter này cùng file khi Room đang mở. Chưa thay toàn bộ DAO/Flow.

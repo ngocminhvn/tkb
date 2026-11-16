@@ -240,6 +240,16 @@ object PortalBinaryDecoder {
         }
     }
 
+    /** Database-only extension: TKB1N, count, then UTF-8 id/note and i64 timestamp. */
+    fun decodeDatabaseNotes(bytes: ByteArray): List<com.sv.tnu.data.LessonNoteEntity> {
+        val reader = Reader(bytes, 'N'.code.toByte())
+        val notes = List(reader.count()) {
+            com.sv.tnu.data.LessonNoteEntity(reader.string(), reader.string(), reader.long())
+        }
+        reader.finish()
+        return notes
+    }
+
     fun decodeTimetable(bytes: ByteArray): TimetableRows {
         val reader = Reader(bytes, 'T'.code.toByte())
         val periods = List(reader.count()) {
