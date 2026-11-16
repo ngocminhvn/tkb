@@ -1,19 +1,21 @@
-"""Compile actual Kotlin adapters against annotation-free Room contracts and run JNI.
+"""Compile actual Kotlin DAO contracts and adapters and run JNI.
 Requires KOTLIN_HOME, JAVA_HOME (or java on PATH), Rust, and coroutines bundled
 with the Kotlin compiler. This host test does not replace Android upgrade tests.
 """
-import os, pathlib, re, subprocess, tempfile
+import os, pathlib, subprocess, tempfile
 root = pathlib.Path(__file__).resolve().parents[1]
 kotlin_home = pathlib.Path(os.environ['KOTLIN_HOME'])
 source = root / 'app/src/main/java/com/sv/tnu'
 with tempfile.TemporaryDirectory(prefix='tkb-jni-') as tmp:
     tmp = pathlib.Path(tmp)
-    db = (source / 'data/AppDatabase.kt').read_text()
-    classes = re.findall(r'data class \w+\([\s\S]*?\n\)', db)
-    contracts = '\n'.join(classes) + '\n' + db[db.index('interface TkbDao'):db.index('\n@Database(')]
-    contracts = re.sub(r'@PrimaryKey(?:\([^)]*\))?\s*', '', contracts)
-    contracts = re.sub(r'^\s*@\w+[^\n]*\n', '', contracts, flags=re.M)
-    (tmp / 'Contracts.kt').write_text('package com.sv.tnu.data\nimport kotlinx.coroutines.flow.Flow\n' + contracts)
+    (tmp / 'Context.kt').write_text("""
+package android.content
+import java.io.File
+abstract class Context {
+    abstract val applicationContext: Context
+    abstract fun getDatabasePath(name: String): File
+}
+""")
     decoder = (source / 'rust/RustPortalCore.kt').read_text()
     decoder = decoder[decoder.index('object PortalBinaryDecoder'):decoder.index('    fun decodeLogin')]
     (tmp / 'Decoder.kt').write_text('package com.sv.tnu.rust\nimport com.sv.tnu.data.*\nimport java.io.*\nimport java.nio.charset.StandardCharsets\n' + decoder + '}')
@@ -69,6 +71,6 @@ fun main(args: Array<String>) = runBlocking {
 }
 ''')
     cp = str(kotlin_home / 'lib/kotlinx-coroutines-core-jvm.jar')
-    files = [str(p) for p in tmp.glob('*.kt')] + [str(source / 'rust' / name) for name in ['RustCacheStore.kt','DatabaseBinaryEncoder.kt']]
+    files = [str(p) for p in tmp.glob('*.kt')] + [str(source / 'data/AppDatabase.kt')] + [str(source / 'rust' / name) for name in ['RustCacheStore.kt','DatabaseBinaryEncoder.kt']]
     subprocess.run([str(kotlin_home / 'bin/kotlinc'), *files, '-classpath', cp, '-include-runtime', '-d', str(tmp / 'smoke.jar')], check=True)
     subprocess.run(['java', '-Djava.library.path=' + str(root / 'rust-core/target/debug'), '-cp', str(tmp / 'smoke.jar') + ':' + cp, 'SmokeKt', str(tmp / 'tkb.db')], check=True)

@@ -4,16 +4,8 @@
 -keepattributes SourceFile,LineNumberTable
 -keepattributes *Annotation*, InnerClasses, Signature, Exceptions
 
-# Room Database
--keepclassmembers class * extends androidx.room.RoomDatabase {
-    <init>();
-}
--keep class * extends androidx.room.RoomDatabase
--dontwarn androidx.room.paging.**
-
-# Preserve data & network models
+# Preserve network and updater classes
 -keep class com.sv.tnu.schools.tnut.** { *; }
--keep class com.sv.tnu.data.** { *; }
 -keep class com.sv.tnu.update.** { *; }
 
 # Retrofit & OkHttp

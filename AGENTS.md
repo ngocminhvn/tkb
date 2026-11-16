@@ -7,15 +7,21 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 0. Luôn lấy code mới nhất xuống máy rồi mới bắt đầu làm việc.
 1. Đọc `README.md`, sau đó tìm module bằng **bản đồ thư mục** và **bảng định tuyến công việc** bên dưới.
 2. Mở các file **thực tế** ở nhánh đang làm. File này chỉ mô tả baseline; **code mới nhất là nguồn sự thật**.
-3. Truy vết đường dữ liệu từ UI → provider/repository → HTTP hoặc Room → Rust/JNI (nếu có), rồi mới sửa.
+3. Truy vết đường dữ liệu từ UI → provider/repository → HTTP hoặc SQLite qua Rust/JNI, rồi mới sửa.
 4. Sửa phạm vi nhỏ nhất có thể; giữ nguyên hành vi khác và dữ liệu của người dùng. Không tự ý chuyển đổi UI sang Rust hoặc thay thế SQLite.
 5. Sau khi sửa, chạy những test thích hợp; ghi rõ test nào **đã chạy**, **chưa chạy** và lý do. Không báo build/pass nếu chưa xác minh.
 6. Khi sửa một đường dẫn, cập nhật hướng dẫn tương ứng trong `README.md`/`AGENTS.md` để agent kế tiếp không dựa vào tài liệu lỗi thời.
 
+### Quy trình bắt buộc
+
+- Làm trực tiếp trên `main`. Không tạo nhánh mới.
+- Không tạo APK debug, kể cả để kiểm thử. Dùng các bài test Rust/JNI và build Release khi cần APK.
+- Khi hoàn tất và kiểm tra xong, commit rồi push thẳng lên `origin/main` để GitHub Actions build. Kiểm tra trạng thái workflow và báo lại.
+
 ### Những điều bắt buộc giữ nguyên, trừ khi yêu cầu có nêu rõ và đã có phương án migrate/test
 
 - Android `applicationId = "com.tkb.sv"`; Kotlin namespace `com.sv.tnu`; chữ ký Release và khả năng cài đè.
-- Room `tkb.db`, schema **v4**, migrations 1→2→3→4; ghi chú, lịch học, lịch thi và cache offline đã lưu.
+- SQLite `tkb.db`, schema **v4**, migrations 1→2→3→4; ghi chú, lịch học, lịch thi và cache offline đã lưu.
 - Tài khoản/token lưu cục bộ bằng `EncryptedSharedPreferences`; **không log hoặc gửi** password, access/refresh token sang endpoint khác.
 - HTTP đi trực tiếp portal TNUT; không chèn proxy/máy chủ trung gian thu thập thông tin đăng nhập.
 - Hợp đồng JNI, thư viện `libtkb_core.so` cho 4 ABI, format nhị phân **`TKB1`** thống nhất cả Rust/Kotlin.
@@ -27,23 +33,23 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 
 Backend hiện tại là `rusqlite` qua `RustCacheStore` (triển khai đầy đủ TkbDao).
 `AppDatabase.get` giữ singleton DAO, mở file `tkb.db` lazily trên IO.
-`LegacyRoomDatabase` giữ lại để đối chiếu; không mở đồng thời cùng file.
-Snapshot Flow đọc tuần + lessons từ một transaction. Không xóa Room/KSP trước
-khi kiểm thử Android cài đè đạt yêu cầu. Host JNI parity không thay thế test thiết bị.
+Snapshot Flow đọc tuần + lessons từ một transaction. Migrations nằm trong
+`rust-core/src/database/` và giữ tương thích với cơ sở dữ liệu của bản Room cũ.
+Kiểm thử cài đè trên Android khi thay đổi lớp lưu trữ.
 
 Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt đầu bằng `.../` bên dưới được tính từ thư mục này.
 
 | Thư mục/file | Sở hữu trách nhiệm | Không nên đặt logic gì ở đây? |
 | --- | --- | --- |
-| `app/src/main/java/com/sv/tnu/MainActivity.kt` | Entry point, khởi tạo AuthStore/Room, tạo SchoolSession, NavHost/login/main | Mapping JSON portal, SQL migration |
-| `.../data/AppDatabase.kt` | Room Entity/DAO, `CachedTimetable`, giao dịch thay lịch/thi, migration `tkb.db` | Network/Compose |
+| `app/src/main/java/com/sv/tnu/MainActivity.kt` | Entry point, khởi tạo AuthStore/SQLite, tạo SchoolSession, NavHost/login/main | Mapping JSON portal, SQL migration |
+| `.../data/AppDatabase.kt` | Model, hợp đồng DAO, `CachedTimetable` và khởi tạo `RustCacheStore` | Network/Compose |
 | `.../data/AuthStore.kt` | Preferences mã hóa, session tokens, học kỳ, thiết lập giao diện/nhắc lịch/đồng bộ | Gọi trực tiếp portal |
 | `.../schools/SchoolProvider.kt` | Interface `SchoolProvider`, `SchoolSession`, `SchoolRepository`, ID/model chung | Hardcode UI TNUT |
 | `.../schools/SchoolRegistry.kt` | Danh sách school providers, chọn provider theo ID | Quy tắc SQL/HTTP |
 | `.../schools/tnut/TnutApi.kt` | Endpoint Retrofit, form đăng nhập và chuyển response bytes vào Rust | Compose, chỉnh DB |
 | `.../schools/tnut/TnutApiClient.kt` | OkHttp/Retrofit setup; auth header, HTTP 401 và logical 401, khóa refresh, fallback login | View/layout |
 | `.../schools/tnut/TnutSchoolProvider.kt` | Adapter kết nối login/session + repository TNUT | Logic trường khác |
-| `.../schools/tnut/TnutRepository.kt` | Điều phối gọi portal, đồng bộ lịch/thi, validate qua Rust, ghi Room, avatar, ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
+| `.../schools/tnut/TnutRepository.kt` | Điều phối gọi portal, đồng bộ lịch/thi, validate qua Rust, ghi SQLite, avatar, ghi chú | Vẽ UI và thay định nghĩa JNI trực tiếp |
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
 | `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
@@ -56,7 +62,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../ui/glass/LiquidGlass.kt` | Hiệu ứng/liquid glass trên Compose | Nghiệp vụ portal |
 | `.../ui/theme/Theme.kt` | Theme Compose | Xử lý lịch |
 | `.../notifications/ScheduleReminders.kt` | AlarmManager, thông báo, receivers lên lịch lại sau reboot/time change | Đồng bộ portal trong background |
-| `.../widget/TimetableWidgetProvider.kt` | AppWidgetProvider/RemoteViews, widget ngày & query Room | Màn hình Compose |
+| `.../widget/TimetableWidgetProvider.kt` | AppWidgetProvider/RemoteViews, widget ngày & query SQLite | Màn hình Compose |
 | `.../update/AppUpdateManager.kt` | HTTP cập nhật, gọi Rust xác minh/giải nén, chuyển APK cho trình cài đặt | UI state |
 | `.../update/AppUpdateViewModel.kt` | Trạng thái tải/kiểm tra update cho Compose | Portal TNUT |
 | `app/src/main/res/drawable/` | Icon, nền, hình XML | UI ViewModel |
@@ -81,7 +87,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | --- | --- | --- |
 | Cuộn đến ngày nào thì thanh tuần chọn ngày đó, kéo qua ranh giới tuần, đổi tuần | `ui/TimetableScreen.kt` (`TimetableScreen`, state/gesture/scroll), `ui/WeekDatePicker.kt` | `TimetableSwipeTest.kt`, `WeekDatePickerTest.kt`; kéo ở mép >144dp, thả tay xác nhận; kéo ngược hủy; kiểm thử tay cả đầu/cuối tuần và danh sách rỗng |
 | Sửa màn đầu không hiện lịch, lag khi mở, chuyển tab mới hiện | `ui/TimetableScreen.kt` (`TimetableViewModel`, `cachedTimetable`, `timetable StateFlow`), `data/AppDatabase.kt` | Mất mạng, lần mở đầu, cold start, cache cũ, quay lại tab |
-| Sửa lỗi đồng bộ và hộp thoại trạng thái | `ui/TimetableScreen.kt` (ViewModel), `ui/TimetableSyncDialog.kt`, `ui/MainScreen.kt`, `schools/tnut/TnutRepository.kt` | Auto/manual sync hiển thị Loading/Success/Failure; cảnh báo lịch thi; giữ Room cache và lần login đầu đã sửa |\n| Sửa login / HTTP 401 / refresh token | `schools/tnut/TnutApiClient.kt`, `TnutSchoolProvider.kt`, `data/AuthStore.kt`, `ui/LoginScreen.kt` | `tests/test_auth_refresh.py`; 401 thật và logical 401, token rotate, offline |
+| Sửa lỗi đồng bộ và hộp thoại trạng thái | `ui/TimetableScreen.kt` (ViewModel), `ui/TimetableSyncDialog.kt`, `ui/MainScreen.kt`, `schools/tnut/TnutRepository.kt` | Auto/manual sync hiển thị Loading/Success/Failure; cảnh báo lịch thi; giữ cache SQLite và lần login đầu đã sửa |\n| Sửa login / HTTP 401 / refresh token | `schools/tnut/TnutApiClient.kt`, `TnutSchoolProvider.kt`, `data/AuthStore.kt`, `ui/LoginScreen.kt` | `tests/test_auth_refresh.py`; 401 thật và logical 401, token rotate, offline |
 | API trả lịch sai/thi thiếu/trùng/trang tiếp theo | `schools/tnut/TnutApi.kt`, `TnutRepository.kt`, `rust-core/src/portal.rs`, `rust/RustPortalCore.kt` | Rust unit tests, `RustPortalModelsTest.kt`, model/request tests, cache lỗi |
 | Tối ưu JSON/JNI/CPU khi load lịch | `rust-core/src/portal.rs`, `rust-core/src/android.rs`, `rust/RustPortalCore.kt` | Kiểm tra định dạng `TKB1`, 4 ABI, APK/JNI và so sánh output trước/sau |
 | Sửa lưu ghi chú, offline, DB migration | `data/AppDatabase.kt`, `schools/tnut/TnutRepository.kt` | `tests/test_data_safety.py` và dữ liệu giả lập upgrade v1→v4 |
@@ -97,7 +103,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 
 ### A. Khởi động, đọc cache, vẽ màn hình
 
-`MainActivity.onCreate` → `AuthStore` + `AppDatabase.get` → `SchoolRegistry.forId(...).open(...)` → `SchoolSession.repository` → `TimetableViewModel` → `cachedTimetable` (snapshot đầu) + Room `Flow` → `TimetableScreen`.
+`MainActivity.onCreate` → `AuthStore` + `AppDatabase.get` → `SchoolRegistry.forId(...).open(...)` → `SchoolSession.repository` → `TimetableViewModel` → `cachedTimetable` (snapshot đầu) + `Flow` từ DAO Rust → `TimetableScreen`.
 
 - Đọc đồng thời tuần và lessons từ **cùng transaction** để tránh khung hình đầu tiên bị rỗng/không nhất quán.
 - `TimetableScreen.kt` là file lớn, chứa cả ViewModel và Compose. Tìm symbol cụ thể thay vì sửa toàn file.
@@ -115,7 +121,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - Đồng bộ lịch thi được kích hoạt độc lập/concurrently; từng loại lịch thi (giữa kỳ/cuối kỳ) tải phân trang; Rust parse, validate, loại trùng → `TkbDao.replaceExamsByType`. Một endpoint lỗi không được xóa lịch loại còn lại.
 - Giao dịch thay dữ liệu **chỉ bắt đầu sau khi** toàn bộ dữ liệu cần thiết đã hợp lệ. Khi lịch trống/lỗi/401 không ghi đè cache tốt bằng danh sách rỗng.
 - Ghi chú `lesson_notes` không thuộc transaction thay timetable. Đừng xóa ghi chú khi cập nhật lessons.
-- Đồng bộ thành công kích hoạt cập nhật widget; reminder đọc Room thay vì polling portal liên tục.
+- Đồng bộ thành công kích hoạt cập nhật widget; reminder đọc SQLite thay vì polling portal liên tục.
 
 ### D. JNI và định dạng nhị phân
 
@@ -126,7 +132,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 - Chạm lại tab TKB gọi `requestReturnToToday` và đưa danh sách về ngày hôm nay ngay lập tức; không animate cuộn qua các ngày trung gian.
 - Kiểm tra symbol JNI và R8 keep rules trong `app/proguard-rules.pro` nếu rename class/method.
 
-## 4. Kiểm tra trước khi commit
+## 4. Kiểm tra trước khi commit và push
 
 Từ root repository:
 
@@ -135,7 +141,7 @@ cargo clippy --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
 # Cần Android SDK/NDK + cargo-ndk, biên dịch native trước khi build APK:
 bash scripts/build-rust-android.sh
-./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
 - Khi sửa Rust / binary `TKB1` / ABI: chạy `cargo clippy`, Android build và kiểm tra native trên thiết bị/emulator nếu có.
@@ -147,12 +153,12 @@ bash scripts/build-rust-android.sh
 Khi kết thúc một thay đổi, báo cáo ngắn gọn:
 
 1. **Mục tiêu** và điểm gây lỗi (nếu tìm được, phân biệt với giả thuyết).
-2. **File thay đổi** và lý do, kèm ảnh hưởng Kotlin ↔ Rust ↔ Room.
+2. **File thay đổi** và lý do, kèm ảnh hưởng Kotlin ↔ Rust ↔ SQLite.
 3. **Bất biến đã giữ**: data/offline, token, JNI/ABI, giao diện (nếu liên quan).
 4. **Test/build đã thực sự chạy** cùng kết quả; nếu chưa chạy phải nói rõ.
 5. **Commit/branch/Actions** nếu đã thực hiện; tuyệt đối không bịa URL, trạng thái pass, số run.
 
-Không tạo branch/PR, chạy release, xóa workflow, đổi application ID, đổi DB schema, thay cấu trúc UI hoặc khởi tạo project mới **nếu yêu cầu hiện tại không đòi hỏi**. Không tự ý đưa thêm thư viện, dịch vụ trung gian hay dữ liệu mẫu giả vào Room.
+Không tạo PR, chạy release thủ công, xóa workflow, đổi application ID, đổi DB schema, thay cấu trúc UI hoặc khởi tạo project mới **nếu yêu cầu hiện tại không đòi hỏi**. Không tự ý đưa thêm thư viện, dịch vụ trung gian hay dữ liệu mẫu giả vào Room.
 
 ## 6. Tài liệu đi kèm
 

@@ -4,10 +4,9 @@
 
 `AppDatabase.get` now owns a singleton `RustCacheStore`, opened lazily on IO.
 All DAO methods, including timetable/exam replacements and legacy fixture
-cleanup, call native SQLite. `LegacyRoomDatabase` is retained for validation;
-no Room connection opens in production. DB filename/schema/package/signing
-are unchanged. Kotlin model annotations and Room/KSP remain until device
-parity tests allow deleting the old adapter.
+cleanup, call native SQLite. The Android app keeps the existing database filename,
+schema, package ID, and release signing configuration. Room, KSP, and
+DataStore have been removed from the Android app dependencies.
 
 New bounded batch codec reuses TKB1T/TKB1E; TKB1C carries counts. Existing
 TKB1N carries notes. Invalid headers, counts, UTF-8, truncation and trailing
@@ -19,15 +18,15 @@ and retains cancellation and first-login cache guard behavior.
 Validation: 48 Rust tests and strict Clippy pass. The actual Kotlin DAO/encoder/
 decoder compiles and runs against the host JNI library: binary round-trips,
 read/write, failed-scope preservation, exam isolation, note Flow, persistent
-reopen, deletes and closed-handle errors pass. The smoke harness strips only
-Room/Android annotations from actual entity/DAO contracts, and is added to CI
-before signed APK packaging. It does not validate Android framework behavior.
+reopen, deletes and closed-handle errors pass. CI compiles the Kotlin database facade and DAO contracts with an Android
+Context stub for the host JNI smoke test before signed APK packaging.
 
-Four-ABI build and the signed APK CI run are reported for this commit. Android
-installed upgrade/downgrade, real login/refresh, notification/widget/update and
-first-frame/scroll/startup measurements remain unverified on device. HTTP,
-refresh lock and credentials remain unchanged; network/session/state migration
-is not complete. Older stage notes below describe historical intermediate work.
+On Android, isolated debug-signed APKs verified a Room v4 upgrade from
+`d6ecd60` to `e89f923`, rollback to the Room build, then a direct upgrade
+from Room to the Room-free build with R8 enabled. Existing periods, weeks,
+lessons, exam IDs and notes survived. A fresh install of the Room-free build
+also passed. Release-signed production upgrade and live TNUT login were not
+tested. Older stage notes below describe historical intermediate work.
 
 ## Continuation from d6ecd60 (2026-11-16)
 
@@ -116,10 +115,9 @@ Do not infer completion of those phases from the new database backend.
   redirect-host, TLS and Android Keystore compatibility tests on device.
 - Preserve existing encrypted preferences and synchronized refresh lock.
 
-## Phase 2: Database — backend prepared; Android activation pending
-- Replace Room with a Rust SQLite adapter while preserving tkb.db, schema v4,
-  migrations v1 to v4, notes, exams and all cached lessons.
-- Port Room transaction semantics before switching the UI to Rust state.
+## Phase 2: Database — Rust SQLite active
+- Rust SQLite preserves tkb.db, schema v4, migrations v1 to v4, notes, exams
+  and cached lessons. The UI observes the native DAO through Kotlin Flow.
 - Failed portal requests must never delete the previous offline cache.
 
 ## Phase 3: State/logic — started
@@ -130,7 +128,7 @@ Do not infer completion of those phases from the new database backend.
   extended date window calculation, and date window generation into Rust (`timeline.rs`).
 - [x] Move local-date formatting, lesson time labels, widget end-of-day decisions, and reminder text ordering to Rust.
 - [x] Move lesson selection, timeline ordering and row offsets, prefetch thresholds, exam sync outcomes, and widget sizing to Rust. Cache the week payload in the JNI adapter.
-- [ ] Evaluate ViewModel sync state with Android lifecycle tests. The first-frame cache snapshot uses a single Room transaction.
+- [ ] Evaluate ViewModel sync state with Android lifecycle tests. The first-frame cache snapshot uses a single SQLite transaction.
 
 ## Phase 4: UI — retained in Kotlin/Compose
 - Keep the existing Compose interface unchanged, per the current request.
