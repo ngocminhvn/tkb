@@ -421,28 +421,46 @@ pub fn map_exam_wire(semester: i32, is_midterm: bool, bytes: &[u8]) -> Result<Ve
 /// Fast native inspection of a peeked HTTP 200 portal body to detect logical 401
 /// or `"notallowed"` responses without allocating regexes on the JVM.
 pub fn is_logical_unauthorized(bytes: &[u8]) -> bool {
-    let Ok(text) = std::str::from_utf8(bytes) else {
-        return false;
-    };
-    if text.as_bytes().windows(10).any(|w| w.eq_ignore_ascii_case(b"notallowed")) {
+    if bytes.windows(b"notallowed".len()).any(|window| {
+        window.eq_ignore_ascii_case(b"notallowed")
+    }) {
         return true;
     }
-    // Match `"code"\s*:\s*401\b`
-    let mut rest = text;
-    while let Some(idx) = rest.find("\"code\"") {
-        rest = &rest[idx + 6..];
-        let trimmed = rest.trim_start();
-        if let Some(after_colon) = trimmed.strip_prefix(':') {
-            let after_ws = after_colon.trim_start();
-            if let Some(after_401) = after_ws.strip_prefix("401") {
-                let next_byte = after_401.as_bytes().first().copied();
-                if !matches!(next_byte, Some(b'0'..=b'9')) {
-                    return true;
-                }
+    // Same case-insensitive code:401 word-boundary recognition as the old JVM
+    // regex; avoid extra allocations and a second UTF-8 decoding on Android.
+    const CODE_KEY: &[u8] = b"\"code\"";
+    for (index, window) in bytes.windows(CODE_KEY.len()).enumerate() {
+        if !window.eq_ignore_ascii_case(CODE_KEY) {
+            continue;
+        }
+        let remaining = bytes[index + CODE_KEY.len()..].trim_ascii_start();
+        let Some(after_colon) = remaining.strip_prefix(b":") else {
+            continue;
+        };
+        if let Some(after_401) = after_colon.trim_ascii_start().strip_prefix(b"401") {
+            let word_char_follows = after_401.first().is_some_and(|byte| {
+                byte.is_ascii_alphanumeric() || *byte == b'_'
+            });
+            if !word_char_follows {
+                return true;
             }
         }
     }
     false
+}
+
+#[cfg(test)]
+mod auth_response_tests {
+    use super::is_logical_unauthorized;
+    #[test]
+    fn detects_logical_http_200_unauthorized() {
+        assert!(is_logical_unauthorized(br#"{ "code": 401 }"#));
+        assert!(is_logical_unauthorized(br#"{ "CODE": 401, "message": "expired" }"#));
+        assert!(is_logical_unauthorized(br#"{ "message": "NotAllowed" }"#));
+        assert!(!is_logical_unauthorized(br#"{ "code": 4010 }"#));
+        assert!(!is_logical_unauthorized(br#"{ "code": 401abc }"#));
+        assert!(!is_logical_unauthorized(br#"{ "code": 200 }"#));
+    }
 }
 
 #[derive(Deserialize)]

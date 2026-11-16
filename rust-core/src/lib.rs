@@ -1,6 +1,9 @@
 //! Platform-independent schedule operations for TKB SV.
 //! No Android Context, network access, credentials, or UI dependencies.
 
+pub mod auth;
+pub mod autosync;
+
 /// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
 #[inline]
 fn valid_iso_date(value: &str) -> bool {

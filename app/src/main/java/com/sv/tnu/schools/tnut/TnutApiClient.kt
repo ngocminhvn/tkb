@@ -44,7 +44,6 @@ object TnutApiClient {
     }
 
     private val refreshLock = Any()
-    private val portalUnauthorized = Regex("""(?i)"code"\s*:\s*401\b""")
 
     fun json(): Json = json
 
@@ -60,10 +59,7 @@ object TnutApiClient {
         } catch (_: Exception) {
             return false
         }
-        if (RustPortalCore.isLogicalUnauthorized(rawBytes)) return true
-        val body = String(rawBytes, Charsets.UTF_8)
-        return portalUnauthorized.containsMatchIn(body) ||
-            body.contains("notallowed", ignoreCase = true)
+        return RustPortalCore.isLogicalUnauthorized(rawBytes)
     }
 
     /**
@@ -75,7 +71,7 @@ object TnutApiClient {
     private fun renewSession(authStore: AuthStore, rejectedToken: String?): String? =
         synchronized(refreshLock) {
             val current = authStore.accessToken?.takeIf { it.isNotBlank() }
-            if (current != null && current != rejectedToken) {
+            if (RustPortalCore.canReuseRotatedToken(current, rejectedToken)) {
                 return@synchronized current
             }
 
@@ -125,7 +121,7 @@ object TnutApiClient {
             val original = chain.request()
             // This client is only for the official TNUT portal. Never attach
             // saved credentials to requests redirected to another hostname.
-            if (original.url.scheme != "https" || original.url.host != "portal.tnut.edu.vn") {
+            if (!RustPortalCore.isOfficialPortalOrigin(original.url.scheme, original.url.host)) {
                 return@Interceptor chain.proceed(original)
             }
             val isLogin = original.url.encodedPath.endsWith("auth/login")
@@ -167,8 +163,9 @@ object TnutApiClient {
         // Actual HTTP 401s are handled inside OkHttp's retry/follow-up chain.
         val authenticator = object : Authenticator {
             override fun authenticate(route: Route?, response: Response): Request? {
-                if (response.request.url.scheme != "https" ||
-                    response.request.url.host != "portal.tnut.edu.vn") return null
+                if (!RustPortalCore.isOfficialPortalOrigin(
+                    response.request.url.scheme, response.request.url.host
+                )) return null
                 if (response.request.url.encodedPath.endsWith("auth/login")) return null
                 if (responseCount(response) >= 2) return null
 

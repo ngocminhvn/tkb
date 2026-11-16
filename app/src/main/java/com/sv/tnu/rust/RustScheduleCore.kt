@@ -21,6 +21,9 @@ object RustScheduleCore {
     private external fun addCalendarDaysNative(date: String, deltaDays: Int): String
     private external fun parseHhMmMinutesNative(clock: String): Int
     private external fun formatBytesNative(bytes: Long): String
+    private external fun vietnamAutoSyncCutoffNative(nowMillis: Long): Long
+    private external fun isVietnamDailyAutoSyncDueNative(nowMillis: Long, lastAttemptMillis: Long): Boolean
+    private external fun nextVietnamAutoSyncDelayNative(nowMillis: Long, lastAttemptMillis: Long): Long
 
     fun normalizeDate(value: String): String = normalizeDateNative(value)
 
@@ -61,6 +64,14 @@ object RustScheduleCore {
 
     /** Format byte size as human-readable `KB` or `MB`. */
     fun formatBytes(bytes: Long): String = formatBytesNative(bytes)
+
+    fun vietnamAutoSyncCutoff(nowMillis: Long): Long = vietnamAutoSyncCutoffNative(nowMillis)
+
+    fun isVietnamDailyAutoSyncDue(nowMillis: Long, lastAttemptMillis: Long): Boolean =
+        isVietnamDailyAutoSyncDueNative(nowMillis, lastAttemptMillis)
+
+    fun nextVietnamAutoSyncDelay(nowMillis: Long, lastAttemptMillis: Long): Long =
+        nextVietnamAutoSyncDelayNative(nowMillis, lastAttemptMillis)
 
     /**
      * Build the Monday-aligned month grid for `anchor` shifted by `monthOffset` months.

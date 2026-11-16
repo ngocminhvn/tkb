@@ -32,6 +32,8 @@ object RustPortalCore {
     private external fun normalizeNoteNative(value: String): String
     private external fun normalizeUsernameNative(value: String): String
     private external fun isLogicalUnauthorizedNative(responseBody: ByteArray): Boolean
+    private external fun isOfficialPortalOriginNative(scheme: String, hostname: String): Boolean
+    private external fun canReuseRotatedTokenNative(current: String, rejected: String): Boolean
     private external fun verifyUpdateManifestNative(
         currentVersionCode: Int,
         allowedPrefix: String,
@@ -62,6 +64,12 @@ object RustPortalCore {
 
     fun isLogicalUnauthorized(rawPreview: ByteArray): Boolean =
         isLogicalUnauthorizedNative(rawPreview)
+
+    fun isOfficialPortalOrigin(scheme: String, hostname: String): Boolean =
+        isOfficialPortalOriginNative(scheme, hostname)
+
+    fun canReuseRotatedToken(current: String?, rejected: String?): Boolean =
+        canReuseRotatedTokenNative(current.orEmpty(), rejected.orEmpty())
 
     fun verifyUpdateManifest(
         currentVersionCode: Int,

@@ -275,3 +275,59 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_verifyUpdateManifestN
         Err(message) => into_byte_array(&mut env, Err(message)),
     }
 }
+
+
+// Platform-independent policy exposed to Android; network and encrypted
+// credential storage remain in Kotlin pending compatibility testing.
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_isOfficialPortalOriginNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    scheme: JString<'_>,
+    hostname: JString<'_>,
+) -> jni::sys::jboolean {
+    let scheme = from_java(&mut env, &scheme);
+    let hostname = from_java(&mut env, &hostname);
+    u8::from(crate::auth::is_official_portal_origin(&scheme, &hostname))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_canReuseRotatedTokenNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    current: JString<'_>,
+    rejected: JString<'_>,
+) -> jni::sys::jboolean {
+    let current = from_java(&mut env, &current);
+    let rejected = from_java(&mut env, &rejected);
+    u8::from(crate::auth::can_reuse_rotated_token(&current, &rejected))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_vietnamAutoSyncCutoffNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now_millis: jni::sys::jlong,
+) -> jni::sys::jlong {
+    crate::autosync::cutoff_millis(now_millis)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_isVietnamDailyAutoSyncDueNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now_millis: jni::sys::jlong,
+    last_attempt_millis: jni::sys::jlong,
+) -> jni::sys::jboolean {
+    u8::from(crate::autosync::is_due(now_millis, last_attempt_millis))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_nextVietnamAutoSyncDelayNative(
+    _env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    now_millis: jni::sys::jlong,
+    last_attempt_millis: jni::sys::jlong,
+) -> jni::sys::jlong {
+    crate::autosync::next_delay_millis(now_millis, last_attempt_millis)
+}
