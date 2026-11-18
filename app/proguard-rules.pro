@@ -4,8 +4,9 @@
 -keepattributes SourceFile,LineNumberTable
 -keepattributes *Annotation*, InnerClasses, Signature, Exceptions
 
-# Preserve network and updater classes
+# Preserve network, grades and updater classes
 -keep class com.sv.tnu.schools.tnut.** { *; }
+-keep class com.sv.tnu.grades.** { *; }
 -keep class com.sv.tnu.update.** { *; }
 
 # Retrofit & OkHttp

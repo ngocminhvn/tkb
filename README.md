@@ -18,6 +18,8 @@
 - Lưu lịch học, lịch thi, ghi chú trên thiết bị, sử dụng lại khi không có mạng.
 - Khi mở app, hiển thị lịch đã lưu trong lúc đồng bộ. Nếu cache trống và lần tự đồng bộ trước chưa thành công, thử lại một lần trong phiên mở app.
 - Nhắc lịch hôm nay/ngày mai theo thiết lập người dùng; widget thời khóa biểu.
+- Xem điểm học kỳ, điểm tổng kết hệ 10 / hệ 4, điểm chữ, chi tiết điểm thành phần và điểm tích lũy GPA toàn khóa, lưu cache offline tại tab Thêm.
+- Luyện thi trắc nghiệm offline (import bộ đề DOCX, PDF, TXT, JSON) tại tab Thêm.
 - Chế độ giao diện sáng/tối và kiểm tra/cài đặt bản cập nhật ứng dụng.
 
 ## Sơ đồ kiến trúc

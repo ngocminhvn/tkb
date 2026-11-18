@@ -42,6 +42,22 @@ interface TnutApi {
     suspend fun exams(
         @Body body: RequestBody,
     ): ResponseBody
+
+    @POST("srm/w-locsettingxemdiemdg")
+    suspend fun gradeSetting(
+        @Body body: RequestBody,
+    ): ResponseBody
+
+    @POST("srm/w-locdsdiemsinhvien")
+    suspend fun studentGrades(
+        @retrofit2.http.Query("hien_thi_mon_theo_hkdk") hienThiMonTheoHkdk: Boolean = false,
+        @Body body: RequestBody,
+    ): ResponseBody
+
+    @POST("srm/w-dskyhieudiem")
+    suspend fun gradeSymbols(
+        @Body body: RequestBody,
+    ): ResponseBody
 }
 
 internal suspend fun TnutApi.loginSession(username: String, password: String) =
