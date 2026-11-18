@@ -104,11 +104,6 @@ fun GradesScreen(
     val expandedCourses by viewModel.expandedCourses.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
-    // Tự động tải lại bảng điểm từ API mỗi khi vào màn hình xem điểm
-    LaunchedEffect(Unit) {
-        viewModel.refresh()
-    }
-
     // Nếu thời gian tải từ API lâu hơn 350ms, hiển thị icon load ở giữa màn hình
     var showCenterLoader by remember { mutableStateOf(false) }
     LaunchedEffect(isRefreshing) {

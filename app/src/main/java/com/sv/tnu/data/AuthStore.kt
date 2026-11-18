@@ -117,6 +117,8 @@ class AuthStore(context: Context) {
         get() = !accessToken.isNullOrBlank()
 
     fun saveLogin(username: String, password: String, response: SchoolSessionTokens) {
+        com.sv.tnu.grades.GradeViewModel.resetSessionSync()
+        com.sv.tnu.grades.GradeRepository.clearMemoryCache()
         if (RustPortalCore.accountChanged(this.username, username)) {
             // A newly signed-in account must never inherit another
             // student's name/avatar from encrypted preferences.

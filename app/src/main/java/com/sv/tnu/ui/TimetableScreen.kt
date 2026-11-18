@@ -811,15 +811,36 @@ fun TimetableScreen(
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                UserAvatar(
-                    avatarPath = avatarPath,
-                    defaultIcon = Icons.Default.Person,
+                Box(
                     modifier = Modifier
                         .size(42.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), CircleShape),
-                    iconSize = 22.dp,
-                    contentDescription = "Ảnh đại diện sinh viên",
-                )
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = CircleShape,
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                        )
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.12f)
+                            else Color.White.copy(alpha = 0.65f),
+                            CircleShape,
+                        )
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.20f)
+                            else Color.White.copy(alpha = 0.85f),
+                            CircleShape,
+                        )
+                        .clip(CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    UserAvatar(
+                        avatarPath = avatarPath,
+                        defaultIcon = Icons.Default.Person,
+                        modifier = Modifier.fillMaxSize(),
+                        iconSize = 22.dp,
+                        contentDescription = "Ảnh đại diện sinh viên",
+                    )
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     if (!studentName.isNullOrBlank()) {

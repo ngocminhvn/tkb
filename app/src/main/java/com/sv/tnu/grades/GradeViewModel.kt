@@ -18,6 +18,15 @@ class GradeViewModel(
     private val repository: GradeRepository,
 ) : ViewModel() {
 
+    companion object {
+        @Volatile
+        var hasSyncedInSession: Boolean = false
+
+        fun resetSessionSync() {
+            hasSyncedInSession = false
+        }
+    }
+
     private val _uiState = MutableStateFlow<GradeUiState>(GradeUiState.Initial)
     val uiState: StateFlow<GradeUiState> = _uiState.asStateFlow()
 
@@ -43,7 +52,7 @@ class GradeViewModel(
         viewModelScope.launch {
             val cached = repository.loadCachedTranscript()
             if (cached != null && cached.semesters.isNotEmpty()) {
-                _uiState.value = GradeUiState.Success(cached, isOffline = true)
+                _uiState.value = GradeUiState.Success(cached, isOffline = false)
                 if (!hasInitializedSemester) {
                     _selectedSemester.value = cached.semesters.lastOrNull()?.hocKy
                     hasInitializedSemester = true
@@ -51,9 +60,14 @@ class GradeViewModel(
             } else {
                 _uiState.value = GradeUiState.Loading(cached)
             }
-            _isRefreshing.value = true
-            fetchLive(cached)
-            _isRefreshing.value = false
+
+            // Chỉ tự động tải lại từ API 1 lần mỗi phiên đăng nhập
+            if (!hasSyncedInSession || cached == null) {
+                _isRefreshing.value = true
+                fetchLive(cached)
+                _isRefreshing.value = false
+                hasSyncedInSession = true
+            }
         }
     }
 
@@ -69,6 +83,7 @@ class GradeViewModel(
             }
             fetchLive(currentCached)
             _isRefreshing.value = false
+            hasSyncedInSession = true
         }
     }
 

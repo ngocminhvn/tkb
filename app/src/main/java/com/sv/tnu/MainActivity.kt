@@ -46,6 +46,8 @@ class MainActivity : ComponentActivity() {
                             viewModel = vm,
                             state = state,
                             onLoggedIn = {
+                                com.sv.tnu.grades.GradeViewModel.resetSessionSync()
+                                com.sv.tnu.grades.GradeRepository.clearMemoryCache()
                                 navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -61,6 +63,8 @@ class MainActivity : ComponentActivity() {
                             repository = repository,
                             timetableViewModel = timetableVm,
                             onLogout = {
+                                com.sv.tnu.grades.GradeViewModel.resetSessionSync()
+                                com.sv.tnu.grades.GradeRepository.clearMemoryCache()
                                 repository.clearAvatar()
                                 ScheduleReminders.cancelAll(this@MainActivity)
                                 authStore.clear()

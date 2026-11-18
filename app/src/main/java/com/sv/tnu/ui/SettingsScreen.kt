@@ -65,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -176,6 +177,24 @@ fun SettingsScreen(
 
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
+    val gradientBrush = remember(isDark) {
+        if (isDark) {
+            Brush.linearGradient(
+                listOf(
+                    Color(0xFF1E293B),
+                    Color(0xFF0F172A),
+                ),
+            )
+        } else {
+            Brush.linearGradient(
+                listOf(
+                    Color(0xFFF0FDF4),
+                    Color(0xFFE0F2FE),
+                ),
+            )
+        }
+    }
+
     Scaffold(
         topBar = {
             Row(
@@ -235,70 +254,96 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Student summary card
+            // Student summary card with gradient matching OverviewGpaCard
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
-                ),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
             ) {
-                Column(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .background(gradientBrush)
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
+                            RoundedCornerShape(22.dp),
+                        )
                         .padding(18.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        UserAvatar(
-                            avatarPath = avatarPath,
-                            defaultIcon = Icons.Default.School,
-                            modifier = Modifier.size(48.dp),
-                            iconSize = 28.dp,
-                            contentDescription = "Ảnh đại diện sinh viên",
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Mã SV: ${authStore.username ?: "—"}",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .shadow(
+                                        elevation = 3.dp,
+                                        shape = CircleShape,
+                                        spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                                    )
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.12f)
+                                        else Color.White.copy(alpha = 0.65f),
+                                        CircleShape,
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isDark) Color.White.copy(alpha = 0.20f)
+                                        else Color.White.copy(alpha = 0.85f),
+                                        CircleShape,
+                                    )
+                                    .clip(CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                UserAvatar(
+                                    avatarPath = avatarPath,
+                                    defaultIcon = Icons.Default.School,
+                                    modifier = Modifier.fillMaxSize(),
+                                    iconSize = 28.dp,
+                                    contentDescription = "Ảnh đại diện sinh viên",
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Mã SV: ${authStore.username ?: "—"}",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Cổng thông tin đào tạo sinh viên",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Stats in glass row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            StatItem(
+                                modifier = Modifier.weight(1f),
+                                label = "Nhận diện",
+                                value = if (authStore.isLoggedIn && authStore.schoolId == SchoolIds.TNUT)
+                                    "SV TNUT" else "—",
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Cổng thông tin đào tạo sinh viên",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            StatItem(
+                                modifier = Modifier.weight(1f),
+                                label = "Lịch thi",
+                                value = "${exams.count { !it.isHoanThi }} buổi",
+                            )
+                            StatItem(
+                                modifier = Modifier.weight(1f),
+                                label = "Học kỳ",
+                                value = "${timetableViewModel.hocKy}",
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Stats in glass row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        StatItem(
-                            modifier = Modifier.weight(1f),
-                            label = "Nhận diện",
-                            value = if (authStore.isLoggedIn && authStore.schoolId == SchoolIds.TNUT)
-                                "SV TNUT" else "—",
-                        )
-                        StatItem(
-                            modifier = Modifier.weight(1f),
-                            label = "Lịch thi",
-                            value = "${exams.count { !it.isHoanThi }} buổi",
-                        )
-                        StatItem(
-                            modifier = Modifier.weight(1f),
-                            label = "Học kỳ",
-                            value = "${timetableViewModel.hocKy}",
-                        )
                     }
                 }
             }
@@ -824,12 +869,12 @@ private fun StatItem(
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isDark) Color(0xFF222834) else Color(0xFFF1F5F9))
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (isDark) Color(0xFF1E2433).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
             .border(
                 1.dp,
-                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
-                RoundedCornerShape(12.dp),
+                if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF60A5FA).copy(alpha = 0.20f),
+                RoundedCornerShape(14.dp),
             )
             .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,

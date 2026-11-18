@@ -14,6 +14,19 @@ class GradeRepository(
     private val authStore: AuthStore,
     private val api: TnutApi,
 ) {
+    companion object {
+        @Volatile
+        private var memoryCache: GradeTranscript? = null
+
+        @Volatile
+        private var memoryCacheUser: String? = null
+
+        fun clearMemoryCache() {
+            memoryCache = null
+            memoryCacheUser = null
+        }
+    }
+
     private val jsonMediaType = "application/json; charset=UTF-8".toMediaType()
 
     private fun cacheFile(): File {
@@ -22,11 +35,20 @@ class GradeRepository(
     }
 
     suspend fun loadCachedTranscript(): GradeTranscript? = withContext(Dispatchers.IO) {
+        val user = authStore.username?.takeIf { it.isNotBlank() } ?: "default"
+        if (memoryCacheUser == user && memoryCache != null) {
+            return@withContext memoryCache
+        }
         val file = cacheFile()
         if (!file.exists()) return@withContext null
         try {
             val content = file.readText(Charsets.UTF_8)
-            GradeParser.fromJson(content)
+            val parsed = GradeParser.fromJson(content)
+            if (parsed != null) {
+                memoryCache = parsed
+                memoryCacheUser = user
+            }
+            parsed
         } catch (_: Exception) {
             null
         }
@@ -58,6 +80,9 @@ class GradeRepository(
             )
 
             // Cache successfully fetched transcript
+            val user = studentId.ifBlank { "default" }
+            memoryCache = transcript
+            memoryCacheUser = user
             try {
                 val file = cacheFile()
                 file.writeText(GradeParser.toJson(transcript), Charsets.UTF_8)
