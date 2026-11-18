@@ -240,7 +240,12 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Column(
@@ -308,9 +313,14 @@ fun SettingsScreen(
             // Switch Hiện lịch thi học kỳ trên TKB trang chủ
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -390,9 +400,14 @@ fun SettingsScreen(
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+                border = BorderStroke(
+                    1.dp,
+                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -524,24 +539,29 @@ fun SettingsScreen(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = if (isDark) Color(0xFF2C1618) else Color(0xFFFEE2E2),
+                    contentColor = MaterialTheme.colorScheme.error,
                 ),
                 shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.35f else 0.25f),
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isDark) 2.dp else 1.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = "Logout",
                     modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    tint = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Đăng xuất tài khoản",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
@@ -553,6 +573,8 @@ fun SettingsScreen(
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Đăng xuất tài khoản",
@@ -591,6 +613,8 @@ fun SettingsScreen(
         if (showExamDialog) {
             AlertDialog(
                 onDismissRequest = { showExamDialog = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
@@ -730,15 +754,19 @@ private fun ReminderSettingCard(
     onToggle: (Boolean) -> Unit,
     onPickTime: () -> Unit,
 ) {
-    // Tapping the card edits the reminder time. The switch alone controls
-    // whether the reminder is enabled; no extra row or action button needed.
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onPickTime),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
         Row(
@@ -793,10 +821,16 @@ private fun StatItem(
     label: String,
     value: String,
 ) {
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+            .background(if (isDark) Color(0xFF222834) else Color(0xFFF1F5F9))
+            .border(
+                1.dp,
+                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
+                RoundedCornerShape(12.dp),
+            )
             .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -832,13 +866,19 @@ private fun ActionCard(
     trailing: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
         Row(

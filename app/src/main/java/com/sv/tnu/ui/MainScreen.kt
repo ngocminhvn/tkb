@@ -179,9 +179,6 @@ fun MainScreen(
                     )
                 } else {
                     MoreScreen(
-                        studentName = authStore.studentName,
-                        studentId = authStore.username,
-                        avatarPath = authStore.avatarPath,
                         onBack = { selectedIndex = 0 },
                         onOpenGrades = { showGrades = true },
                         onOpenQuiz = { showQuiz = true },
@@ -276,9 +273,6 @@ fun MainScreen(
  */
 @Composable
 private fun MoreScreen(
-    studentName: String? = null,
-    studentId: String? = null,
-    avatarPath: String? = null,
     onBack: () -> Unit = {},
     onOpenGrades: () -> Unit,
     onOpenQuiz: () -> Unit,
@@ -344,57 +338,6 @@ private fun MoreScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Student greeting snapshot
-            if (!studentName.isNullOrBlank() || !studentId.isNullOrBlank()) {
-                val greeting = if (!studentName.isNullOrBlank()) studentName else "Sinh viên TNUT"
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF1E242E) else Color(0xFFF8FAFC),
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
-                    ),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        UserAvatar(
-                            avatarPath = avatarPath,
-                            defaultIcon = Icons.Default.Person,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), CircleShape),
-                            iconSize = 24.dp,
-                            contentDescription = "Ảnh đại diện sinh viên",
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = greeting,
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                            )
-                            if (!studentId.isNullOrBlank()) {
-                                Text(
-                                    text = "MSSV: $studentId • Đại học Kỹ thuật Công nghiệp",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             Text(
                 text = "HỌC TẬP & ĐÀO TẠO",
                 style = MaterialTheme.typography.labelMedium.copy(
@@ -410,14 +353,14 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenGrades),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f),
+                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -428,22 +371,15 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        Color(0xFF4F46E5),
-                                        Color(0xFF7C3AED),
-                                    )
-                                )
-                            ),
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.School,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp),
                         )
                     }
@@ -461,7 +397,7 @@ private fun MoreScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF6366F1).copy(alpha = 0.15f))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
@@ -470,7 +406,7 @@ private fun MoreScreen(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.sp,
                                     ),
-                                    color = Color(0xFF818CF8),
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
@@ -495,14 +431,14 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenQuiz),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f),
+                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -513,22 +449,15 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        Color(0xFF0D9488),
-                                        Color(0xFF10B981),
-                                    )
-                                )
-                            ),
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoStories,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp),
                         )
                     }
@@ -564,7 +493,11 @@ private fun MoreScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF191F28) else Color(0xFFF1F5F9),
+                    containerColor = if (isDark) Color(0xFF171B22) else Color(0xFFF1F5F9),
+                ),
+                border = BorderStroke(
+                    1.dp,
+                    if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f),
                 ),
             ) {
                 Row(
@@ -576,7 +509,7 @@ private fun MoreScreen(
                     Icon(
                         imageVector = Icons.Default.Lightbulb,
                         contentDescription = null,
-                        tint = Color(0xFFF59E0B),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(modifier = Modifier.width(12.dp))

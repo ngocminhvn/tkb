@@ -2,8 +2,13 @@ package com.sv.tnu.ui
 
 import android.util.Log
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,6 +75,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
@@ -91,6 +98,7 @@ import com.sv.tnu.data.PeriodEntity
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.ui.components.UserAvatar
+import com.sv.tnu.ui.glass.LocalGlassConfig
 import com.sv.tnu.rust.RustScheduleCore
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -781,6 +789,15 @@ fun TimetableScreen(
         changeSelectedDay(direction)
     }
 
+    val isDark = LocalGlassConfig.current.dark
+    val infiniteTransition = rememberInfiniteTransition(label = "spin")
+    val spinAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(animation = tween(1000, easing = FastOutSlowInEasing)),
+        label = "spinAngle",
+    )
+
     Scaffold(
         topBar = {
             // Student header follows the portal's avatar/name/ID layout.
@@ -826,23 +843,37 @@ fun TimetableScreen(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
                     )
                 }
-                IconButton(
-                    onClick = { viewModel.refresh() },
-                    enabled = !refreshing,
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = CircleShape,
+                            spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+                        )
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.12f)
+                            else Color.White.copy(alpha = 0.65f),
+                            CircleShape,
+                        )
+                        .border(
+                            1.dp,
+                            if (isDark) Color.White.copy(alpha = 0.20f)
+                            else Color.White.copy(alpha = 0.85f),
+                            CircleShape,
+                        )
+                        .clip(CircleShape)
+                        .clickable(enabled = !refreshing) { viewModel.refresh() },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    if (refreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Icon(
-                            Icons.Filled.Refresh,
-                            contentDescription = "Đồng bộ thời khóa biểu",
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Đồng bộ thời khóa biểu",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .then(if (refreshing) Modifier.rotate(spinAngle) else Modifier),
+                    )
                 }
             }
         },
@@ -973,9 +1004,14 @@ fun TimetableScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(76.dp),
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = RoundedCornerShape(18.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f),
                                         ),
                                     ) {
                                         Box(
@@ -1095,13 +1131,16 @@ private fun LessonCard(
     note: String,
     onEditNote: () -> Unit,
 ) {
+    val isDark = LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
-        border = if (isToday) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                 else BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // The pencil replaces the old credits badge. The note editor
@@ -1295,14 +1334,17 @@ private fun LessonNoteDialog(
 
 @Composable
 private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
+    val isDark = LocalGlassConfig.current.dark
     val examRed = Color(0xFFE53935)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
-        border = if (isToday) BorderStroke(1.5.dp, examRed) else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        border = if (isToday) BorderStroke(1.5.dp, examRed)
+                 else BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Tên môn & Huy hiệu "THI" màu đỏ thay cho phần tín chỉ

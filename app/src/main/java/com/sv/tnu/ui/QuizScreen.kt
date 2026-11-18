@@ -3,7 +3,9 @@ package com.sv.tnu.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -67,6 +70,7 @@ fun QuizScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val context = LocalContext.current
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     val scope = rememberCoroutineScope()
     val storage = remember(context) { QuizStorage(context) }
     var page by remember { mutableStateOf(QuizPage.LIBRARY) }
@@ -227,7 +231,18 @@ fun QuizScreen(
                         }
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(decks, key = { it.id }) { deck ->
-                                Card(modifier = Modifier.fillMaxWidth()) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                                    ),
+                                ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Text(deck.title, fontWeight = FontWeight.Bold)
                                         Text(
@@ -435,7 +450,19 @@ private fun QuizQuestionCard(
     chosen: Set<Int>,
     onToggle: (Int) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+        ),
+    ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text("Câu " + number + ". " + question.prompt, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
