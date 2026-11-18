@@ -45,7 +45,7 @@ fn question_header(text: &str) -> Option<&str> {
         let tail = text.get(prefix..)?.trim_start();
         let digits = tail.bytes().take_while(u8::is_ascii_digit).count();
         if digits > 0 {
-            return Some(tail[digits..].trim_start_matches(|c: char| matches!(c, '.' | ':' | ')' | '-' | ' ')).trim());
+            return Some(tail[digits..].trim_start_matches(['.', ':', ')', '-', ' ']).trim());
         }
     }
     let digits = text.bytes().take_while(u8::is_ascii_digit).count();
