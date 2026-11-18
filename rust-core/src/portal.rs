@@ -368,7 +368,7 @@ fn parse_envelope<'a, T: Deserialize<'a>>(
 pub(crate) fn binary_i32(out: &mut Vec<u8>, value: i32) {
     out.extend_from_slice(&value.to_be_bytes());
 }
-fn binary_i64(out: &mut Vec<u8>, value: i64) {
+pub(crate) fn binary_i64(out: &mut Vec<u8>, value: i64) {
     out.extend_from_slice(&value.to_be_bytes());
 }
 pub(crate) fn binary_count(out: &mut Vec<u8>, value: usize) -> Result<(), String> {

@@ -278,6 +278,29 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamBytesNative(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapGradesBytesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    student_id: JString<'_>,
+    student_name: JString<'_>,
+    grades_body: JByteArray<'_>,
+    symbols_body: JByteArray<'_>,
+    updated_at: jlong,
+) -> jbyteArray {
+    let student_id = from_java(&mut env, &student_id);
+    let student_name = from_java(&mut env, &student_name);
+    let grades_bytes = match env.convert_byte_array(&grades_body) {
+        Ok(bytes) => bytes,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let symbols_bytes = env.convert_byte_array(&symbols_body).unwrap_or_default();
+    into_byte_array(
+        &mut env,
+        crate::grades::parse_and_pack_grades(&student_id, &student_name, &grades_bytes, &symbols_bytes, updated_at),
+    )
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_isLogicalUnauthorizedNative(
     env: JNIEnv<'_>,
     _this: JObject<'_>,

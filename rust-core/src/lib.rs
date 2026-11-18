@@ -107,6 +107,7 @@ pub fn lesson_time_range(periods: &[(i32, String, String)], start_period: i32, c
 use chrono::{Datelike, Days, Months, NaiveDate, Weekday};
 
 pub mod portal;
+pub mod grades;
 mod android;
 
 /// Move one calendar date; semester constraints stay with the Android repository.

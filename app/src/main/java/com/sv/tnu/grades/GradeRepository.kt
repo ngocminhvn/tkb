@@ -2,6 +2,8 @@ package com.sv.tnu.grades
 
 import android.content.Context
 import com.sv.tnu.data.AuthStore
+import com.sv.tnu.rust.PortalBinaryDecoder
+import com.sv.tnu.rust.RustPortalCore
 import com.sv.tnu.schools.tnut.TnutApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,8 +44,19 @@ class GradeRepository(
         val file = cacheFile()
         if (!file.exists()) return@withContext null
         try {
-            val content = file.readText(Charsets.UTF_8)
-            val parsed = GradeParser.fromJson(content)
+            val bytes = file.readBytes()
+            val parsed = if (bytes.size >= 5 &&
+                bytes[0] == 'T'.code.toByte() &&
+                bytes[1] == 'K'.code.toByte() &&
+                bytes[2] == 'B'.code.toByte() &&
+                bytes[3] == '1'.code.toByte() &&
+                bytes[4] == 'G'.code.toByte()
+            ) {
+                PortalBinaryDecoder.decodeGrades(bytes)
+            } else {
+                val content = String(bytes, Charsets.UTF_8)
+                GradeParser.fromJson(content)
+            }
             if (parsed != null) {
                 memoryCache = parsed
                 memoryCacheUser = user
@@ -61,31 +74,27 @@ class GradeRepository(
             val emptyBody = "".toRequestBody(jsonMediaType)
 
             // Attempt to load symbols dictionary
-            val symbols = try {
-                val symbolBytes = api.gradeSymbols(emptyBody).use { it.bytes() }
-                GradeParser.parseSymbols(String(symbolBytes, Charsets.UTF_8))
+            val symbolBytes = try {
+                api.gradeSymbols(emptyBody).use { it.bytes() }
             } catch (_: Exception) {
-                emptyMap()
+                ByteArray(0)
             }
 
-            // Fetch primary grade transcript
+            // Fetch primary grade transcript raw bytes
             val rawBytes = api.studentGrades(hienThiMonTheoHkdk = false, body = emptyBody).use { it.bytes() }
-            val rawJson = String(rawBytes, Charsets.UTF_8)
 
-            val transcript = GradeParser.parseTranscript(
-                jsonString = rawJson,
-                studentId = studentId,
-                studentName = studentName,
-                symbols = symbols,
-            )
+            // Parse and encode using pure Rust TKB1G wire format
+            val now = System.currentTimeMillis()
+            val wireBytes = RustPortalCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
+            val transcript = PortalBinaryDecoder.decodeGrades(wireBytes)
 
-            // Cache successfully fetched transcript
+            // Cache binary wire bytes to disk (ultra fast, fraction of disk size)
             val user = studentId.ifBlank { "default" }
             memoryCache = transcript
             memoryCacheUser = user
             try {
                 val file = cacheFile()
-                file.writeText(GradeParser.toJson(transcript), Charsets.UTF_8)
+                file.writeBytes(wireBytes)
             } catch (_: Exception) {}
 
             Result.success(transcript)

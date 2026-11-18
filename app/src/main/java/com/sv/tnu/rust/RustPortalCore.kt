@@ -31,6 +31,13 @@ object RustPortalCore {
     ): ByteArray
     private external fun mapLoginNative(payload: ByteArray): ByteArray
     private external fun mapAvatarNative(payload: ByteArray): ByteArray
+    private external fun mapGradesBytesNative(
+        studentId: String,
+        studentName: String,
+        gradesBody: ByteArray,
+        symbolsBody: ByteArray,
+        updatedAt: Long,
+    ): ByteArray
     private external fun timetableRequestNative(semester: Int): ByteArray
     private external fun examRequestNative(semester: Int, midterm: Boolean, page: Int): ByteArray
     private external fun uniqueExamIndicesNative(keys: Array<String>): IntArray
@@ -81,6 +88,26 @@ object RustPortalCore {
 
     fun mapAvatar(rawResponse: ByteArray): PortalBinaryDecoder.Avatar =
         PortalBinaryDecoder.decodeAvatar(mapAvatarNative(rawResponse))
+
+    fun mapGradesBytes(
+        studentId: String,
+        studentName: String,
+        gradesRaw: ByteArray,
+        symbolsRaw: ByteArray = ByteArray(0),
+        updatedAt: Long = System.currentTimeMillis(),
+    ): ByteArray =
+        mapGradesBytesNative(studentId, studentName, gradesRaw, symbolsRaw, updatedAt)
+
+    fun mapGrades(
+        studentId: String,
+        studentName: String,
+        gradesRaw: ByteArray,
+        symbolsRaw: ByteArray = ByteArray(0),
+        updatedAt: Long = System.currentTimeMillis(),
+    ): com.sv.tnu.grades.GradeTranscript =
+        PortalBinaryDecoder.decodeGrades(
+            mapGradesBytes(studentId, studentName, gradesRaw, symbolsRaw, updatedAt)
+        )
 
     fun timetableRequest(semester: Int): ByteArray = timetableRequestNative(semester)
 
@@ -419,5 +446,111 @@ object PortalBinaryDecoder {
         )
         reader.finish()
         return manifest
+    }
+
+    fun decodeGrades(bytes: ByteArray): com.sv.tnu.grades.GradeTranscript {
+        val reader = Reader(bytes, 'G'.code.toByte())
+        val studentId = reader.string()
+        val studentName = reader.string()
+        val updatedAt = reader.long()
+        val overview = com.sv.tnu.grades.GradeOverview(
+            dtbTichLuy4 = reader.string(),
+            dtbTichLuy10 = reader.string(),
+            soTinChiTichLuy = reader.string(),
+            xepLoaiHocTap = reader.string(),
+            totalCourses = reader.int(),
+            totalPassedCredits = reader.string(),
+        )
+        val semesterCount = reader.count()
+        val semesters = ArrayList<com.sv.tnu.grades.GradeSemester>(semesterCount)
+        for (i in 0 until semesterCount) {
+            val hocKy = reader.string()
+            val tenHocKy = reader.string()
+            val dtbHk10 = reader.string()
+            val dtbHk4 = reader.string()
+            val soTinChiHk = reader.string()
+            val diemRlHk = reader.string()
+            val phanLoaiRlHk = reader.string()
+            val dtbTichLuy10 = reader.string()
+            val dtbTichLuy4 = reader.string()
+            val soTinChiTichLuy = reader.string()
+            val xepLoaiHocTap = reader.string()
+            val diemRlTichLuy = reader.string()
+            val courseCount = reader.count()
+            val courses = ArrayList<com.sv.tnu.grades.GradeCourse>(courseCount)
+            for (j in 0 until courseCount) {
+                val maMon = reader.string()
+                val tenMon = reader.string()
+                val nhomTo = reader.string()
+                val soTinChi = reader.string()
+                val diemThi = reader.string()
+                val diemGiuaKy = reader.string()
+                val diemTk10 = reader.string()
+                val diemTk4 = reader.string()
+                val diemChu = reader.string()
+                val ketQua = reader.string()
+                val isDat = reader.bool()
+                val componentCount = reader.count()
+                val components = ArrayList<com.sv.tnu.grades.GradeComponent>(componentCount)
+                for (k in 0 until componentCount) {
+                    components.add(
+                        com.sv.tnu.grades.GradeComponent(
+                            kyHieu = reader.string(),
+                            tenThanhPhan = reader.string(),
+                            diem = reader.string(),
+                        )
+                    )
+                }
+                courses.add(
+                    com.sv.tnu.grades.GradeCourse(
+                        maMon = maMon,
+                        tenMon = tenMon,
+                        nhomTo = nhomTo,
+                        soTinChi = soTinChi,
+                        diemThi = diemThi,
+                        diemGiuaKy = diemGiuaKy,
+                        diemTk10 = diemTk10,
+                        diemTk4 = diemTk4,
+                        diemChu = diemChu,
+                        ketQua = ketQua,
+                        isDat = isDat,
+                        thanhPhan = components,
+                    )
+                )
+            }
+            semesters.add(
+                com.sv.tnu.grades.GradeSemester(
+                    hocKy = hocKy,
+                    tenHocKy = tenHocKy,
+                    dtbHk10 = dtbHk10,
+                    dtbHk4 = dtbHk4,
+                    soTinChiHk = soTinChiHk,
+                    diemRlHk = diemRlHk,
+                    phanLoaiRlHk = phanLoaiRlHk,
+                    dtbTichLuy10 = dtbTichLuy10,
+                    dtbTichLuy4 = dtbTichLuy4,
+                    soTinChiTichLuy = soTinChiTichLuy,
+                    xepLoaiHocTap = xepLoaiHocTap,
+                    diemRlTichLuy = diemRlTichLuy,
+                    courses = courses,
+                )
+            )
+        }
+        val symbolCount = reader.count()
+        val symbols = HashMap<String, String>(symbolCount)
+        for (i in 0 until symbolCount) {
+            val k = reader.string()
+            val v = reader.string()
+            symbols[k] = v
+        }
+        reader.finish()
+        return com.sv.tnu.grades.GradeTranscript(
+            studentId = studentId,
+            studentName = studentName,
+            semesters = semesters,
+            overview = overview,
+            updatedAt = updatedAt,
+            symbols = symbols,
+        )
     }
 }
