@@ -169,3 +169,8 @@ C. Đà Nẵng
 ```
 
 Với JSON, chỉ số đáp án dạng số là **0-based**, ký tự là **A/B/C/...**.
+
+
+### DOCX nhiều dòng
+
+Trình nhập DOCX tách nhãn A/B/C/D kể cả khi nhãn đứng trên một dòng riêng và lựa chọn là nhiều dòng C++, cũng như trường hợp nhiều lựa chọn gộp trong một đoạn, đáp án không đúng thứ tự hoặc câu hỏi chỉ có số (\`491.\`). Dấu màu đỏ được tính theo từng run định dạng OOXML chứ không theo màu chung của cả đoạn. Một số nhãn "a." được Word lưu ở \`w:numPr\` thay vì văn bản cũng được khôi phục. Câu không có màu đỏ cần được xác nhận thủ công; nút lọc câu thiếu đáp án trong màn hình xem trước giúp sửa nhanh. Khi file gốc tô đỏ nhiều lựa chọn, ứng dụng hiển thị cảnh báo để người dùng kiểm tra.

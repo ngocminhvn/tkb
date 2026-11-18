@@ -182,3 +182,11 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Parser câu hỏi thuần Rust: `rust-core/src/quiz.rs`; `rust/RustQuizCore.kt` và hai entry JNI trong `rust-core/src/android.rs`. Nếu chỉnh JNI phải cập nhật R8 rules.
 - `quiz/QuizStorage.kt` tạo SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không gửi bài lên máy chủ.
 - Sau khi sửa, test Rust `cargo test --locked --manifest-path rust-core/Cargo.toml`, `cargo clippy`, build Release 4 ABI, so sánh APK size với baseline và thử DOCX chữ đỏ/PDF chữ/PDF scan/TXT/JSON trên thiết bị Android.
+
+
+### Parser DOCX nhiều dòng
+
+- Từ \`quiz/QuizImporter.kt\`, phân tách các đoạn có nhiều lựa chọn \`a.\`–\`d.\` trong cùng một paragraph và gán màu theo **vùng ký tự của từng run**; không đánh dấu đỏ cho cả paragraph có các lựa chọn khác màu.
+- Đối với OOXML \`w:numPr\`, bản nhập hiện tái tạo nhãn \`a.\` cho các đoạn Word dùng automatic numbering thay vì \`w:t\`.
+- Rust \`quiz.rs\` chấp nhận \`a.\` đứng riêng rồi các dòng code, \`a\` đơn lẻ, câu thiếu dấu sau chỉ số, câu \`491.\` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
+- Hồi quy bằng tài liệu Tin học kỹ thuật có 500 câu và định dạng kết hợp: kiểm tra 500 câu, 4 lựa chọn mỗi câu, 2 câu thiếu đáp án màu đỏ và 2 câu nhiều lựa chọn màu đỏ theo nguồn; không commit tài liệu riêng của người dùng vào repo.

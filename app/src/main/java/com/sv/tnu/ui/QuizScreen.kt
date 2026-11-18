@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,6 +73,7 @@ fun QuizScreen(
     var decks by remember { mutableStateOf<List<QuizDeck>>(emptyList()) }
     var imported by remember { mutableStateOf<QuizImportResult?>(null) }
     var deckName by remember { mutableStateOf("") }
+    var showMissingOnly by remember { mutableStateOf(false) }
     var questions by remember { mutableStateOf<List<QuizQuestion>>(emptyList()) }
     var currentIndex by remember { mutableStateOf(0) }
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
@@ -129,6 +129,7 @@ fun QuizScreen(
                     val result = QuizImporter.import(context, uri)
                     imported = result
                     deckName = result.title
+                    showMissingOnly = result.questions.any { it.correct.isEmpty() }
                     page = QuizPage.PREVIEW
                 } catch (e: Exception) {
                     error = e.message ?: "Không thể đọc file"
@@ -276,6 +277,15 @@ fun QuizScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
+                            if (unanswered > 0 || showMissingOnly) {
+                                OutlinedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { showMissingOnly = !showMissingOnly },
+                                ) {
+                                    Text(if (showMissingOnly) "Xem tất cả câu hỏi" else
+                                        "Chỉ xem " + unanswered + " câu thiếu đáp án")
+                                }
+                            }
                             Button(
                                 enabled = !busy && unanswered == 0 && deckName.isNotBlank(),
                                 modifier = Modifier.fillMaxWidth(),
@@ -301,8 +311,13 @@ fun QuizScreen(
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+                            val visibleQuestions = value.questions.withIndex().filter {
+                                !showMissingOnly || it.value.correct.isEmpty()
+                            }
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                itemsIndexed(value.questions) { index, question ->
+                                items(visibleQuestions, key = { it.index }) { entry ->
+                                    val index = entry.index
+                                    val question = entry.value
                                     QuizQuestionCard(
                                         question = question,
                                         number = index + 1,
@@ -314,6 +329,9 @@ fun QuizScreen(
                                             }
                                             updated[index] = question.copy(correct = next)
                                             imported = value.copy(questions = updated)
+                                            if (showMissingOnly && updated.none { it.correct.isEmpty() }) {
+                                                showMissingOnly = false
+                                            }
                                         },
                                     )
                                 }
