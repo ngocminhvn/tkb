@@ -1,104 +1,8 @@
 //! Pure TNUT grade transcript parsing, GPA calculations and TKB1G binary packing.
-use serde::Deserialize;
+use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use crate::portal::{binary_count, binary_header, binary_i32, binary_i64, binary_str};
-
-#[derive(Deserialize)]
-struct PortalWrapper<T> {
-    #[serde(default)]
-    code: i32,
-    #[serde(default)]
-    data: Option<T>,
-    #[serde(default)]
-    message: Option<String>,
-}
-
-#[derive(Default, Deserialize)]
-struct SymbolsData<'a> {
-    #[serde(rename = "ds_ky_hieu_diem", default, borrow)]
-    items: Vec<SymbolItem<'a>>,
-}
-
-#[derive(Default, Deserialize)]
-struct SymbolItem<'a> {
-    #[serde(default, borrow)]
-    ky_hieu: Cow<'a, str>,
-    #[serde(default, borrow)]
-    ten: Cow<'a, str>,
-}
-
-#[derive(Default, Deserialize)]
-struct GradesData<'a> {
-    #[serde(rename = "ds_diem_hocky", default, borrow)]
-    semesters: Vec<SemesterItem<'a>>,
-}
-
-#[derive(Default, Deserialize)]
-struct SemesterItem<'a> {
-    #[serde(default, borrow)]
-    hoc_ky: Cow<'a, str>,
-    #[serde(default, borrow)]
-    ten_hoc_ky: Cow<'a, str>,
-    #[serde(default, borrow)]
-    dtb_hk_he10: Cow<'a, str>,
-    #[serde(default, borrow)]
-    dtb_hk_he4: Cow<'a, str>,
-    #[serde(default, borrow)]
-    so_tin_chi_dat_hk: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diemrl_hk: Cow<'a, str>,
-    #[serde(default, borrow)]
-    phan_loai_rl_hk: Cow<'a, str>,
-    #[serde(default, borrow)]
-    dtb_tich_luy_he_10: Cow<'a, str>,
-    #[serde(default, borrow)]
-    dtb_tich_luy_he_4: Cow<'a, str>,
-    #[serde(default, borrow)]
-    so_tin_chi_dat_tich_luy: Cow<'a, str>,
-    #[serde(default, borrow)]
-    xep_loai_tkb_hk: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diemrl_hk_tl: Cow<'a, str>,
-    #[serde(rename = "ds_diem_mon_hoc", default, borrow)]
-    courses: Vec<CourseItem<'a>>,
-}
-
-#[derive(Deserialize)]
-struct CourseItem<'a> {
-    #[serde(default, borrow)]
-    ma_mon: Cow<'a, str>,
-    #[serde(default, borrow)]
-    ten_mon: Cow<'a, str>,
-    #[serde(default, borrow)]
-    nhom_to: Cow<'a, str>,
-    #[serde(default, borrow)]
-    so_tin_chi: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_thi: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_giua_ky: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_tk: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_tk_so: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_tk_chu: Cow<'a, str>,
-    #[serde(default, borrow)]
-    ket_qua: Cow<'a, str>,
-    #[serde(rename = "ds_diem_thanh_phan", default, borrow)]
-    components: Vec<ComponentItem<'a>>,
-}
-
-#[derive(Deserialize)]
-struct ComponentItem<'a> {
-    #[serde(default, borrow)]
-    ky_hieu: Cow<'a, str>,
-    #[serde(default, borrow)]
-    ten_thanh_phan: Cow<'a, str>,
-    #[serde(default, borrow)]
-    diem_thanh_phan: Cow<'a, str>,
-}
 
 fn default_symbols() -> HashMap<String, String> {
     let mut m = HashMap::new();
@@ -168,19 +72,30 @@ fn determine_is_dat(ket_qua: &str, diem_chu: &str, diem_tk: &str) -> bool {
     true
 }
 
-/// Parse symbols JSON into a key-value mapping.
+/// Safely extract trimmed string from any JSON value (string, number, bool, null).
+fn val_to_str<'a>(val: Option<&'a Value>) -> Cow<'a, str> {
+    match val {
+        Some(Value::String(s)) => Cow::Borrowed(s.trim()),
+        Some(Value::Number(n)) => Cow::Owned(n.to_string()),
+        Some(Value::Bool(b)) => Cow::Borrowed(if *b { "true" } else { "false" }),
+        _ => Cow::Borrowed(""),
+    }
+}
+
+/// Parse symbols JSON into a key-value mapping with full resilience against null/numeric fields.
 pub fn parse_symbols(symbols_payload: &[u8]) -> HashMap<String, String> {
     let mut map = default_symbols();
     if symbols_payload.is_empty() {
         return map;
     }
-    if let Ok(wrapper) = serde_json::from_slice::<PortalWrapper<SymbolsData>>(symbols_payload) {
-        if let Some(data) = wrapper.data {
-            for item in data.items {
-                let k = item.ky_hieu.trim();
-                let v = item.ten.trim();
+    if let Ok(root) = serde_json::from_slice::<Value>(symbols_payload) {
+        let data = root.get("data").unwrap_or(&root);
+        if let Some(items) = data.get("ds_ky_hieu_diem").and_then(|v| v.as_array()) {
+            for item in items {
+                let k = val_to_str(item.get("ky_hieu")).trim().to_string();
+                let v = val_to_str(item.get("ten")).trim().to_string();
                 if !k.is_empty() && !v.is_empty() {
-                    map.insert(k.to_string(), v.to_string());
+                    map.insert(k, v);
                 }
             }
         }
@@ -189,6 +104,7 @@ pub fn parse_symbols(symbols_payload: &[u8]) -> HashMap<String, String> {
 }
 
 /// Parse raw TNUT grade payload and encode into compact TKB1G binary wire format.
+/// Resilient against null fields, numeric floats/ints in place of strings, and missing data.
 pub fn parse_and_pack_grades(
     student_id: &str,
     student_name: &str,
@@ -198,16 +114,27 @@ pub fn parse_and_pack_grades(
 ) -> Result<Vec<u8>, String> {
     let symbols = parse_symbols(symbols_payload);
 
-    let wrapper: PortalWrapper<GradesData> = serde_json::from_slice(grades_payload)
+    let root: Value = serde_json::from_slice(grades_payload)
         .map_err(|e| format!("Invalid TNUT grades response: {e}"))?;
 
-    if wrapper.code != 0 && wrapper.code != 200 {
-        return Err(wrapper.message.unwrap_or_else(|| {
-            format!("Không tải được bảng điểm ({})", wrapper.code)
-        }));
+    let code = match root.get("code") {
+        Some(Value::Number(n)) => n.as_i64().unwrap_or(200),
+        Some(Value::String(s)) => s.parse::<i64>().unwrap_or(200),
+        _ => 200,
+    };
+
+    if code != 0 && code != 200 {
+        let msg = root.get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("Không tải được bảng điểm");
+        return Err(format!("{msg} ({code})"));
     }
 
-    let data = wrapper.data.unwrap_or_else(|| GradesData { semesters: Vec::new() });
+    let data = root.get("data").unwrap_or(&root);
+    let empty_vec = Vec::new();
+    let semesters = data.get("ds_diem_hocky")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty_vec);
 
     struct ProcessedComponent {
         ky_hieu: String,
@@ -247,48 +174,56 @@ pub fn parse_and_pack_grades(
     }
 
     let mut total_courses = 0usize;
-    let mut processed_semesters = Vec::with_capacity(data.semesters.len());
+    let mut processed_semesters = Vec::with_capacity(semesters.len());
 
-    for sem in data.semesters {
-        let hoc_ky = sem.hoc_ky.trim().to_string();
-        let mut ten_hoc_ky = sem.ten_hoc_ky.trim().to_string();
+    for sem in semesters {
+        let hoc_ky = val_to_str(sem.get("hoc_ky")).trim().to_string();
+        let mut ten_hoc_ky = val_to_str(sem.get("ten_hoc_ky")).trim().to_string();
         if ten_hoc_ky.is_empty() && !hoc_ky.is_empty() {
             ten_hoc_ky = format_hoc_ky_name(&hoc_ky);
         }
 
-        let mut processed_courses = Vec::with_capacity(sem.courses.len());
-        for course in sem.courses {
-            let ma_mon = course.ma_mon.trim().to_string();
-            let ten_mon = course.ten_mon.trim().to_string();
-            let nhom_to = course.nhom_to.trim().to_string();
-            let so_tin_chi = course.so_tin_chi.trim().to_string();
-            let diem_thi = course.diem_thi.trim().to_string();
-            let diem_giua_ky = course.diem_giua_ky.trim().to_string();
-            let diem_tk = course.diem_tk.trim().to_string();
-            let diem_tk_so = course.diem_tk_so.trim().to_string();
-            let diem_chu = course.diem_tk_chu.trim().to_uppercase();
-            let mut ket_qua = course.ket_qua.trim().to_string();
+        let courses_arr = sem.get("ds_diem_mon_hoc")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&empty_vec);
+
+        let mut processed_courses = Vec::with_capacity(courses_arr.len());
+        for course in courses_arr {
+            let ma_mon = val_to_str(course.get("ma_mon")).trim().to_string();
+            let ten_mon = val_to_str(course.get("ten_mon")).trim().to_string();
+            let nhom_to = val_to_str(course.get("nhom_to")).trim().to_string();
+            let so_tin_chi = val_to_str(course.get("so_tin_chi")).trim().to_string();
+            let diem_thi = val_to_str(course.get("diem_thi")).trim().to_string();
+            let diem_giua_ky = val_to_str(course.get("diem_giua_ky")).trim().to_string();
+            let diem_tk = val_to_str(course.get("diem_tk")).trim().to_string();
+            let diem_tk_so = val_to_str(course.get("diem_tk_so")).trim().to_string();
+            let diem_chu = val_to_str(course.get("diem_tk_chu")).trim().to_uppercase();
+            let mut ket_qua = val_to_str(course.get("ket_qua")).trim().to_string();
 
             let is_dat = determine_is_dat(&ket_qua, &diem_chu, &diem_tk);
             if ket_qua.is_empty() {
                 ket_qua = if is_dat { "Đạt".to_string() } else { "Không đạt".to_string() };
             }
 
-            let mut processed_components = Vec::with_capacity(course.components.len());
-            for comp in course.components {
-                let ky_hieu = comp.ky_hieu.trim();
-                let diem_tp = comp.diem_thanh_phan.trim();
+            let comp_arr = course.get("ds_diem_thanh_phan")
+                .and_then(|v| v.as_array())
+                .unwrap_or(&empty_vec);
+
+            let mut processed_components = Vec::with_capacity(comp_arr.len());
+            for comp in comp_arr {
+                let ky_hieu = val_to_str(comp.get("ky_hieu")).trim().to_string();
+                let diem_tp = val_to_str(comp.get("diem_thanh_phan")).trim().to_string();
                 if ky_hieu.is_empty() && diem_tp.is_empty() {
                     continue;
                 }
-                let ten_tp = symbols.get(ky_hieu).map(|s| s.as_str()).unwrap_or_else(|| {
-                    let raw_name = comp.ten_thanh_phan.trim();
-                    if raw_name.is_empty() { ky_hieu } else { raw_name }
+                let ten_tp = symbols.get(&ky_hieu).cloned().unwrap_or_else(|| {
+                    let raw_name = val_to_str(comp.get("ten_thanh_phan")).trim().to_string();
+                    if raw_name.is_empty() { ky_hieu.clone() } else { raw_name }
                 });
                 processed_components.push(ProcessedComponent {
-                    ky_hieu: ky_hieu.to_string(),
-                    ten_thanh_phan: ten_tp.to_string(),
-                    diem: diem_tp.to_string(),
+                    ky_hieu,
+                    ten_thanh_phan: ten_tp,
+                    diem: diem_tp,
                 });
             }
 
@@ -313,16 +248,16 @@ pub fn parse_and_pack_grades(
         processed_semesters.push(ProcessedSemester {
             hoc_ky,
             ten_hoc_ky,
-            dtb_hk_10: sem.dtb_hk_he10.trim().to_string(),
-            dtb_hk_4: sem.dtb_hk_he4.trim().to_string(),
-            so_tin_chi_hk: sem.so_tin_chi_dat_hk.trim().to_string(),
-            diem_rl_hk: sem.diemrl_hk.trim().to_string(),
-            phan_loai_rl_hk: sem.phan_loai_rl_hk.trim().to_string(),
-            dtb_tich_luy_10: sem.dtb_tich_luy_he_10.trim().to_string(),
-            dtb_tich_luy_4: sem.dtb_tich_luy_he_4.trim().to_string(),
-            so_tin_chi_tich_luy: sem.so_tin_chi_dat_tich_luy.trim().to_string(),
-            xep_loai_tkb_hk: sem.xep_loai_tkb_hk.trim().to_string(),
-            diem_rl_tich_luy: sem.diemrl_hk_tl.trim().to_string(),
+            dtb_hk_10: val_to_str(sem.get("dtb_hk_he10")).trim().to_string(),
+            dtb_hk_4: val_to_str(sem.get("dtb_hk_he4")).trim().to_string(),
+            so_tin_chi_hk: val_to_str(sem.get("so_tin_chi_dat_hk")).trim().to_string(),
+            diem_rl_hk: val_to_str(sem.get("diemrl_hk")).trim().to_string(),
+            phan_loai_rl_hk: val_to_str(sem.get("phan_loai_rl_hk")).trim().to_string(),
+            dtb_tich_luy_10: val_to_str(sem.get("dtb_tich_luy_he_10")).trim().to_string(),
+            dtb_tich_luy_4: val_to_str(sem.get("dtb_tich_luy_he_4")).trim().to_string(),
+            so_tin_chi_tich_luy: val_to_str(sem.get("so_tin_chi_dat_tich_luy")).trim().to_string(),
+            xep_loai_tkb_hk: val_to_str(sem.get("xep_loai_tkb_hk")).trim().to_string(),
+            diem_rl_tich_luy: val_to_str(sem.get("diemrl_hk_tl")).trim().to_string(),
             courses: processed_courses,
         });
     }
@@ -456,6 +391,20 @@ mod tests {
         }"#.as_bytes();
 
         let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", grades_json, b"", 1700000000000).unwrap();
+        assert!(wire.starts_with(b"TKB1G"));
+    }
+
+    #[test]
+    fn parses_real_world_payload_with_nulls_and_numbers() {
+        let real_json = r#"{"code": 200, "data": {"ds_diem_hocky": [{"hoc_ky": "20251", "ten_hoc_ky": "Học kỳ 1", "dtb_hk_he10": 7.75, "dtb_hk_he4": 3.31, "so_tin_chi_dat_hk": 8, "diemrl_hk": 86, "phan_loai_rl_hk": "Tốt", "dtb_tich_luy_he_10": 7.75, "dtb_tich_luy_he_4": 3.31, "so_tin_chi_dat_tich_luy": 8, "xep_loai_tkb_hk": "Bình thường", "diemrl_hk_tl": 86, "ds_diem_mon_hoc": [{"ma_mon": "180000", "ten_mon": "Sinh hoạt lớp", "nhom_to": "61DKT6", "so_tin_chi": 0, "diem_thi": null, "diem_giua_ky": null, "diem_tk": null, "diem_tk_so": null, "diem_tk_chu": null, "ket_qua": "Đạt", "ds_diem_thanh_phan": []}]}]}}"#.as_bytes();
+        let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", real_json, b"", 1700000000000).unwrap();
+        assert!(wire.starts_with(b"TKB1G"));
+    }
+
+    #[test]
+    fn parses_with_string_code_and_missing_wrapper() {
+        let raw_json = r#"{"code": "200", "data": {"ds_diem_hocky": []}}"#.as_bytes();
+        let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", raw_json, b"", 1700000000000).unwrap();
         assert!(wire.starts_with(b"TKB1G"));
     }
 

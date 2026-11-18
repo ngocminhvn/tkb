@@ -82,19 +82,32 @@ class GradeRepository(
             // Fetch primary grade transcript raw bytes
             val rawBytes = api.studentGrades(hienThiMonTheoHkdk = false, body = emptyBody).use { it.bytes() }
 
-            // Parse and encode using pure Rust TKB1G wire format
             val now = System.currentTimeMillis()
-            val wireBytes = RustGradeCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
-            val transcript = RustGradeCore.decodeGrades(wireBytes)
-
-            // Cache binary wire bytes to disk (ultra fast, fraction of disk size)
             val user = studentId.ifBlank { "default" }
+
+            // Parse and encode using pure Rust TKB1G wire format with resilient fallback
+            val transcript = try {
+                val wireBytes = RustGradeCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
+                val parsed = RustGradeCore.decodeGrades(wireBytes)
+                try {
+                    val file = cacheFile()
+                    file.writeBytes(wireBytes)
+                } catch (_: Exception) {}
+                parsed
+            } catch (_: Throwable) {
+                val rawJson = String(rawBytes, Charsets.UTF_8)
+                val symJson = if (symbolBytes.isNotEmpty()) String(symbolBytes, Charsets.UTF_8) else ""
+                val symbols = if (symJson.isNotBlank()) GradeParser.parseSymbols(symJson) else emptyMap()
+                val parsed = GradeParser.parseTranscript(rawJson, studentId, studentName, symbols)
+                try {
+                    val file = cacheFile()
+                    file.writeText(GradeParser.toJson(parsed), Charsets.UTF_8)
+                } catch (_: Exception) {}
+                parsed
+            }
+
             memoryCache = transcript
             memoryCacheUser = user
-            try {
-                val file = cacheFile()
-                file.writeBytes(wireBytes)
-            } catch (_: Exception) {}
 
             Result.success(transcript)
         } catch (e: Exception) {

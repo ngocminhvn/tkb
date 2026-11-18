@@ -66,7 +66,6 @@ class GradeViewModel(
                 _isRefreshing.value = true
                 fetchLive(cached)
                 _isRefreshing.value = false
-                hasSyncedInSession = true
             }
         }
     }
@@ -83,13 +82,13 @@ class GradeViewModel(
             }
             fetchLive(currentCached)
             _isRefreshing.value = false
-            hasSyncedInSession = true
         }
     }
 
     private suspend fun fetchLive(cached: GradeTranscript?) {
         val result = repository.fetchGrades()
         result.onSuccess { transcript ->
+            hasSyncedInSession = true
             _uiState.value = GradeUiState.Success(transcript, isOffline = false)
             if (!hasInitializedSemester && transcript.semesters.isNotEmpty()) {
                 _selectedSemester.value = transcript.semesters.lastOrNull()?.hocKy
