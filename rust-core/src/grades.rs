@@ -390,21 +390,21 @@ mod tests {
             }
         }"#.as_bytes();
 
-        let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", grades_json, b"", 1700000000000).unwrap();
+        let wire = parse_and_pack_grades("SV00000000", "Sinh viên mẫu", grades_json, b"", 1700000000000).unwrap();
         assert!(wire.starts_with(b"TKB1G"));
     }
 
     #[test]
     fn parses_real_world_payload_with_nulls_and_numbers() {
-        let real_json = r#"{"code": 200, "data": {"ds_diem_hocky": [{"hoc_ky": "20251", "ten_hoc_ky": "Học kỳ 1", "dtb_hk_he10": 7.75, "dtb_hk_he4": 3.31, "so_tin_chi_dat_hk": 8, "diemrl_hk": 86, "phan_loai_rl_hk": "Tốt", "dtb_tich_luy_he_10": 7.75, "dtb_tich_luy_he_4": 3.31, "so_tin_chi_dat_tich_luy": 8, "xep_loai_tkb_hk": "Bình thường", "diemrl_hk_tl": 86, "ds_diem_mon_hoc": [{"ma_mon": "180000", "ten_mon": "Sinh hoạt lớp", "nhom_to": "61DKT6", "so_tin_chi": 0, "diem_thi": null, "diem_giua_ky": null, "diem_tk": null, "diem_tk_so": null, "diem_tk_chu": null, "ket_qua": "Đạt", "ds_diem_thanh_phan": []}]}]}}"#.as_bytes();
-        let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", real_json, b"", 1700000000000).unwrap();
+        let dummy_json = r#"{"code": 200, "data": {"ds_diem_hocky": [{"hoc_ky": "20251", "ten_hoc_ky": "Học kỳ 1", "dtb_hk_he10": 8.0, "dtb_hk_he4": 3.5, "so_tin_chi_dat_hk": 10, "diemrl_hk": 80, "phan_loai_rl_hk": "Tốt", "dtb_tich_luy_he_10": 8.0, "dtb_tich_luy_he_4": 3.5, "so_tin_chi_dat_tich_luy": 10, "xep_loai_tkb_hk": "Khá", "diemrl_hk_tl": 80, "ds_diem_mon_hoc": [{"ma_mon": "TEST01", "ten_mon": "Môn học mẫu", "nhom_to": "01", "so_tin_chi": 0, "diem_thi": null, "diem_giua_ky": null, "diem_tk": null, "diem_tk_so": null, "diem_tk_chu": null, "ket_qua": "Đạt", "ds_diem_thanh_phan": []}]}]}}"#.as_bytes();
+        let wire = parse_and_pack_grades("SV00000000", "Sinh viên mẫu", dummy_json, b"", 1700000000000).unwrap();
         assert!(wire.starts_with(b"TKB1G"));
     }
 
     #[test]
     fn parses_with_string_code_and_missing_wrapper() {
         let raw_json = r#"{"code": "200", "data": {"ds_diem_hocky": []}}"#.as_bytes();
-        let wire = parse_and_pack_grades("k255520216478", "Nguyễn Văn A", raw_json, b"", 1700000000000).unwrap();
+        let wire = parse_and_pack_grades("SV00000000", "Sinh viên mẫu", raw_json, b"", 1700000000000).unwrap();
         assert!(wire.starts_with(b"TKB1G"));
     }
 
