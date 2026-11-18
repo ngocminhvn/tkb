@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -72,6 +73,7 @@ import com.sv.tnu.grades.GradeRepository
 import com.sv.tnu.grades.GradeViewModel
 import com.sv.tnu.schools.SchoolRepository
 import com.sv.tnu.schools.tnut.TnutApiClient
+import com.sv.tnu.ui.components.UserAvatar
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 import com.sv.tnu.vmFactory
@@ -179,6 +181,7 @@ fun MainScreen(
                     MoreScreen(
                         studentName = authStore.studentName,
                         studentId = authStore.username,
+                        avatarPath = authStore.avatarPath,
                         onBack = { selectedIndex = 0 },
                         onOpenGrades = { showGrades = true },
                         onOpenQuiz = { showQuiz = true },
@@ -275,6 +278,7 @@ fun MainScreen(
 private fun MoreScreen(
     studentName: String? = null,
     studentId: String? = null,
+    avatarPath: String? = null,
     onBack: () -> Unit = {},
     onOpenGrades: () -> Unit,
     onOpenQuiz: () -> Unit,
@@ -360,28 +364,16 @@ private fun MoreScreen(
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
+                        UserAvatar(
+                            avatarPath = avatarPath,
+                            defaultIcon = Icons.Default.Person,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.secondary,
-                                        )
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = greeting.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                ),
-                            )
-                        }
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), CircleShape),
+                            iconSize = 24.dp,
+                            contentDescription = "Ảnh đại diện sinh viên",
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(

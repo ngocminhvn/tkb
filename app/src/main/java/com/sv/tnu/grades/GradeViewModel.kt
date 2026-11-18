@@ -33,6 +33,8 @@ class GradeViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private var hasInitializedSemester = false
+
     init {
         loadInitial()
     }
@@ -42,19 +44,22 @@ class GradeViewModel(
             val cached = repository.loadCachedTranscript()
             if (cached != null && cached.semesters.isNotEmpty()) {
                 _uiState.value = GradeUiState.Success(cached, isOffline = true)
-                // Select latest semester by default if available
-                if (_selectedSemester.value == null) {
+                if (!hasInitializedSemester) {
                     _selectedSemester.value = cached.semesters.lastOrNull()?.hocKy
+                    hasInitializedSemester = true
                 }
             } else {
                 _uiState.value = GradeUiState.Loading(cached)
             }
+            _isRefreshing.value = true
             fetchLive(cached)
+            _isRefreshing.value = false
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
+            if (_isRefreshing.value) return@launch
             _isRefreshing.value = true
             val currentCached = when (val state = _uiState.value) {
                 is GradeUiState.Success -> state.transcript
@@ -71,8 +76,9 @@ class GradeViewModel(
         val result = repository.fetchGrades()
         result.onSuccess { transcript ->
             _uiState.value = GradeUiState.Success(transcript, isOffline = false)
-            if (_selectedSemester.value == null && transcript.semesters.isNotEmpty()) {
+            if (!hasInitializedSemester && transcript.semesters.isNotEmpty()) {
                 _selectedSemester.value = transcript.semesters.lastOrNull()?.hocKy
+                hasInitializedSemester = true
             }
         }.onFailure { err ->
             if (cached != null) {
@@ -85,6 +91,7 @@ class GradeViewModel(
     }
 
     fun selectSemester(hocKy: String?) {
+        hasInitializedSemester = true
         _selectedSemester.value = hocKy
     }
 

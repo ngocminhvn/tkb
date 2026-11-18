@@ -1,7 +1,6 @@
 package com.sv.tnu.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -15,7 +14,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +32,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,11 +59,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,6 +89,7 @@ import com.sv.tnu.grades.GradeTranscript
 import com.sv.tnu.grades.GradeUiState
 import com.sv.tnu.grades.GradeViewModel
 import com.sv.tnu.ui.glass.LocalGlassConfig
+import kotlinx.coroutines.delay
 
 @Composable
 fun GradesScreen(
@@ -94,6 +103,22 @@ fun GradesScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val expandedCourses by viewModel.expandedCourses.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    // Tự động tải lại bảng điểm từ API mỗi khi vào màn hình xem điểm
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
+    // Nếu thời gian tải từ API lâu hơn 350ms, hiển thị icon load ở giữa màn hình
+    var showCenterLoader by remember { mutableStateOf(false) }
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            delay(350L)
+            showCenterLoader = true
+        } else {
+            showCenterLoader = false
+        }
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "spin")
     val spinAngle by infiniteTransition.animateFloat(
@@ -113,7 +138,7 @@ fun GradesScreen(
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Glass back button
+                // Nút quay lại kiểu Liquid Glass
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -165,11 +190,13 @@ fun GradesScreen(
                             text = studentName,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
 
-                // Refresh button
+                // Nút refresh xoay vòng
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -206,130 +233,163 @@ fun GradesScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        when (val state = uiState) {
-            is GradeUiState.Loading -> {
-                if (state.cached != null && state.cached.semesters.isNotEmpty()) {
-                    GradeContent(
-                        transcript = state.cached,
-                        isOffline = true,
-                        isRefreshing = true,
-                        selectedSemester = selectedSemester,
-                        searchQuery = searchQuery,
-                        expandedCourses = expandedCourses,
-                        onSelectSemester = viewModel::selectSemester,
-                        onUpdateSearch = viewModel::updateSearchQuery,
-                        onToggleExpand = viewModel::toggleCourseExpanded,
-                        contentPadding = contentPadding,
-                        modifier = Modifier.padding(padding),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(
-                                strokeWidth = 3.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Đang tải bảng điểm từ portal TNUT...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when (val state = uiState) {
+                is GradeUiState.Loading -> {
+                    if (state.cached != null && state.cached.semesters.isNotEmpty()) {
+                        GradeContent(
+                            transcript = state.cached,
+                            isOffline = true,
+                            selectedSemester = selectedSemester,
+                            searchQuery = searchQuery,
+                            expandedCourses = expandedCourses,
+                            onSelectSemester = viewModel::selectSemester,
+                            onUpdateSearch = viewModel::updateSearchQuery,
+                            onToggleExpand = viewModel::toggleCourseExpanded,
+                            contentPadding = contentPadding,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    strokeWidth = 3.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    "Đang tải bảng điểm từ portal TNUT...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            is GradeUiState.Error -> {
-                if (state.cached != null && state.cached.semesters.isNotEmpty()) {
-                    GradeContent(
-                        transcript = state.cached,
-                        isOffline = true,
-                        isRefreshing = false,
-                        selectedSemester = selectedSemester,
-                        searchQuery = searchQuery,
-                        expandedCourses = expandedCourses,
-                        onSelectSemester = viewModel::selectSemester,
-                        onUpdateSearch = viewModel::updateSearchQuery,
-                        onToggleExpand = viewModel::toggleCourseExpanded,
-                        contentPadding = contentPadding,
-                        modifier = Modifier.padding(padding),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) Color(0xFF1F242D) else Color.White,
-                            ),
+                is GradeUiState.Error -> {
+                    if (state.cached != null && state.cached.semesters.isNotEmpty()) {
+                        GradeContent(
+                            transcript = state.cached,
+                            isOffline = true,
+                            selectedSemester = selectedSemester,
+                            searchQuery = searchQuery,
+                            expandedCourses = expandedCourses,
+                            onSelectSemester = viewModel::selectSemester,
+                            onUpdateSearch = viewModel::updateSearchQuery,
+                            onToggleExpand = viewModel::toggleCourseExpanded,
+                            contentPadding = contentPadding,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDark) Color(0xFF1F242D) else Color.White,
+                                ),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ErrorOutline,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(48.dp),
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    "Không thể tải bảng điểm",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    state.message,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Button(
-                                    onClick = { viewModel.refresh() },
-                                    shape = RoundedCornerShape(12.dp),
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Thử lại")
+                                    Icon(
+                                        imageVector = Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(48.dp),
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        "Không thể tải bảng điểm",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        state.message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Button(
+                                        onClick = { viewModel.refresh() },
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Thử lại")
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                is GradeUiState.Success -> {
+                    GradeContent(
+                        transcript = state.transcript,
+                        isOffline = state.isOffline,
+                        selectedSemester = selectedSemester,
+                        searchQuery = searchQuery,
+                        expandedCourses = expandedCourses,
+                        onSelectSemester = viewModel::selectSemester,
+                        onUpdateSearch = viewModel::updateSearchQuery,
+                        onToggleExpand = viewModel::toggleCourseExpanded,
+                        contentPadding = contentPadding,
+                    )
+                }
+
+                GradeUiState.Initial -> {}
             }
 
-            is GradeUiState.Success -> {
-                GradeContent(
-                    transcript = state.transcript,
-                    isOffline = state.isOffline,
-                    isRefreshing = isRefreshing,
-                    selectedSemester = selectedSemester,
-                    searchQuery = searchQuery,
-                    expandedCourses = expandedCourses,
-                    onSelectSemester = viewModel::selectSemester,
-                    onUpdateSearch = viewModel::updateSearchQuery,
-                    onToggleExpand = viewModel::toggleCourseExpanded,
-                    contentPadding = contentPadding,
-                    modifier = Modifier.padding(padding),
-                )
+            // Icon loading nổi ở giữa màn hình khi đồng bộ kéo dài
+            AnimatedVisibility(
+                visible = showCenterLoader && isRefreshing,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200)),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = if (isDark) Color(0xEE1A202C) else Color(0xF4FFFFFF),
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Đang đồng bộ dữ liệu mới nhất...",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
             }
-
-            GradeUiState.Initial -> {}
         }
     }
 }
@@ -338,7 +398,6 @@ fun GradesScreen(
 private fun GradeContent(
     transcript: GradeTranscript,
     isOffline: Boolean,
-    isRefreshing: Boolean,
     selectedSemester: String?,
     searchQuery: String,
     expandedCourses: Set<String>,
@@ -375,11 +434,11 @@ private fun GradeContent(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = contentPadding.calculateBottomPadding() + 20.dp,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Offline / Refreshing notice
+        // Thông báo bản lưu offline
         if (isOffline) {
             item {
                 Row(
@@ -408,7 +467,7 @@ private fun GradeContent(
             }
         }
 
-        // Overview GPA Card
+        // Thẻ tổng quan GPA tích lũy toàn khóa
         item {
             OverviewGpaCard(
                 overview = transcript.overview,
@@ -416,17 +475,17 @@ private fun GradeContent(
             )
         }
 
-        // Semester filter horizontal scroll
+        // Chọn học kỳ qua Select Dropdown / Dialog
         item {
-            SemesterFilterRow(
+            SemesterSelectCard(
                 semesters = transcript.semesters,
-                selected = selectedSemester,
-                onSelect = onSelectSemester,
+                selectedSemesterId = selectedSemester,
+                onSelectSemester = onSelectSemester,
                 isDark = isDark,
             )
         }
 
-        // Search Input
+        // Ô tìm kiếm môn học
         item {
             OutlinedTextField(
                 value = searchQuery,
@@ -454,7 +513,7 @@ private fun GradeContent(
             )
         }
 
-        // Semesters and course list
+        // Danh sách môn học theo học kỳ
         if (filteredSemesters.isEmpty()) {
             item {
                 Box(
@@ -500,6 +559,246 @@ private fun GradeContent(
     }
 }
 
+/**
+ * Thẻ Select chọn học kỳ (thay vì dàn ngang nhiều chip).
+ * Nhấp vào mở hộp thoại chọn nhanh học kỳ (mặc định là học kỳ mới nhất).
+ */
+@Composable
+private fun SemesterSelectCard(
+    semesters: List<GradeSemester>,
+    selectedSemesterId: String?,
+    onSelectSemester: (String?) -> Unit,
+    isDark: Boolean,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    val selectedSemester = semesters.find { it.hocKy == selectedSemesterId }
+    val displayText = when {
+        selectedSemester != null -> selectedSemester.tenHocKy.ifBlank { "Học kỳ ${selectedSemester.hocKy}" }
+        selectedSemesterId == null -> "Tất cả các học kỳ"
+        else -> "Học kỳ $selectedSemesterId"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Học kỳ xem điểm",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = displayText,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = "Chọn học kỳ",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+    }
+
+    if (showDialog) {
+        SemesterSelectionDialog(
+            semesters = semesters,
+            selectedSemesterId = selectedSemesterId,
+            onSelect = {
+                onSelectSemester(it)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false },
+            isDark = isDark,
+        )
+    }
+}
+
+/**
+ * Hộp thoại chọn học kỳ với danh sách sắp xếp học kỳ mới nhất ở trên.
+ */
+@Composable
+private fun SemesterSelectionDialog(
+    semesters: List<GradeSemester>,
+    selectedSemesterId: String?,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit,
+    isDark: Boolean,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+                Text(
+                    text = "Chọn học kỳ",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Tùy chọn tất cả các học kỳ
+                val isAllSelected = selectedSemesterId == null
+                SemesterOptionItem(
+                    title = "Tất cả các học kỳ",
+                    subtitle = "Hiển thị tất cả môn học trong chương trình đào tạo",
+                    isSelected = isAllSelected,
+                    onClick = { onSelect(null) },
+                    isDark = isDark,
+                )
+
+                // Hiển thị các học kỳ từ mới nhất đến cũ hơn
+                semesters.reversed().forEach { sem ->
+                    val isSelected = selectedSemesterId == sem.hocKy
+                    val subtitle = buildString {
+                        if (sem.dtbHk4.isNotBlank() && sem.dtbHk4 != "-") append("GPA: ${sem.dtbHk4}")
+                        if (sem.soTinChiHk.isNotBlank() && sem.soTinChiHk != "-") {
+                            if (isNotEmpty()) append(" • ")
+                            append("${sem.soTinChiHk} TC")
+                        }
+                    }
+                    SemesterOptionItem(
+                        title = sem.tenHocKy.ifBlank { "Học kỳ ${sem.hocKy}" },
+                        subtitle = subtitle.ifBlank { null },
+                        isSelected = isSelected,
+                        onClick = { onSelect(sem.hocKy) },
+                        isDark = isDark,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
+    )
+}
+
+@Composable
+private fun SemesterOptionItem(
+    title: String,
+    subtitle: String?,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    isDark: Boolean,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = if (isSelected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
+        } else {
+            if (isDark) Color(0xFF222834) else Color(0xFFF8FAFC)
+        },
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+            },
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    ),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Đã chọn",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun OverviewGpaCard(
     overview: GradeOverview,
@@ -516,14 +815,14 @@ private fun OverviewGpaCard(
                 listOf(
                     Color(0xFF1E293B),
                     Color(0xFF0F172A),
-                )
+                ),
             )
         } else {
             Brush.linearGradient(
                 listOf(
                     Color(0xFFF0FDF4),
                     Color(0xFFE0F2FE),
-                )
+                ),
             )
         }
     }
@@ -542,7 +841,7 @@ private fun OverviewGpaCard(
                     if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
                     RoundedCornerShape(22.dp),
                 )
-                .padding(20.dp)
+                .padding(20.dp),
         ) {
             Column {
                 Row(
@@ -579,7 +878,7 @@ private fun OverviewGpaCard(
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                                 .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
                         ) {
                             Text(
                                 text = xepLoai,
@@ -659,84 +958,6 @@ private fun MetricColumn(
 }
 
 @Composable
-private fun SemesterFilterRow(
-    semesters: List<GradeSemester>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-    isDark: Boolean,
-) {
-    val scrollState = rememberScrollState()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(scrollState),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        // "Tất cả" chip
-        FilterChipPill(
-            text = "Tất cả học kỳ",
-            isSelected = selected == null,
-            onClick = { onSelect(null) },
-            isDark = isDark,
-        )
-
-        semesters.forEach { sem ->
-            FilterChipPill(
-                text = sem.tenHocKy.ifBlank { "HK ${sem.hocKy}" },
-                isSelected = selected == sem.hocKy,
-                onClick = { onSelect(sem.hocKy) },
-                isDark = isDark,
-            )
-        }
-    }
-}
-
-@Composable
-private fun FilterChipPill(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    isDark: Boolean,
-) {
-    val bg = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        if (isDark) Color(0xFF1E242E) else Color.White
-    }
-    val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-    val border = if (isSelected) {
-        null
-    } else {
-        BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f))
-    }
-
-    Box(
-        modifier = Modifier
-            .shadow(
-                elevation = if (isSelected) 3.dp else 1.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
-            )
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .then(if (border != null) Modifier.border(border, RoundedCornerShape(16.dp)) else Modifier)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
-            color = contentColor,
-        )
-    }
-}
-
-@Composable
 private fun SemesterHeaderCard(
     semester: GradeSemester,
     isDark: Boolean,
@@ -812,9 +1033,9 @@ private fun CourseGradeCard(
         Column(
             modifier = Modifier
                 .clickable(onClick = onToggle)
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
-            // Course header: Code, Group, Credits, and Letter Badge
+            // Tiêu đề môn học: Mã môn, Nhóm tổ, Số tín chỉ và Badge điểm chữ
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -824,12 +1045,12 @@ private fun CourseGradeCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    // Course code badge
+                    // Mã môn học
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(if (isDark) Color(0xFF2A313E) else Color(0xFFE2E8F0))
-                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
                     ) {
                         Text(
                             text = course.maMon,
@@ -858,7 +1079,7 @@ private fun CourseGradeCard(
                     }
                 }
 
-                // Letter Grade Badge
+                // Điểm chữ (A, B, C, D, F, M)
                 Box(
                     modifier = Modifier
                         .size(34.dp)
@@ -877,7 +1098,7 @@ private fun CourseGradeCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Course Name
+            // Tên môn học
             Text(
                 text = course.tenMon,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
@@ -886,7 +1107,7 @@ private fun CourseGradeCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Key scores row
+            // Các cột điểm chính: Thi, Tổng kết hệ 10, Tổng kết hệ 4, Kết quả
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -900,7 +1121,7 @@ private fun CourseGradeCard(
                 ScoreItem(label = "Tổng kết (10)", value = course.diemTk10.ifBlank { "-" }, isBold = true)
                 ScoreItem(label = "Tổng kết (4)", value = course.diemTk4.ifBlank { "-" })
 
-                // Result badge
+                // Kết quả: Đạt hoặc Học lại
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (course.isDat) {
                         Icon(
@@ -932,7 +1153,7 @@ private fun CourseGradeCard(
                 }
             }
 
-            // Expandable component scores breakdown
+            // Mở rộng chi tiết các điểm thành phần (chuyên cần, giữa kỳ, kiểm tra...)
             if (course.thanhPhan.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -1024,12 +1245,12 @@ private fun ScoreItem(
 
 private fun gradeColorFor(grade: String): Color {
     return when (grade.uppercase()) {
-        "A", "A+" -> Color(0xFF10B981) // Green
-        "B", "B+" -> Color(0xFF3B82F6) // Blue
-        "C", "C+" -> Color(0xFFF59E0B) // Amber
-        "D", "D+" -> Color(0xFFF97316) // Orange
-        "F" -> Color(0xFFEF4444) // Red
-        "M" -> Color(0xFF06B6D4) // Cyan (Miễn)
-        else -> Color(0xFF94A3B8) // Slate
+        "A", "A+" -> Color(0xFF10B981) // Xanh lá
+        "B", "B+" -> Color(0xFF3B82F6) // Xanh dương
+        "C", "C+" -> Color(0xFFF59E0B) // Vàng hổ phách
+        "D", "D+" -> Color(0xFFF97316) // Cam
+        "F" -> Color(0xFFEF4444) // Đỏ
+        "M" -> Color(0xFF06B6D4) // Xanh ngọc (Miễn)
+        else -> Color(0xFF94A3B8) // Xám đá
     }
 }
