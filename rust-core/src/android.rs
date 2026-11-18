@@ -278,7 +278,7 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapExamBytesNative(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapGradesBytesNative(
+pub extern "system" fn Java_com_sv_tnu_rust_RustGradeCore_mapGradesBytesNative(
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
     student_id: JString<'_>,

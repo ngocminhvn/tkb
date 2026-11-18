@@ -2,8 +2,7 @@ package com.sv.tnu.grades
 
 import android.content.Context
 import com.sv.tnu.data.AuthStore
-import com.sv.tnu.rust.PortalBinaryDecoder
-import com.sv.tnu.rust.RustPortalCore
+import com.sv.tnu.rust.RustGradeCore
 import com.sv.tnu.schools.tnut.TnutApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,7 +51,7 @@ class GradeRepository(
                 bytes[3] == '1'.code.toByte() &&
                 bytes[4] == 'G'.code.toByte()
             ) {
-                PortalBinaryDecoder.decodeGrades(bytes)
+                RustGradeCore.decodeGrades(bytes)
             } else {
                 val content = String(bytes, Charsets.UTF_8)
                 GradeParser.fromJson(content)
@@ -85,8 +84,8 @@ class GradeRepository(
 
             // Parse and encode using pure Rust TKB1G wire format
             val now = System.currentTimeMillis()
-            val wireBytes = RustPortalCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
-            val transcript = PortalBinaryDecoder.decodeGrades(wireBytes)
+            val wireBytes = RustGradeCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
+            val transcript = RustGradeCore.decodeGrades(wireBytes)
 
             // Cache binary wire bytes to disk (ultra fast, fraction of disk size)
             val user = studentId.ifBlank { "default" }

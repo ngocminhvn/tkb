@@ -24,6 +24,7 @@
 -keep class com.sv.tnu.rust.RustScheduleCore { *; }
 
 -keep class com.sv.tnu.rust.RustPortalCore { *; }
+-keep class com.sv.tnu.rust.RustGradeCore { *; }
 
 # Tink's Error Prone annotations are source/static-analysis metadata only.
 # They have no runtime behavior; suppress R8 missing-annotation warnings.
