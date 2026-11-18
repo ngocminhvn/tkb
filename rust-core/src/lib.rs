@@ -2,6 +2,7 @@
 //! No Android Context, network access, credentials, or UI dependencies.
 
 pub mod auth;
+pub mod quiz;
 pub mod autosync;
 pub mod database;
 pub mod timeline;

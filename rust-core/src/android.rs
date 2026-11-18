@@ -196,6 +196,39 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_normalizeUsernameNati
     into_java(&mut env, crate::portal::normalize_username(&source))
 }
 
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_parseLinesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    match crate::quiz::parse_lines(&source) {
+        Ok(parsed) => into_java(&mut env, parsed),
+        Err(message) => {
+            let _ = env.throw_new("java/lang/IllegalArgumentException", message);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_parseJsonNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    input: JString<'_>,
+) -> jstring {
+    let source = from_java(&mut env, &input);
+    match crate::quiz::parse_json(&source) {
+        Ok(parsed) => into_java(&mut env, parsed),
+        Err(message) => {
+            let _ = env.throw_new("java/lang/IllegalArgumentException", message);
+            std::ptr::null_mut()
+        }
+    }
+}
+
 fn into_byte_array(env: &mut JNIEnv<'_>, result: Result<Vec<u8>, String>) -> jbyteArray {
     match result {
         Ok(bytes) => env.byte_array_from_slice(&bytes)

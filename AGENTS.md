@@ -174,3 +174,11 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - [README.md](README.md): giới thiệu, thư mục, lệnh build, đường tải APK.
 - [rust-core/README.md](rust-core/README.md): phạm vi Rust migration, giao thức gọi native và giới hạn.
 - [docs/ADDING_SCHOOL.md](docs/ADDING_SCHOOL.md): cách thêm trường; vấn đề cách ly cache và migration.
+
+## 7. Ôn tập trắc nghiệm (mô-đun độc lập)
+
+- Tab Thêm `ui/MainScreen.kt` mở màn `ui/QuizScreen.kt`; khi thoát không làm mới/recreate `TimetableViewModel`.
+- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework, không xin quyền đọc toàn bộ storage. Hỗ trợ DOCX/TXT/JSON/PDF text layer; không được hứa nhận PDF scan hay màu đỏ trong PDF.
+- Parser câu hỏi thuần Rust: `rust-core/src/quiz.rs`; `rust/RustQuizCore.kt` và hai entry JNI trong `rust-core/src/android.rs`. Nếu chỉnh JNI phải cập nhật R8 rules.
+- `quiz/QuizStorage.kt` tạo SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không gửi bài lên máy chủ.
+- Sau khi sửa, test Rust `cargo test --locked --manifest-path rust-core/Cargo.toml`, `cargo clippy`, build Release 4 ABI, so sánh APK size với baseline và thử DOCX chữ đỏ/PDF chữ/PDF scan/TXT/JSON trên thiết bị Android.

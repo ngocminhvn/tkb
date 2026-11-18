@@ -30,3 +30,6 @@
 
 -keep class com.sv.tnu.rust.RustCacheStore { *; }
 -keep class com.sv.tnu.rust.RustCacheStore$Companion { *; }
+
+# Offline quiz JNI entry points must retain exported Rust symbol names.
+-keep class com.sv.tnu.rust.RustQuizCore { *; }

@@ -23,9 +23,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +43,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -75,6 +79,7 @@ fun MainScreen(
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    var showQuiz by rememberSaveable { mutableStateOf(false) }
     val firstLoginRenderEpoch by timetableViewModel.firstLoginRenderEpoch.collectAsState()
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
 
@@ -114,8 +119,11 @@ fun MainScreen(
     }
 
     // Khi đang ở các trang phụ (Thêm, Cài đặt), bấm nút back của máy thì quay lại TKB
-    BackHandler(enabled = selectedIndex != 0) {
+    BackHandler(enabled = selectedIndex != 0 && !showQuiz) {
         selectedIndex = 0
+    }
+    BackHandler(enabled = selectedIndex == NavigationTab.MORE.ordinal && showQuiz) {
+        showQuiz = false
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -133,10 +141,18 @@ fun MainScreen(
                 }
             }
             NavigationTab.MORE -> {
-                MoreScreen(
-                    onBack = { selectedIndex = 0 },
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                )
+                if (showQuiz) {
+                    QuizScreen(
+                        onBack = { showQuiz = false },
+                        contentPadding = PaddingValues(bottom = 96.dp),
+                    )
+                } else {
+                    MoreScreen(
+                        onBack = { selectedIndex = 0 },
+                        onOpenQuiz = { showQuiz = true },
+                        contentPadding = PaddingValues(bottom = 96.dp),
+                    )
+                }
             }
             NavigationTab.SETTINGS -> {
                 SettingsScreen(
@@ -160,6 +176,7 @@ fun MainScreen(
             selectedIndex = selectedIndex,
             onSelected = { tab ->
                 selectedIndex = tab
+                if (tab != NavigationTab.MORE.ordinal) showQuiz = false
                 // Works even when TKB is already the selected tab.
                 if (tab == NavigationTab.TIMETABLE.ordinal) {
                     timetableViewModel.requestReturnToToday()
@@ -222,6 +239,7 @@ fun MainScreen(
 @Composable
 private fun MoreScreen(
     onBack: () -> Unit = {},
+    onOpenQuiz: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
@@ -274,11 +292,33 @@ private fun MoreScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(contentPadding),
-        )
+                .padding(contentPadding)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenQuiz),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Book, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ôn tập", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Import bộ đề và luyện trắc nghiệm offline",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null)
+                }
+            }
+        }
     }
 }

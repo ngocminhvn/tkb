@@ -145,3 +145,27 @@ bash scripts/build-rust-android.sh
 ## Đóng góp / giao việc cho AI
 
 Khi nhờ AI chỉnh repo, đưa yêu cầu cụ thể và yêu cầu đọc [AGENTS.md](AGENTS.md). AI cần chỉ rõ **đường đi dữ liệu, file dự định sửa, test liên quan, rủi ro đối với cache/login/JNI và kết quả build thực tế**; tránh đổi kiến trúc hoặc viết lại hàng loạt nếu chỉ cần sửa một hành vi.
+
+## Ôn tập trắc nghiệm offline
+
+Từ tab **Thêm → Ôn tập**, người dùng có thể import **DOCX, PDF có lớp văn bản, TXT và JSON**, xem trước/chỉnh đáp án, rồi lưu bộ đề và luyện tập không cần Internet. DOCX nhận trực tiếp các lựa chọn có chữ đỏ (định dạng `w:color` trong run); TXT/PDF nhận đáp án dạng `Đáp án: A, C`; JSON nhận `questions[]`, `options[]` và `answer` / `correct`. PDF scan không có lớp chữ cần OCR và không hỗ trợ trong phiên bản này; PDF có chữ màu đỏ hiện **chỉ trích xuất chữ, chưa nhận được màu**.
+
+- Các câu thiếu đáp án bắt buộc xác nhận/chọn đáp án trước khi lưu.
+- Bộ đề, câu trả lời gần nhất, điểm số và câu sai được lưu **riêng** trong `quiz.db` (SQLite Android), không thay đổi `tkb.db` schema v4.
+- `ui/QuizScreen.kt`: thư viện đề, chọn file, xem trước, làm bài, ôn câu sai, xóa đề.
+- `quiz/QuizImporter.kt`: SAF + đọc DOCX XML và PDFBox-Android text layer; giới hạn tệp 30 MB.
+- `rust-core/src/quiz.rs` + `rust/RustQuizCore.kt`: chuẩn hóa câu hỏi, đáp án qua JNI, không cần dependency Rust mới.
+- PDFBox dependency: `com.tom-roush:pdfbox-android:2.0.27.0`. **Đo dung lượng tăng thực tế bằng cách so sánh APK release** giữa commit trước và sau; ước lượng trước build không phải phép đo.
+- Không có endpoint upload đề hoặc API OCR; tệp chỉ được xử lý cục bộ khi người dùng chọn.
+
+Dạng TXT/PDF văn bản ví dụ:
+
+```text
+Câu 1: Thủ đô Việt Nam là đâu?
+A. Huế
+B. Hà Nội
+C. Đà Nẵng
+Đáp án: B
+```
+
+Với JSON, chỉ số đáp án dạng số là **0-based**, ký tự là **A/B/C/...**.

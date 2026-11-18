@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    // Text-based PDFs only; no OCR, PDFium or model assets bundled.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }
 
 val rustAndroidAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
