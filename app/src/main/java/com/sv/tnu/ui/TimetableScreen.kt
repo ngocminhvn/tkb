@@ -813,7 +813,7 @@ fun TimetableScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .shadow(
                             elevation = 3.dp,
                             shape = CircleShape,
@@ -824,45 +824,62 @@ fun TimetableScreen(
                             else Color.White.copy(alpha = 0.65f),
                             CircleShape,
                         )
+                        .clip(CircleShape)
                         .border(
                             1.dp,
                             if (isDark) Color.White.copy(alpha = 0.20f)
                             else Color.White.copy(alpha = 0.85f),
                             CircleShape,
-                        )
-                        .clip(CircleShape),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     UserAvatar(
                         avatarPath = avatarPath,
                         defaultIcon = Icons.Default.Person,
                         modifier = Modifier.fillMaxSize(),
-                        iconSize = 22.dp,
+                        iconSize = 20.dp,
                         contentDescription = "Ảnh đại diện sinh viên",
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    if (!studentName.isNullOrBlank()) {
-                        Text(
-                            text = studentName.orEmpty(),
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                Spacer(modifier = Modifier.width(14.dp))
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val primaryTitle = studentName?.takeIf { it.isNotBlank() }
+                        ?: viewModel.studentId.ifBlank { "TKB" }.uppercase(Locale.ROOT)
                     Text(
-                        text = viewModel.studentId.ifBlank { "Chưa có MSSV" }.uppercase(Locale.ROOT),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f),
+                        text = primaryTitle,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
-                    Text(
-                        text = "Học kỳ ${viewModel.hocKy}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
-                    )
+                    if (viewModel.hocKy > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                    RoundedCornerShape(8.dp),
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isDark) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                    RoundedCornerShape(8.dp),
+                                )
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "HK ${viewModel.hocKy}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isDark) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
                 Box(
                     modifier = Modifier

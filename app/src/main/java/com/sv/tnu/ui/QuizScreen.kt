@@ -318,45 +318,27 @@ fun QuizScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                    .height(64.dp)
+                    .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    QuizCircleBackButton(isDark = isDark, enabled = !busy) {
-                        if (page == QuizPage.LIBRARY) onBack() else returnToLibrary()
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = when (page) {
-                            QuizPage.LIBRARY -> "Ôn tập trắc nghiệm"
-                            QuizPage.PREVIEW -> "Kiểm tra đề"
-                            QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
-                        },
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                QuizCircleBackButton(isDark = isDark, enabled = !busy) {
+                    if (page == QuizPage.LIBRARY) onBack() else returnToLibrary()
                 }
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = when (page) {
+                        QuizPage.LIBRARY -> "Ôn tập trắc nghiệm"
+                        QuizPage.PREVIEW -> "Kiểm tra đề"
+                        QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
+                    },
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
 
-                if (page == QuizPage.LIBRARY) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.04f),
-                                CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MenuBook,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                } else if (page == QuizPage.PRACTICE && isTimedMode) {
+                if (page == QuizPage.PRACTICE && isTimedMode) {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
