@@ -35,6 +35,3 @@
 
 # Offline quiz JNI entry points must retain exported Rust symbol names.
 -keep class com.sv.tnu.rust.RustQuizCore { *; }
-
-# PDFBox JP2 image decoder is optional; text-only PDF import does not use it.
--dontwarn com.gemalto.jp2.**

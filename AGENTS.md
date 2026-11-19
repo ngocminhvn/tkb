@@ -181,7 +181,7 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 ## 7. Ôn tập trắc nghiệm (mô-đun độc lập)
 
 - Tab Thêm `ui/MainScreen.kt` mở màn `ui/QuizScreen.kt`; khi thoát không làm mới/recreate `TimetableViewModel`.
-- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework (PDF dùng PDFBox trích xuất text), chuyển toàn bộ bytes cho Rust xử lý DOCX/ZIP/XML, xử lý chữ đỏ, đánh số và phân tích câu hỏi mà không qua JSON trung gian.
+- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework, chuyển toàn bộ bytes cho Rust xử lý DOCX/ZIP/XML/PDF (lopdf)/TXT/JSON, lọc chữ đỏ, đánh số và phân tích câu hỏi mà không qua JSON hay thư viện Java trung gian.
 - Parser câu hỏi và SQLite thuần Rust: `rust-core/src/quiz.rs` đảm nhiệm parse DOCX/TXT/JSON/PDF text, giải nén ZIP, lọc chữ đỏ, phân tách lựa chọn, định dạng nhị phân `TKB1Q`/`TKB1D`, và CRUD cơ sở dữ liệu `quiz.db` qua `rusqlite`.
 - JNI bridge: `rust/RustQuizCore.kt` và các entry JNI trong `rust-core/src/android.rs`. Được bảo vệ bởi R8 `-keep class com.sv.tnu.rust.RustQuizCore { *; }`.
 - `quiz/QuizStorage.kt` chuyển toàn bộ thao tác sang Rust, tạo/quản lý SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không mở đồng thời bằng SQLite Android và Rust; không gửi bài lên máy chủ.
