@@ -618,6 +618,7 @@ fun QuizScreen(
                                         }
                                     }
                                 }
+                                }
                                 if (busy) {
                                     Box(
                                         modifier = Modifier
