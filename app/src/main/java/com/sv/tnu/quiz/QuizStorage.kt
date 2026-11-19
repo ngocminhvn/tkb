@@ -46,6 +46,15 @@ class QuizStorage(private val context: Context) {
         return RustQuizCore.decodeQuestions(wire)
     }
 
+    fun preparePracticeSession(
+        deckId: Long,
+        wrongOnly: Boolean = false,
+        shuffleQuestions: Boolean = false,
+        shuffleOptions: Boolean = false,
+    ): List<QuizQuestion> {
+        return RustQuizCore.preparePracticeSession(dbPath, deckId, wrongOnly, shuffleQuestions, shuffleOptions)
+    }
+
     fun saveAnswer(question: QuizQuestion, selected: Set<Int>): Boolean {
         return RustQuizCore.saveAnswer(dbPath, question.id, selected.toIntArray())
     }

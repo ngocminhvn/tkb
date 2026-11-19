@@ -168,15 +168,15 @@ class TnutRepository(
 
     override suspend fun fetchAndSaveAvatar(maSv: String): Result<String?> = withContext(Dispatchers.IO) {
         try {
-            val profile = api.avatar(maSv, "{}".toByteArray().toRequestBody(jsonMediaType)).use { RustPortalCore.mapAvatar(it.bytes()) }
+            val file = File(context.filesDir, "avatar_${maSv}.jpg")
+            val profile = api.avatar(maSv, "{}".toByteArray().toRequestBody(jsonMediaType)).use {
+                RustPortalCore.saveAvatar(it.bytes(), file.absolutePath)
+            }
             if (profile.name.isNotEmpty()) {
                 authStore.studentName = profile.name
                 _studentName.value = profile.name
             }
-            if (profile.base64 != null) {
-                val bytes = Base64.decode(profile.base64, Base64.DEFAULT)
-                val file = File(context.filesDir, "avatar_${maSv}.jpg")
-                file.writeBytes(bytes)
+            if (profile.saved) {
                 val path = file.absolutePath
                 authStore.avatarPath = path
                 _avatarPath.value = path

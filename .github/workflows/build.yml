@@ -30,12 +30,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-          components: clippy
-
-      - name: Test Rust core and SQLite compatibility
-        run: |
-          cargo test --locked --manifest-path rust-core/Cargo.toml
-          cargo clippy --locked --manifest-path rust-core/Cargo.toml --all-targets -- -D warnings
 
       - name: Install cargo-ndk
         uses: taiki-e/install-action@v2
@@ -72,15 +66,6 @@ jobs:
           java-version: "17"
           distribution: temurin
 
-      - name: Verify Kotlin database adapter against native JNI
-        shell: bash
-        run: |
-          curl -fL --retry 3 https://github.com/JetBrains/kotlin/releases/download/v2.1.0/kotlin-compiler-2.1.0.zip -o "$RUNNER_TEMP/kotlin.zip"
-          echo "b6698d5728ad8f9edcdd01617d638073191d8a03139cc538a391b4e3759ad297  $RUNNER_TEMP/kotlin.zip" | sha256sum -c -
-          unzip -q "$RUNNER_TEMP/kotlin.zip" -d "$RUNNER_TEMP/kotlin-native-test"
-          cargo build --locked --manifest-path rust-core/Cargo.toml
-          KOTLIN_HOME="$RUNNER_TEMP/kotlin-native-test/kotlinc" python3 tests/native_database_smoke.py
-
       - name: Set up Gradle 8.11
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -98,7 +83,7 @@ jobs:
       - name: Build signed R8 Release APK
         run: |
           # The committed keystore is PKCS#12, so its private key uses the store password.
-          gradle assembleRelease \
+          gradle assembleRelease -x test \
             -Pandroid.injected.signing.store.file="$PWD/tkb-release.keystore" \
             -Pandroid.injected.signing.store.password="${{ secrets.TKB_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias=tkb \

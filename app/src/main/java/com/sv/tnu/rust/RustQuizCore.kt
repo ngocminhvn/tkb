@@ -31,6 +31,14 @@ object RustQuizCore {
         wrongOnly: Boolean,
     ): ByteArray
 
+    private external fun preparePracticeSessionNative(
+        dbPath: String,
+        deckId: Long,
+        wrongOnly: Boolean,
+        shuffleQuestions: Boolean,
+        shuffleOptions: Boolean,
+    ): ByteArray
+
     private external fun saveDeckNative(
         dbPath: String,
         title: String,
@@ -58,6 +66,15 @@ object RustQuizCore {
 
     fun loadQuestions(dbPath: String, deckId: Long, wrongOnly: Boolean): ByteArray =
         loadQuestionsNative(dbPath, deckId, wrongOnly)
+
+    fun preparePracticeSession(
+        dbPath: String,
+        deckId: Long,
+        wrongOnly: Boolean,
+        shuffleQuestions: Boolean,
+        shuffleOptions: Boolean,
+    ): List<QuizQuestion> =
+        decodeQuestions(preparePracticeSessionNative(dbPath, deckId, wrongOnly, shuffleQuestions, shuffleOptions))
 
     fun saveDeck(dbPath: String, title: String, questionsBytes: ByteArray): Long =
         saveDeckNative(dbPath, title, questionsBytes)
@@ -134,6 +151,16 @@ object RustQuizCore {
                 0 -> false
                 else -> null
             }
+            val originalIndices = try {
+                val origCount = reader.int()
+                if (origCount > 0) {
+                    val list = ArrayList<Int>(origCount)
+                    for (k in 0 until origCount) list.add(reader.int())
+                    list
+                } else null
+            } catch (_: Exception) {
+                null
+            }
             questions.add(
                 QuizQuestion(
                     prompt = prompt,
@@ -142,6 +169,7 @@ object RustQuizCore {
                     id = id,
                     selected = selected,
                     wasCorrect = wasCorrect,
+                    originalIndices = originalIndices,
                 ),
             )
         }

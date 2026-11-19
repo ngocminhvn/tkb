@@ -24,6 +24,7 @@ pub struct QuizQuestionRecord {
     pub correct: Vec<usize>,
     pub selected: Option<Vec<usize>>,
     pub was_correct: Option<bool>,
+    pub original_indices: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -901,6 +902,14 @@ pub fn encode_quiz_questions_wire(
             None => -1i8,
         };
         out.push(was_correct_byte as u8);
+        if let Some(orig) = &q.original_indices {
+            binary_count(&mut out, orig.len())?;
+            for &idx in orig {
+                binary_i32(&mut out, idx as i32);
+            }
+        } else {
+            binary_i32(&mut out, -1);
+        }
     }
     Ok(out)
 }
@@ -1000,6 +1009,14 @@ pub fn decode_quiz_questions_wire(bytes: &[u8]) -> Result<Vec<QuizQuestion>, Str
         }
         if offset < bytes.len() {
             offset += 1; // was_correct byte
+        }
+        if offset < bytes.len() {
+            let orig_count = read_wire_i32(bytes, &mut offset)?;
+            if orig_count > 0 {
+                for _ in 0..orig_count {
+                    let _ = read_wire_i32(bytes, &mut offset)?;
+                }
+            }
         }
         questions.push(QuizQuestion {
             prompt,
@@ -1152,6 +1169,7 @@ impl QuizDatabase {
                 correct,
                 selected,
                 was_correct,
+                original_indices: None,
             });
         }
         Ok(questions)
@@ -1246,9 +1264,75 @@ pub fn import_quiz_wire(
             correct: q.correct,
             selected: None,
             was_correct: None,
+            original_indices: None,
         })
         .collect();
     encode_quiz_questions_wire(&notice, &records)
+}
+
+struct QuizPrng(u64);
+impl QuizPrng {
+    fn new(seed: u64) -> Self {
+        Self(if seed == 0 { 0x853c49e6748fea9b } else { seed })
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0
+    }
+    fn shuffle<T>(&mut self, slice: &mut [T]) {
+        for i in (1..slice.len()).rev() {
+            let j = (self.next_u64() % (i as u64 + 1)) as usize;
+            slice.swap(i, j);
+        }
+    }
+}
+
+pub fn prepare_practice_session(
+    db_path: &str,
+    deck_id: i64,
+    wrong_only: bool,
+    shuffle_questions: bool,
+    shuffle_options: bool,
+    seed: u64,
+) -> Result<Vec<u8>, String> {
+    let db = QuizDatabase::open(db_path).map_err(|e| e.to_string())?;
+    let mut questions = db.load_questions(deck_id, wrong_only).map_err(|e| e.to_string())?;
+    if questions.is_empty() {
+        return Err("Không có câu hỏi hợp lệ trong bộ đề".into());
+    }
+    let mut rng = QuizPrng::new(if seed == 0 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0x42)
+    } else {
+        seed
+    });
+    if shuffle_questions {
+        rng.shuffle(&mut questions);
+    }
+    if shuffle_options {
+        for q in &mut questions {
+            if q.options.len() > 1 {
+                let mut indices: Vec<usize> = (0..q.options.len()).collect();
+                rng.shuffle(&mut indices);
+                let new_options = indices.iter().map(|&i| q.options[i].clone()).collect();
+                let new_correct = indices.iter().enumerate().filter_map(|(new_idx, &old_idx)| {
+                    if q.correct.contains(&old_idx) { Some(new_idx) } else { None }
+                }).collect();
+                let new_selected = q.selected.as_ref().map(|sel| {
+                    indices.iter().enumerate().filter_map(|(new_idx, &old_idx)| {
+                        if sel.contains(&old_idx) { Some(new_idx) } else { None }
+                    }).collect()
+                });
+                q.options = new_options;
+                q.correct = new_correct;
+                q.selected = new_selected;
+                q.original_indices = Some(indices);
+            }
+        }
+    }
+    encode_quiz_questions_wire("", &questions)
 }
 
 pub fn list_decks_wire(db_path: &str) -> Result<Vec<u8>, String> {

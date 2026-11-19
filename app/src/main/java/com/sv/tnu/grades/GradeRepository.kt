@@ -45,23 +45,10 @@ class GradeRepository(
         val file = cacheFile()
         if (!file.exists()) return@withContext null
         try {
-            val bytes = file.readBytes()
-            val parsed = if (bytes.size >= 5 &&
-                bytes[0] == 'T'.code.toByte() &&
-                bytes[1] == 'K'.code.toByte() &&
-                bytes[2] == 'B'.code.toByte() &&
-                bytes[3] == '1'.code.toByte() &&
-                bytes[4] == 'G'.code.toByte()
-            ) {
-                RustGradeCore.decodeGrades(bytes)
-            } else {
-                val content = String(bytes, Charsets.UTF_8)
-                GradeParser.fromJson(content)
-            }
-            if (parsed != null) {
-                memoryCache = parsed
-                memoryCacheUser = user
-            }
+            val bytes = RustGradeCore.loadCachedGrades(file.absolutePath) ?: return@withContext null
+            val parsed = RustGradeCore.decodeGrades(bytes)
+            memoryCache = parsed
+            memoryCacheUser = user
             parsed
         } catch (_: Exception) {
             null
@@ -87,26 +74,13 @@ class GradeRepository(
             val now = System.currentTimeMillis()
             val user = studentId.ifBlank { "default" }
 
-            // Parse and encode using pure Rust TKB1G wire format with resilient fallback
-            val transcript = try {
-                val wireBytes = RustGradeCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
-                val parsed = RustGradeCore.decodeGrades(wireBytes)
-                try {
-                    val file = cacheFile()
-                    file.writeBytes(wireBytes)
-                } catch (_: Exception) {}
-                parsed
-            } catch (_: Throwable) {
-                val rawJson = String(rawBytes, Charsets.UTF_8)
-                val symJson = if (symbolBytes.isNotEmpty()) String(symbolBytes, Charsets.UTF_8) else ""
-                val symbols = if (symJson.isNotBlank()) GradeParser.parseSymbols(symJson) else emptyMap()
-                val parsed = GradeParser.parseTranscript(rawJson, studentId, studentName, symbols)
-                try {
-                    val file = cacheFile()
-                    file.writeText(GradeParser.toJson(parsed), Charsets.UTF_8)
-                } catch (_: Exception) {}
-                parsed
-            }
+            // Parse and encode using pure Rust TKB1G wire format
+            val wireBytes = RustGradeCore.mapGradesBytes(studentId, studentName, rawBytes, symbolBytes, now)
+            val transcript = RustGradeCore.decodeGrades(wireBytes)
+            try {
+                val file = cacheFile()
+                RustGradeCore.saveCachedGrades(file.absolutePath, wireBytes)
+            } catch (_: Exception) {}
 
             memoryCache = transcript
             memoryCacheUser = user

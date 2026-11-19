@@ -6,9 +6,10 @@ pub mod quiz;
 pub mod pdf_extract;
 pub mod autosync;
 pub mod database;
+pub mod reminder;
 pub mod timeline;
 mod update;
-mod widget;
+pub mod widget;
 
 /// Fast check for already-normalized ISO date strings (`YYYY-MM-DD`).
 #[inline]

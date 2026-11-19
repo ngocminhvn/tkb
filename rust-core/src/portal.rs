@@ -548,6 +548,63 @@ pub fn map_avatar_wire(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+pub fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut table = [255u8; 256];
+    for (i, &b) in b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".iter().enumerate() {
+        table[b as usize] = i as u8;
+    }
+    let input = input.trim();
+    let clean: Vec<u8> = input.bytes().filter(|&b| b != b'=' && b != b'\r' && b != b'\n' && b != b' ').collect();
+    let mut out = Vec::with_capacity((clean.len() * 3) / 4);
+    for chunk in clean.chunks(4) {
+        let b0 = table[chunk[0] as usize];
+        if b0 == 255 { return None; }
+        let b1 = if chunk.len() > 1 { table[chunk[1] as usize] } else { 0 };
+        if b1 == 255 { return None; }
+        out.push((b0 << 2) | (b1 >> 4));
+        if chunk.len() > 2 {
+            let b2 = table[chunk[2] as usize];
+            if b2 == 255 { return None; }
+            out.push(((b1 & 0x0f) << 4) | (b2 >> 2));
+            if chunk.len() > 3 {
+                let b3 = table[chunk[3] as usize];
+                if b3 == 255 { return None; }
+                out.push(((b2 & 0x03) << 6) | b3);
+            }
+        }
+    }
+    Some(out)
+}
+
+pub fn save_portal_avatar(response_bytes: &[u8], target_file_path: &str) -> Result<(String, bool), String> {
+    if response_bytes.len() > MAX_WIRE_PAYLOAD {
+        return Err("TNUT avatar payload exceeds the 8 MiB limit".into());
+    }
+    let response: AvatarResponse = serde_json::from_slice(response_bytes)
+        .map_err(|error| format!("Invalid TNUT avatar response: {error}"))?;
+    let mut name = String::new();
+    let mut image = None;
+    if let Some(profile) = response.data.and_then(|data| data.thong_tin_sinh_vien) {
+        name = [profile.ho_ten, profile.ten_sinh_vien, profile.ten_sv]
+            .into_iter()
+            .flatten()
+            .find(|n| !n.trim().is_empty())
+            .map(|n| n.trim().to_owned())
+            .unwrap_or_default();
+        image = profile.image.filter(|img| !img.trim().is_empty());
+    }
+    let mut saved = false;
+    if let Some(image) = image {
+        let base64 = image.split_once(',').map_or(image.as_str(), |(_, body)| body);
+        if let Some(decoded) = decode_base64(base64) {
+            if std::fs::write(target_file_path, &decoded).is_ok() {
+                saved = true;
+            }
+        }
+    }
+    Ok((name, saved))
+}
+
 /// Fast native inspection of a peeked HTTP 200 portal body to detect logical 401
 /// or `"notallowed"` responses without allocating regexes on the JVM.
 pub fn is_logical_unauthorized(bytes: &[u8]) -> bool {

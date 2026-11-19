@@ -190,35 +190,12 @@ fun QuizScreen(
             busy = true
             error = null
             try {
-                val found = withContext(Dispatchers.IO) { storage.loadQuestions(deck.id, wrongOnly) }
-                if (found.isEmpty()) {
+                val finalQuestions = withContext(Dispatchers.IO) {
+                    storage.preparePracticeSession(deck.id, wrongOnly, shuffle, shuffleOpts)
+                }
+                if (finalQuestions.isEmpty()) {
                     error = if (wrongOnly) "Chưa có câu trả lời sai để ôn lại." else "Bộ đề chưa có câu hỏi."
                 } else {
-                    var finalQuestions = if (shuffle) found.shuffled() else found
-                    if (shuffleOpts) {
-                        finalQuestions = finalQuestions.map { q ->
-                            if (q.options.size > 1) {
-                                val indices = q.options.indices.shuffled()
-                                val newOptions = indices.map { q.options[it] }
-                                val newCorrect = indices.mapIndexedNotNull { newIdx, oldIdx ->
-                                    if (q.correct.contains(oldIdx)) newIdx else null
-                                }.toSet()
-                                val newSelected = q.selected?.let { sel ->
-                                    indices.mapIndexedNotNull { newIdx, oldIdx ->
-                                        if (sel.contains(oldIdx)) newIdx else null
-                                    }.toSet()
-                                }
-                                q.copy(
-                                    options = newOptions,
-                                    correct = newCorrect,
-                                    selected = newSelected,
-                                    originalIndices = indices,
-                                )
-                            } else {
-                                q
-                            }
-                        }
-                    }
                     questions = finalQuestions
                     currentIndex = 0
                     selected = finalQuestions[0].selected ?: emptySet()

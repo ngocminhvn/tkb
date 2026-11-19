@@ -345,4 +345,26 @@ pub fn parse_and_pack_grades(
     Ok(out)
 }
 
+pub fn save_cached_grades(file_path: &str, wire_bytes: &[u8]) -> Result<(), String> {
+    if wire_bytes.len() < 5 || &wire_bytes[0..5] != b"TKB1G" {
+        return Err("Invalid TKB1G payload".to_string());
+    }
+    let temp_path = format!("{file_path}.tmp");
+    std::fs::write(&temp_path, wire_bytes).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp_path, file_path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn load_cached_grades(file_path: &str) -> Result<Vec<u8>, String> {
+    let bytes = std::fs::read(file_path).map_err(|e| e.to_string())?;
+    if bytes.len() >= 5 && &bytes[0..5] == b"TKB1G" {
+        return Ok(bytes);
+    }
+    let json_val: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let student_id = json_val.get("studentId").and_then(|v| v.as_str()).unwrap_or("");
+    let student_name = json_val.get("studentName").and_then(|v| v.as_str()).unwrap_or("");
+    let updated_at = json_val.get("updatedAt").and_then(|v| v.as_i64()).unwrap_or(0);
+    parse_and_pack_grades(student_id, student_name, &bytes, &[], updated_at)
+}
+
 

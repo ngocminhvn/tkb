@@ -14,7 +14,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.sv.tnu.MainActivity
-import com.sv.tnu.data.AppDatabase
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
@@ -105,29 +104,19 @@ object ScheduleReminders {
 
         val isTomorrow = kind == ACTION_TOMORROW
         val todayYmd = RustScheduleCore.localTodayYmd()
-        val target = if (isTomorrow) {
-            RustScheduleCore.addCalendarDays(todayYmd, 1) ?: todayYmd
-        } else {
-            todayYmd
-        }
-        val displayDate = RustScheduleCore.formatDmy(target)
-        val dao = AppDatabase.get(context).tkbDao()
-        // Never synthesize a semester: only notify for one the portal stored.
         val semester = store.hocKy.takeIf { it != 0 } ?: return
-        val lessons = dao.reminderLessonsOn(semester, target)
-        val exams = dao.reminderExamsOn(semester, target)
-        val periods = dao.periodsOnce()
-        val contents = buildList {
-            lessons.forEach { lesson ->
-                val hour = periods.firstOrNull { it.tiet == lesson.tietBatDau }?.gioBatDau
-                    ?: "Tiết ${lesson.tietBatDau}"
-                add(hour to "${lesson.tenMon} • ${lesson.maPhong}")
-            }
-            exams.forEach { exam ->
-                add(exam.gioBatDau to "THI: ${exam.tenMon} • ${exam.maPhong}")
-            }
-        }
-        val (summary, message) = RustScheduleCore.reminderMessage(contents)
+        val dbPath = context.applicationContext.getDatabasePath("tkb.db").absolutePath
+
+        val reminder = RustScheduleCore.buildReminderNotification(
+            dbPath = dbPath,
+            semester = semester,
+            isTomorrow = isTomorrow,
+            todayYmd = todayYmd,
+        ) ?: return
+
+        val title = reminder.title
+        val summary = reminder.summary
+        val message = reminder.message
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -147,8 +136,6 @@ object ScheduleReminders {
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = if (isTomorrow) "Lịch ngày mai • $displayDate"
-            else "Lịch hôm nay • $displayDate"
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)

@@ -31,6 +31,7 @@ object RustPortalCore {
     ): ByteArray
     private external fun mapLoginNative(payload: ByteArray): ByteArray
     private external fun mapAvatarNative(payload: ByteArray): ByteArray
+    private external fun saveAvatarNative(payload: ByteArray, targetPath: String): ByteArray
     private external fun timetableRequestNative(semester: Int): ByteArray
     private external fun examRequestNative(semester: Int, midterm: Boolean, page: Int): ByteArray
     private external fun uniqueExamIndicesNative(keys: Array<String>): IntArray
@@ -81,6 +82,9 @@ object RustPortalCore {
 
     fun mapAvatar(rawResponse: ByteArray): PortalBinaryDecoder.Avatar =
         PortalBinaryDecoder.decodeAvatar(mapAvatarNative(rawResponse))
+
+    fun saveAvatar(rawResponse: ByteArray, targetPath: String): PortalBinaryDecoder.SavedAvatar =
+        PortalBinaryDecoder.decodeSavedAvatar(saveAvatarNative(rawResponse, targetPath))
 
     fun timetableRequest(semester: Int): ByteArray = timetableRequestNative(semester)
 
@@ -385,6 +389,16 @@ object PortalBinaryDecoder {
         val base64 = reader.optionalString()
         reader.finish()
         return Avatar(name, base64)
+    }
+
+    data class SavedAvatar(val name: String, val saved: Boolean)
+
+    fun decodeSavedAvatar(bytes: ByteArray): SavedAvatar {
+        val reader = Reader(bytes, 'A'.code.toByte())
+        val name = reader.string()
+        val saved = reader.byte() == 1.toByte()
+        reader.finish()
+        return SavedAvatar(name, saved)
     }
 
     fun decodeReleaseUpdate(bytes: ByteArray): ReleaseUpdate {

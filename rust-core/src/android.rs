@@ -269,6 +269,36 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_loadQuestionsNative(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_preparePracticeSessionNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    deck_id: jlong,
+    wrong_only: jboolean,
+    shuffle_questions: jboolean,
+    shuffle_options: jboolean,
+) -> jbyteArray {
+    let path = from_java(&mut env, &db_path);
+    match crate::quiz::prepare_practice_session(
+        &path,
+        deck_id,
+        wrong_only != 0,
+        shuffle_questions != 0,
+        shuffle_options != 0,
+        0,
+    ) {
+        Ok(wire_bytes) => env
+            .byte_array_from_slice(&wire_bytes)
+            .map(JByteArray::into_raw)
+            .unwrap_or(std::ptr::null_mut()),
+        Err(msg) => {
+            let _ = env.throw_new("java/io/IOException", msg);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_saveDeckNative(
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -430,6 +460,31 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustGradeCore_mapGradesBytesNative(
         &mut env,
         crate::grades::parse_and_pack_grades(&student_id, &student_name, &grades_bytes, &symbols_bytes, updated_at),
     )
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustGradeCore_saveCachedGradesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    path: JString<'_>,
+    wire_bytes: JByteArray<'_>,
+) -> jni::sys::jboolean {
+    let file_path = from_java(&mut env, &path);
+    let bytes = match env.convert_byte_array(&wire_bytes) {
+        Ok(b) => b,
+        Err(_) => return 0,
+    };
+    u8::from(crate::grades::save_cached_grades(&file_path, &bytes).is_ok())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustGradeCore_loadCachedGradesNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    path: JString<'_>,
+) -> jbyteArray {
+    let file_path = from_java(&mut env, &path);
+    into_byte_array(&mut env, crate::grades::load_cached_grades(&file_path))
 }
 
 #[no_mangle]
@@ -879,6 +934,31 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_mapAvatarNative(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_saveAvatarNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    source: JByteArray<'_>,
+    target_path: JString<'_>,
+) -> jbyteArray {
+    let Ok(bytes) = env.convert_byte_array(&source) else {
+        return std::ptr::null_mut();
+    };
+    let path = from_java(&mut env, &target_path);
+    match crate::portal::save_portal_avatar(&bytes, &path) {
+        Ok((name, saved)) => {
+            let mut out = crate::portal::binary_header(b'A');
+            let _ = crate::portal::binary_str(&mut out, &name);
+            out.push(u8::from(saved));
+            into_byte_array(&mut env, Ok(out))
+        }
+        Err(e) => {
+            let _ = env.throw_new("java/io/IOException", e);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_reminderMessageNative(
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -1192,4 +1272,58 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_shouldRecoverEmptyT
     u8::from(crate::autosync::should_recover_empty_timetable(
         has_cache != 0, last_attempt, last_success, already_attempted != 0,
     ))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_loadWidgetScheduleNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    today_ymd: JString<'_>,
+    has_stored_offset: jboolean,
+    stored_offset: jint,
+    is_square: jboolean,
+    now_minutes: jint,
+) -> jbyteArray {
+    let db_path = from_java(&mut env, &db_path);
+    let today_ymd = from_java(&mut env, &today_ymd);
+    let offset_opt = if has_stored_offset != 0 {
+        Some(stored_offset)
+    } else {
+        None
+    };
+    into_byte_array(
+        &mut env,
+        crate::widget::build_widget_schedule(
+            &db_path,
+            &today_ymd,
+            offset_opt,
+            is_square != 0,
+            now_minutes,
+        )
+        .map(|res| crate::widget::encode_widget_schedule_wire(&res)),
+    )
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_buildReminderNotificationNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    semester: jint,
+    is_tomorrow: jboolean,
+    today_ymd: JString<'_>,
+) -> jbyteArray {
+    let db_path = from_java(&mut env, &db_path);
+    let today_ymd = from_java(&mut env, &today_ymd);
+    into_byte_array(
+        &mut env,
+        crate::reminder::build_reminder_notification(
+            &db_path,
+            semester,
+            is_tomorrow != 0,
+            &today_ymd,
+        )
+        .map(|res| crate::reminder::encode_reminder_wire(&res)),
+    )
 }

@@ -321,4 +321,121 @@ object RustScheduleCore {
             justSyncedWeeksNotEmpty,
             justSyncedLessonsNotEmpty,
         )
+
+    private external fun loadWidgetScheduleNative(
+        dbPath: String,
+        todayYmd: String,
+        hasStoredOffset: Boolean,
+        storedOffset: Int,
+        isSquare: Boolean,
+        nowMinutes: Int,
+    ): ByteArray?
+
+    private external fun buildReminderNotificationNative(
+        dbPath: String,
+        semester: Int,
+        isTomorrow: Boolean,
+        todayYmd: String,
+    ): ByteArray?
+
+    fun loadWidgetSchedule(
+        dbPath: String,
+        todayYmd: String,
+        storedOffset: Int?,
+        isSquare: Boolean,
+        nowMinutes: Int,
+    ): WidgetScheduleWire? {
+        val bytes = loadWidgetScheduleNative(
+            dbPath = dbPath,
+            todayYmd = todayYmd,
+            hasStoredOffset = storedOffset != null,
+            storedOffset = storedOffset ?: 0,
+            isSquare = isSquare,
+            nowMinutes = nowMinutes,
+        ) ?: return null
+        if (bytes.size < 15 || bytes[0] != 'T'.code.toByte() || bytes[1] != 'K'.code.toByte() ||
+            bytes[2] != 'B'.code.toByte() || bytes[3] != '1'.code.toByte() || bytes[4] != 'W'.code.toByte()
+        ) {
+            return null
+        }
+        val buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.BIG_ENDIAN)
+        buffer.position(5)
+        val offset = buffer.int
+        val titleLen = buffer.short.toInt() and 0xFFFF
+        val titleBytes = ByteArray(titleLen)
+        buffer.get(titleBytes)
+        val title = String(titleBytes, Charsets.UTF_8)
+        val count = buffer.int
+        val items = ArrayList<WidgetItemWire>(count)
+        for (i in 0 until count) {
+            val isExam = buffer.get() != 0.toByte()
+            val tLen = buffer.short.toInt() and 0xFFFF
+            val tBytes = ByteArray(tLen)
+            buffer.get(tBytes)
+            val itemTitle = String(tBytes, Charsets.UTF_8)
+
+            val timeLen = buffer.short.toInt() and 0xFFFF
+            val timeBytes = ByteArray(timeLen)
+            buffer.get(timeBytes)
+            val time = String(timeBytes, Charsets.UTF_8)
+
+            items.add(WidgetItemWire(itemTitle, time, isExam))
+        }
+        return WidgetScheduleWire(title, offset, items)
+    }
+
+    fun buildReminderNotification(
+        dbPath: String,
+        semester: Int,
+        isTomorrow: Boolean,
+        todayYmd: String,
+    ): ReminderNotificationWire? {
+        val bytes = buildReminderNotificationNative(
+            dbPath = dbPath,
+            semester = semester,
+            isTomorrow = isTomorrow,
+            todayYmd = todayYmd,
+        ) ?: return null
+        if (bytes.size < 11 || bytes[0] != 'T'.code.toByte() || bytes[1] != 'K'.code.toByte() ||
+            bytes[2] != 'B'.code.toByte() || bytes[3] != '1'.code.toByte() || bytes[4] != 'R'.code.toByte()
+        ) {
+            return null
+        }
+        val buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.BIG_ENDIAN)
+        buffer.position(5)
+        val titleLen = buffer.short.toInt() and 0xFFFF
+        val titleBytes = ByteArray(titleLen)
+        buffer.get(titleBytes)
+        val title = String(titleBytes, Charsets.UTF_8)
+
+        val summaryLen = buffer.short.toInt() and 0xFFFF
+        val summaryBytes = ByteArray(summaryLen)
+        buffer.get(summaryBytes)
+        val summary = String(summaryBytes, Charsets.UTF_8)
+
+        val messageLen = buffer.short.toInt() and 0xFFFF
+        val messageBytes = ByteArray(messageLen)
+        buffer.get(messageBytes)
+        val message = String(messageBytes, Charsets.UTF_8)
+
+        return ReminderNotificationWire(title, summary, message)
+    }
 }
+
+data class WidgetItemWire(
+    val title: String,
+    val time: String,
+    val isExam: Boolean,
+)
+
+data class WidgetScheduleWire(
+    val title: String,
+    val offset: Int,
+    val items: List<WidgetItemWire>,
+)
+
+data class ReminderNotificationWire(
+    val title: String,
+    val summary: String,
+    val message: String,
+)

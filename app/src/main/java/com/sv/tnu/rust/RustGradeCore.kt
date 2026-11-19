@@ -22,6 +22,15 @@ object RustGradeCore {
         updatedAt: Long,
     ): ByteArray
 
+    private external fun saveCachedGradesNative(path: String, wireBytes: ByteArray): Boolean
+    private external fun loadCachedGradesNative(path: String): ByteArray?
+
+    fun saveCachedGrades(path: String, wireBytes: ByteArray): Boolean =
+        saveCachedGradesNative(path, wireBytes)
+
+    fun loadCachedGrades(path: String): ByteArray? =
+        loadCachedGradesNative(path)
+
     fun mapGradesBytes(
         studentId: String,
         studentName: String,
