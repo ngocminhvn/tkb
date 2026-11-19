@@ -475,7 +475,7 @@ fun QuizScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (busy) {
+                        if (decks.isEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
@@ -487,56 +487,47 @@ fun QuizScreen(
                                     if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
                                 ),
                             ) {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().height(150.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(42.dp),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        strokeWidth = 4.dp,
-                                    )
-                                }
-                            }
-                        } else if (decks.isEmpty()) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
-                                ),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
-                                ),
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Icon(
-                                        Icons.Default.MenuBook,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
-                                        modifier = Modifier.size(36.dp),
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "Chưa có bộ đề nào",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        "Nhấn nút Import đề ở trên để bắt đầu ôn tập.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                if (busy) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(42.dp),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            strokeWidth = 4.dp,
+                                        )
+                                    }
+                                } else {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.MenuBook,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                                            modifier = Modifier.size(36.dp),
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "Chưa có bộ đề nào",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            "Nhấn nút Import đề ở trên để bắt đầu ôn tập.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 decks.forEach { deck ->
                                     val isSelected = deck.id == selectedDeckId
                                     Card(
@@ -625,6 +616,23 @@ fun QuizScreen(
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                                if (busy) {
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(42.dp),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            strokeWidth = 4.dp,
+                                        )
                                     }
                                 }
                             }
