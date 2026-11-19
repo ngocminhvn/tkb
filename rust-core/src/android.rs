@@ -13,6 +13,12 @@ fn into_java(env: &mut JNIEnv<'_>, value: String) -> jstring {
         .unwrap_or(std::ptr::null_mut())
 }
 
+fn read_ints(env: &JNIEnv<'_>, input: JIntArray<'_>) -> jni::errors::Result<Vec<i32>> {
+    let mut values = vec![0; env.get_array_length(&input)? as usize];
+    env.get_int_array_region(&input, 0, &mut values)?;
+    Ok(values)
+}
+
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustScheduleCore_normalizeDateNative(
     mut env: JNIEnv<'_>,
@@ -196,6 +202,132 @@ pub extern "system" fn Java_com_sv_tnu_rust_RustPortalCore_normalizeUsernameNati
     into_java(&mut env, crate::portal::normalize_username(&source))
 }
 
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_importQuizNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    file_bytes: JByteArray<'_>,
+    file_ext: JString<'_>,
+    default_title: JString<'_>,
+) -> jbyteArray {
+    let Ok(bytes) = env.convert_byte_array(&file_bytes) else {
+        return std::ptr::null_mut();
+    };
+    let ext = from_java(&mut env, &file_ext);
+    let title = from_java(&mut env, &default_title);
+    match crate::quiz::import_quiz_wire(&bytes, &ext, &title) {
+        Ok(wire_bytes) => env
+            .byte_array_from_slice(&wire_bytes)
+            .map(JByteArray::into_raw)
+            .unwrap_or(std::ptr::null_mut()),
+        Err(msg) => {
+            let _ = env.throw_new("java/lang/IllegalArgumentException", msg);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_listDecksNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+) -> jbyteArray {
+    let path = from_java(&mut env, &db_path);
+    match crate::quiz::list_decks_wire(&path) {
+        Ok(wire_bytes) => env
+            .byte_array_from_slice(&wire_bytes)
+            .map(JByteArray::into_raw)
+            .unwrap_or(std::ptr::null_mut()),
+        Err(msg) => {
+            let _ = env.throw_new("java/io/IOException", msg);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_loadQuestionsNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    deck_id: jlong,
+    wrong_only: jboolean,
+) -> jbyteArray {
+    let path = from_java(&mut env, &db_path);
+    match crate::quiz::load_questions_wire(&path, deck_id, wrong_only != 0) {
+        Ok(wire_bytes) => env
+            .byte_array_from_slice(&wire_bytes)
+            .map(JByteArray::into_raw)
+            .unwrap_or(std::ptr::null_mut()),
+        Err(msg) => {
+            let _ = env.throw_new("java/io/IOException", msg);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_saveDeckNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    title: JString<'_>,
+    questions_bytes: JByteArray<'_>,
+) -> jlong {
+    let path = from_java(&mut env, &db_path);
+    let title = from_java(&mut env, &title);
+    let Ok(bytes) = env.convert_byte_array(&questions_bytes) else {
+        return 0;
+    };
+    match crate::quiz::save_deck_wire(&path, &title, &bytes) {
+        Ok(deck_id) => deck_id,
+        Err(msg) => {
+            let _ = env.throw_new("java/io/IOException", msg);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_saveAnswerNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    question_id: jlong,
+    selected: JIntArray<'_>,
+) -> jboolean {
+    let path = from_java(&mut env, &db_path);
+    let Ok(sel) = read_ints(&env, selected) else {
+        return 0;
+    };
+    let sel_usize: Vec<usize> = sel
+        .into_iter()
+        .filter(|&x| x >= 0)
+        .map(|x| x as usize)
+        .collect();
+    match crate::quiz::save_answer_wire(&path, question_id, &sel_usize) {
+        Ok(is_correct) => u8::from(is_correct),
+        Err(msg) => {
+            let _ = env.throw_new("java/io/IOException", msg);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_deleteDeckNative(
+    mut env: JNIEnv<'_>,
+    _this: JObject<'_>,
+    db_path: JString<'_>,
+    deck_id: jlong,
+) {
+    let path = from_java(&mut env, &db_path);
+    if let Err(msg) = crate::quiz::delete_deck_wire(&path, deck_id) {
+        let _ = env.throw_new("java/io/IOException", msg);
+    }
+}
 
 #[no_mangle]
 pub extern "system" fn Java_com_sv_tnu_rust_RustQuizCore_parseLinesNative(
@@ -818,12 +950,6 @@ fn int_array<'local>(env: &JNIEnv<'local>, values: &[i32]) -> jni::errors::Resul
     let output = env.new_int_array(values.len() as jint)?;
     env.set_int_array_region(&output, 0, values)?;
     Ok(output)
-}
-
-fn read_ints(env: &JNIEnv<'_>, input: JIntArray<'_>) -> jni::errors::Result<Vec<i32>> {
-    let mut values = vec![0; env.get_array_length(&input)? as usize];
-    env.get_int_array_region(&input, 0, &mut values)?;
-    Ok(values)
 }
 
 #[no_mangle]

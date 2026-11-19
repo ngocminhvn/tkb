@@ -11,13 +11,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.Locale
-import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
 
 data class QuizImportResult(
     val title: String,
@@ -25,12 +20,9 @@ data class QuizImportResult(
     val notice: String,
 )
 
-private data class TextLine(val text: String, val red: Boolean = false)
-
 /** Imports one file on an IO dispatcher. File access is via Android's picker; no storage permission. */
 object QuizImporter {
     private const val MAX_BYTES = 30 * 1024 * 1024
-    private const val MAX_DOC_XML = 20 * 1024 * 1024
 
     suspend fun import(context: Context, uri: Uri): QuizImportResult = withContext(Dispatchers.IO) {
         val name = context.contentResolver.query(
@@ -44,56 +36,25 @@ object QuizImporter {
         }
         val bytes = context.contentResolver.openInputStream(uri)?.use { readBounded(it, MAX_BYTES) }
             ?: error("Không thể mở tệp")
-        val parsed = when (ext) {
-            "json" -> RustQuizCore.parseJson(String(bytes, Charsets.UTF_8).removePrefix("\uFEFF"))
-            "docx" -> RustQuizCore.parseLines(encodeLines(readDocx(bytes)))
-            "pdf" -> {
-                PDFBoxResourceLoader.init(context.applicationContext)
-                val plain = PDDocument.load(ByteArrayInputStream(bytes)).use { doc ->
-                    require(!doc.isEncrypted) { "PDF có mật khẩu nên không thể đọc" }
-                    PDFTextStripper().getText(doc)
-                }
-                require(plain.isNotBlank()) {
-                    "PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ."
-                }
-                RustQuizCore.parseLines(encodeLines(plain.lines().map(::TextLine)))
-            }
-            else -> RustQuizCore.parseLines(
-                encodeLines(String(bytes, Charsets.UTF_8).removePrefix("\uFEFF").lines().map(::TextLine)),
-            )
-        }
-        val array = JSONArray(parsed)
-        val questions = (0 until array.length()).map { i ->
-            val item = array.getJSONObject(i)
-            val options = item.getJSONArray("options")
-            val correct = item.getJSONArray("correct")
-            QuizQuestion(
-                prompt = item.getString("prompt"),
-                options = (0 until options.length()).map(options::getString),
-                correct = (0 until correct.length()).map(correct::getInt).toSet(),
-            )
-        }
-        require(questions.isNotEmpty()) {
-            "Không tìm thấy câu hỏi hợp lệ. Kiểm tra định dạng 'Câu 1:', 'A.', 'B.' và nội dung tệp."
-        }
-        val missing = questions.count { it.correct.isEmpty() }
-        val multiple = questions.count { it.correct.size > 1 }
-        val note = buildString {
-            append("Đã nhận ")
-            append(questions.size)
-            append(" câu. ")
-            if (missing > 0) append("$missing câu chưa có đáp án, hãy chọn trước khi lưu. ")
-            if (multiple > 0) append("$multiple câu có nhiều đáp án được đánh dấu, nên kiểm tra lại. ")
-            if (ext == "pdf") append("PDF chỉ đọc lớp chữ; chưa tự xác định màu đỏ.")
-        }
-        QuizImportResult(name.substringBeforeLast('.').ifBlank { "Bộ đề mới" }, questions, note.trim())
-    }
 
-    private fun encodeLines(lines: List<TextLine>): String = JSONArray().apply {
-        lines.filter { it.text.isNotBlank() }.take(100_000).forEach { line ->
-            put(JSONObject().put("text", line.text).put("red", line.red))
+        val payload = if (ext == "pdf") {
+            PDFBoxResourceLoader.init(context.applicationContext)
+            val plain = PDDocument.load(ByteArrayInputStream(bytes)).use { doc ->
+                require(!doc.isEncrypted) { "PDF có mật khẩu nên không thể đọc" }
+                PDFTextStripper().getText(doc)
+            }
+            require(plain.isNotBlank()) {
+                "PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ."
+            }
+            plain.toByteArray(Charsets.UTF_8)
+        } else {
+            bytes
         }
-    }.toString()
+
+        val defaultTitle = name.substringBeforeLast('.').ifBlank { "Bộ đề mới" }
+        val wireBytes = RustQuizCore.importQuiz(payload, ext, defaultTitle)
+        RustQuizCore.decodeQuizImportResult(wireBytes, defaultTitle)
+    }
 
     private fun readBounded(input: InputStream, limit: Int): ByteArray {
         val output = ByteArrayOutputStream()
@@ -107,110 +68,5 @@ object QuizImporter {
             output.write(buffer, 0, size)
         }
         return output.toByteArray()
-    }
-
-    private data class ColoredRange(val start: Int, val endExclusive: Int)
-
-    // Word sometimes puts A/B/C/D within a single paragraph with no
-    // whitespace between choices. Split at the labels but attribute red
-    // formatting by the exact text run, never by the entire paragraph.
-    private val inlineOptionLabel = Regex("""[a-dA-D]\.(?=[\s\u00A0]|$)""")
-
-    private fun addDocxParagraph(
-        output: MutableList<TextLine>,
-        original: String,
-        redRuns: List<ColoredRange>,
-        numbered: Boolean,
-    ) {
-        if (original.isBlank()) return
-        val prefix = if (numbered) "a. " else ""
-        val text = prefix + original
-        val cuts = (listOf(0) +
-            inlineOptionLabel.findAll(text).map { it.range.first }.toList() +
-            listOf(text.length)).distinct().sorted()
-        for (i in 0 until cuts.lastIndex) {
-            val start = cuts[i]
-            val end = cuts[i + 1]
-            val content = text.substring(start, end).trim()
-            if (content.isBlank()) continue
-            val isMarkedRed = redRuns.any { range ->
-                range.start + prefix.length < end &&
-                    range.endExclusive + prefix.length > start
-            }
-            output += TextLine(content, isMarkedRed)
-        }
-    }
-
-    private fun readDocx(bytes: ByteArray): List<TextLine> {
-        var document: ByteArray? = null
-        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                if (entry.name == "word/document.xml") {
-                    document = readBounded(zip, MAX_DOC_XML)
-                    break
-                }
-                zip.closeEntry()
-            }
-        }
-        val xml = document ?: error("Không tìm thấy word/document.xml trong DOCX")
-        val factory = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }
-        val parser = factory.newPullParser()
-        parser.setInput(ByteArrayInputStream(xml), "UTF-8")
-        val result = mutableListOf<TextLine>()
-        var paragraph = StringBuilder()
-        val redRuns = mutableListOf<ColoredRange>()
-        var numbered = false
-        var runRed = false
-        var textNode = false
-
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            when (parser.eventType) {
-                XmlPullParser.START_TAG -> when (parser.name) {
-                    "p" -> {
-                        paragraph = StringBuilder()
-                        redRuns.clear()
-                        numbered = false
-                    }
-                    // Word stores some list labels as numbering metadata, not w:t.
-                    // Its two affected A choices have no explicit "a." prefix.
-                    "numPr" -> numbered = true
-                    "r" -> runRed = false
-                    "color" -> {
-                        val hex = (0 until parser.attributeCount)
-                            .firstOrNull { parser.getAttributeName(it) == "val" }
-                            ?.let { parser.getAttributeValue(it) }
-                        if (isRed(hex)) runRed = true
-                    }
-                    "t" -> textNode = true
-                    "tab" -> paragraph.append(' ')
-                    "br" -> paragraph.append('\n')
-                }
-                XmlPullParser.TEXT -> if (textNode) {
-                    val value = parser.text.orEmpty()
-                    val start = paragraph.length
-                    paragraph.append(value)
-                    if (runRed && paragraph.length > start) {
-                        redRuns += ColoredRange(start, paragraph.length)
-                    }
-                }
-                XmlPullParser.END_TAG -> when (parser.name) {
-                    "t" -> textNode = false
-                    "p" -> addDocxParagraph(result, paragraph.toString(), redRuns, numbered)
-                }
-            }
-            parser.next()
-        }
-        return result
-    }
-
-    private fun isRed(value: String?): Boolean {
-        val color = value?.trim()?.trimStart('#') ?: return false
-        if (color.length != 6) return false
-        val code = color.toIntOrNull(16) ?: return false
-        val r = (code shr 16) and 255
-        val g = (code shr 8) and 255
-        val b = code and 255
-        return r >= 130 && r.toDouble() >= g * 1.6 && r.toDouble() >= b * 1.6
     }
 }

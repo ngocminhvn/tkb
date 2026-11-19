@@ -181,15 +181,16 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 ## 7. Ôn tập trắc nghiệm (mô-đun độc lập)
 
 - Tab Thêm `ui/MainScreen.kt` mở màn `ui/QuizScreen.kt`; khi thoát không làm mới/recreate `TimetableViewModel`.
-- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework, không xin quyền đọc toàn bộ storage. Hỗ trợ DOCX/TXT/JSON/PDF text layer; không được hứa nhận PDF scan hay màu đỏ trong PDF.
-- Parser câu hỏi thuần Rust: `rust-core/src/quiz.rs`; `rust/RustQuizCore.kt` và hai entry JNI trong `rust-core/src/android.rs`. Nếu chỉnh JNI phải cập nhật R8 rules.
-- `quiz/QuizStorage.kt` tạo SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không gửi bài lên máy chủ.
+- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework (PDF dùng PDFBox trích xuất text), chuyển toàn bộ bytes cho Rust xử lý DOCX/ZIP/XML, xử lý chữ đỏ, đánh số và phân tích câu hỏi mà không qua JSON trung gian.
+- Parser câu hỏi và SQLite thuần Rust: `rust-core/src/quiz.rs` đảm nhiệm parse DOCX/TXT/JSON/PDF text, giải nén ZIP, lọc chữ đỏ, phân tách lựa chọn, định dạng nhị phân `TKB1Q`/`TKB1D`, và CRUD cơ sở dữ liệu `quiz.db` qua `rusqlite`.
+- JNI bridge: `rust/RustQuizCore.kt` và các entry JNI trong `rust-core/src/android.rs`. Được bảo vệ bởi R8 `-keep class com.sv.tnu.rust.RustQuizCore { *; }`.
+- `quiz/QuizStorage.kt` chuyển toàn bộ thao tác sang Rust, tạo/quản lý SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không mở đồng thời bằng SQLite Android và Rust; không gửi bài lên máy chủ.
 - Sau khi sửa, test Rust `cargo test --locked --manifest-path rust-core/Cargo.toml`, `cargo clippy`, build Release 4 ABI, so sánh APK size với baseline và thử DOCX chữ đỏ/PDF chữ/PDF scan/TXT/JSON trên thiết bị Android.
 
 
 ### Parser DOCX nhiều dòng
 
-- Từ \`quiz/QuizImporter.kt\`, phân tách các đoạn có nhiều lựa chọn \`a.\`–\`d.\` trong cùng một paragraph và gán màu theo **vùng ký tự của từng run**; không đánh dấu đỏ cho cả paragraph có các lựa chọn khác màu.
-- Đối với OOXML \`w:numPr\`, bản nhập hiện tái tạo nhãn \`a.\` cho các đoạn Word dùng automatic numbering thay vì \`w:t\`.
-- Rust \`quiz.rs\` chấp nhận \`a.\` đứng riêng rồi các dòng code, \`a\` đơn lẻ, câu thiếu dấu sau chỉ số, câu \`491.\` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
+- Từ `quiz.rs`, phân tách các đoạn có nhiều lựa chọn `a.`–`d.` trong cùng một paragraph và gán màu theo **vùng ký tự của từng run**; không đánh dấu đỏ cho cả paragraph có các lựa chọn khác màu.
+- Đối với OOXML `w:numPr`, bản nhập tái tạo nhãn `a.` cho các đoạn Word dùng automatic numbering thay vì `w:t`.
+- Rust `quiz.rs` chấp nhận `a.` đứng riêng rồi các dòng code, `a` đơn lẻ, câu thiếu dấu sau chỉ số, câu `491.` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
 - Hồi quy bằng tài liệu Tin học kỹ thuật có 500 câu và định dạng kết hợp: kiểm tra 500 câu, 4 lựa chọn mỗi câu, 2 câu thiếu đáp án màu đỏ và 2 câu nhiều lựa chọn màu đỏ theo nguồn; không commit tài liệu riêng của người dùng vào repo.
