@@ -156,8 +156,8 @@ Từ tab **Thêm → Ôn tập**, người dùng có thể import **DOCX, PDF c�
 - Bộ đề, câu trả lời gần nhất, điểm số và câu sai được lưu **riêng** trong `quiz.db` (SQLite Android), không thay đổi `tkb.db` schema v4.
 - `ui/QuizScreen.kt`: thư viện đề, chọn file, xem trước, làm bài, ôn câu sai, xóa đề.
 - `quiz/QuizImporter.kt`: SAF + chuyển thẳng byte DOCX/PDF/TXT/JSON cho Rust xử lý; giới hạn tệp 30 MB.
-- `rust-core/src/quiz.rs` + `rust/RustQuizCore.kt`: parse DOCX/XML/PDF (lopdf)/TXT/JSON, lọc chữ đỏ, wire format nhị phân TKB1, quản lý SQLite quiz.db qua rusqlite.
-- Đã loại bỏ hoàn toàn dependency Java `pdfbox-android`, chuyển việc trích xuất văn bản PDF sang thư viện pure Rust `lopdf`.
+- `rust-core/src/quiz.rs` + `rust/RustQuizCore.kt`: parse DOCX/XML/TXT/JSON và text trích xuất từ PDF, lọc chữ đỏ, wire format nhị phân TKB1, quản lý SQLite quiz.db qua rusqlite.
+- Trích xuất văn bản PDF sử dụng `pdfbox-android` đảm bảo layout xuống dòng và bộ font CMap/ToUnicode tiếng Việt đầy đủ trước khi chuyển qua Rust.
 - Không có endpoint upload đề hoặc API OCR; tệp chỉ được xử lý cục bộ khi người dùng chọn.
 
 Dạng TXT/PDF văn bản ví dụ:

@@ -783,29 +783,13 @@ pub fn parse_docx_bytes(bytes: &[u8]) -> Result<Vec<QuizQuestion>, String> {
     parse_source_lines(&lines)
 }
 
-pub fn extract_pdf_text(pdf_bytes: &[u8]) -> Result<String, String> {
-    let doc = lopdf::Document::load_mem(pdf_bytes)
-        .map_err(|e| format!("Không thể đọc tệp PDF: {e}"))?;
-    if doc.is_encrypted() {
-        return Err("PDF có mật khẩu nên không thể đọc".into());
-    }
-    let pages: Vec<u32> = doc.get_pages().keys().copied().collect();
-    if pages.is_empty() {
-        return Err("Tệp PDF không có trang nào".into());
-    }
-    let text = doc.extract_text(&pages)
-        .map_err(|e| format!("Lỗi trích xuất văn bản từ PDF: {e}"))?;
-    if text.trim().is_empty() {
-        return Err("PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ.".into());
-    }
-    Ok(text)
-}
-
 pub fn parse_plain_text(text: &str) -> Result<Vec<QuizQuestion>, String> {
     let lines: Vec<SourceLine> = text
         .lines()
         .map(str::trim)
         .filter(|l| !l.is_empty())
+        .filter(|l| !(l.len() <= 4 && l.chars().all(|c| c.is_ascii_digit())))
+        .filter(|l| !l.eq_ignore_ascii_case("chỉnh sửa bằng wps office"))
         .map(|l| SourceLine {
             text: l.to_string(),
             red: false,
@@ -822,8 +806,13 @@ pub fn import_quiz(
     let questions = match file_ext.to_lowercase().as_str() {
         "docx" => parse_docx_bytes(file_bytes)?,
         "pdf" => {
-            let text = extract_pdf_text(file_bytes)?;
-            parse_plain_text(&text)?
+            if file_bytes.starts_with(b"%PDF") {
+                return Err("Tệp PDF cần được trích xuất văn bản trước khi xử lý.".into());
+            }
+            let s = std::str::from_utf8(file_bytes)
+                .map_err(|e| format!("Dữ liệu văn bản PDF không hợp lệ: {e}"))?
+                .trim_start_matches('\u{feff}');
+            parse_plain_text(s)?
         }
         "json" => {
             let s = std::str::from_utf8(file_bytes)
@@ -1567,7 +1556,6 @@ mod tests {
     #[test]
     fn pdf_import_error_handling() {
         let invalid = b"%PDF-1.4 corrupt data";
-        assert!(extract_pdf_text(invalid).is_err());
         assert!(import_quiz(invalid, "pdf", "Test").is_err());
     }
 }

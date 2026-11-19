@@ -4,6 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.sv.tnu.rust.RustQuizCore
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.Locale
@@ -33,8 +37,22 @@ object QuizImporter {
         val bytes = context.contentResolver.openInputStream(uri)?.use { readBounded(it, MAX_BYTES) }
             ?: error("Không thể mở tệp")
 
+        val payload = if (ext == "pdf") {
+            PDFBoxResourceLoader.init(context.applicationContext)
+            val plain = PDDocument.load(ByteArrayInputStream(bytes)).use { doc ->
+                require(!doc.isEncrypted) { "PDF có mật khẩu nên không thể đọc" }
+                PDFTextStripper().getText(doc)
+            }
+            require(plain.isNotBlank()) {
+                "PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ."
+            }
+            plain.toByteArray(Charsets.UTF_8)
+        } else {
+            bytes
+        }
+
         val defaultTitle = name.substringBeforeLast('.').ifBlank { "Bộ đề mới" }
-        val wireBytes = RustQuizCore.importQuiz(bytes, ext, defaultTitle)
+        val wireBytes = RustQuizCore.importQuiz(payload, ext, defaultTitle)
         RustQuizCore.decodeQuizImportResult(wireBytes, defaultTitle)
     }
 
