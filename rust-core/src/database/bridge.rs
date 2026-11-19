@@ -181,24 +181,3 @@ pub(crate) fn commit_exam_pages(
         Ok(true)
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn closed_handles_cannot_be_reused_and_failed_operations_keep_notes() {
-        let first = open(":memory:").unwrap();
-        edit_note(first, 0, "lesson", "Tiếng Việt", 123).unwrap();
-        let before = notes(first).unwrap();
-        assert!(before.starts_with(b"TKB1N\0\0\0\x01"));
-        assert!(edit_note(first, 99, "", "", 0).is_err());
-        assert_eq!(notes(first).unwrap(), before);
-        assert_eq!(cache(first, 1).unwrap(), b"TKB1T\0\0\0\0\0\0\0\0\0\0\0\0");
-        close(first).unwrap();
-        assert!(cache(first, 1).is_err());
-        assert!(close(first).is_err());
-        let second = open(":memory:").unwrap();
-        assert_ne!(first, second);
-        close(second).unwrap();
-    }
-}

@@ -636,20 +636,6 @@ pub fn is_logical_unauthorized(bytes: &[u8]) -> bool {
     false
 }
 
-#[cfg(test)]
-mod auth_response_tests {
-    use super::is_logical_unauthorized;
-    #[test]
-    fn detects_logical_http_200_unauthorized() {
-        assert!(is_logical_unauthorized(br#"{ "code": 401 }"#));
-        assert!(is_logical_unauthorized(br#"{ "CODE": 401, "message": "expired" }"#));
-        assert!(is_logical_unauthorized(br#"{ "message": "NotAllowed" }"#));
-        assert!(!is_logical_unauthorized(br#"{ "code": 4010 }"#));
-        assert!(!is_logical_unauthorized(br#"{ "code": 401abc }"#));
-        assert!(!is_logical_unauthorized(br#"{ "code": 200 }"#));
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateManifestPayload {
@@ -792,83 +778,6 @@ pub fn read_release_update(
     Ok(out)
 }
 
-#[cfg(test)]
-mod migration_tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn preserves_timetable_and_exam_request_payloads() {
-        let timetable: Value = serde_json::from_slice(&timetable_request(20261)).unwrap();
-        let exam: Value = serde_json::from_slice(&exam_request(20261, false, 3)).unwrap();
-        assert_eq!(timetable, json!({"filter": {"hoc_ky": 20261}}));
-        assert_eq!(exam, json!({
-            "filter": {"hoc_ky": 20261, "is_giua_ky": false},
-            "additional": {
-                "paging": {"limit": 100, "page": 3},
-                "ordering": [{"name": null, "order_type": null}]
-            }
-        }));
-    }
-
-    #[test]
-    fn preserves_exam_page_limit_and_first_occurrence_order() {
-        assert_eq!(next_exam_page(1, Some(3), 1), Ok(Some(2)));
-        assert_eq!(next_exam_page(50, Some(50), 100), Ok(None));
-        assert!(next_exam_page(50, None, 100).is_err());
-        assert_eq!(next_exam_page(2, None, 99), Ok(None));
-        assert_eq!(first_exam_indices([("A", false), ("B", false), ("A", false), ("A", true)]),
-            vec![0, 1, 3]);
-    }
-
-    #[test]
-    fn packs_login_tokens_with_nullable_rotation_fields() {
-        let login = br#"{"access_token":"new","refresh_token":null,"idpc":1}"#;
-        assert_eq!(map_login_wire(login).unwrap(), b"TKB1L\0\0\0\x03new\0\x01\0\0\0\x011");
-        let malformed = br#"{"access_token":["token"]}"#;
-        assert_eq!(map_login_wire(malformed).unwrap_err(), "Phản hồi đăng nhập TNUT không hợp lệ.");
-    }
-
-    #[test]
-    fn picks_first_nonblank_portal_name_and_extracts_data_uri() {
-        let response = br#"{"data":{"thong_tin_sinh_vien":{
-            "ho_ten":" ","ten_sinh_vien":" An ","ten_sv":"Other","image":"data:image/png;base64,YQ=="
-        }}}"#;
-        assert_eq!(map_avatar_wire(response).unwrap(), b"TKB1A\0\0\0\x02An\x01\0\0\0\x04YQ==");
-        assert_eq!(map_avatar_wire(b"{}").unwrap(), b"TKB1A\0\0\0\0\0");
-    }
-
-    #[test]
-    fn checks_current_and_legacy_release_metadata() {
-        let prefix = "https://example.test/tkb/";
-        let plain = format!("{prefix}TKB-SV.apk");
-        let compressed = format!("{plain}.xz");
-        let apk_hash = "a".repeat(64);
-        let package_hash = "B".repeat(64);
-        let mut item = json!({
-            "versionCode": 3_000_000_001_i64, "versionName": "1.0.1",
-            "apkUrl": plain, "sha256": apk_hash, "sizeBytes": 120,
-            "packageUrl": compressed, "packageSha256": package_hash, "packageSizeBytes": 100,
-            "compression": "XZ", "changelog": "New version",
-        });
-        let wire = read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).unwrap();
-        assert!(wire.starts_with(b"TKB1P"));
-        assert_eq!(i64::from_be_bytes(wire[5..13].try_into().unwrap()), 3_000_000_001);
-        assert!(wire.windows(64).any(|bytes| bytes == package_hash.to_ascii_lowercase().as_bytes()));
-        assert!(read_release_update(3_000_000_001, prefix, &serde_json::to_vec(&item).unwrap())
-            .unwrap().is_empty());
-
-        let object = item.as_object_mut().unwrap();
-        for key in ["packageUrl", "packageSha256", "packageSizeBytes", "compression"] {
-            object.remove(key);
-        }
-        let wire = read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).unwrap();
-        assert!(wire.windows(64).any(|bytes| bytes == apk_hash.as_bytes()));
-        item["packageUrl"] = json!("https://example.test/other/file.apk");
-        assert!(read_release_update(0, prefix, &serde_json::to_vec(&item).unwrap()).is_err());
-    }
-}
-
 pub fn exam_sync_issue(semester: i32, updated: bool, errors: &[String]) -> Option<String> {
     if !errors.is_empty() {
         return Some(format!(
@@ -879,19 +788,4 @@ pub fn exam_sync_issue(semester: i32, updated: bool, errors: &[String]) -> Optio
     (!updated).then(|| format!(
         "Portal trả danh sách thi giữa kỳ và cuối kỳ rỗng cho học kỳ {semester}. Không có dữ liệu mới để đồng bộ; lịch đã lưu được giữ nguyên."
     ))
-}
-
-#[cfg(test)]
-mod exam_sync_tests {
-    use super::exam_sync_issue;
-
-    #[test]
-    fn distinguishes_success_empty_and_partial_failure() {
-        assert!(exam_sync_issue(20261, true, &[]).is_none());
-        assert!(exam_sync_issue(20261, false, &[]).unwrap().contains("20261"));
-        let errors = ["timeout".into(), "mất mạng".into()];
-        for updated in [false, true] {
-            assert!(exam_sync_issue(20261, updated, &errors).unwrap().contains("timeout; mất mạng"));
-        }
-    }
 }

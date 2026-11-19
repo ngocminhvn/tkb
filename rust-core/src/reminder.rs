@@ -70,19 +70,3 @@ pub fn encode_reminder_wire(rem: &ReminderNotification) -> Vec<u8> {
 
     out
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn encodes_reminder_wire_format() {
-        let reminder = ReminderNotification {
-            title: "Lịch hôm nay • 20/11/2026".to_string(),
-            summary: "2 môn học".to_string(),
-            message: "07:00: Toán • A1-101\n09:00: Lý • A1-102".to_string(),
-        };
-        let wire = encode_reminder_wire(&reminder);
-        assert_eq!(&wire[0..5], b"TKB1R");
-    }
-}

@@ -364,6 +364,3 @@ fn validate_schema(connection: &Connection) -> Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

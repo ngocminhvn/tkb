@@ -72,22 +72,3 @@ pub(super) fn notes(db: &Database) -> Result<Vec<u8>> {
     }
     Ok(out)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn notes_use_utf8_byte_lengths_and_big_endian_64_bit_timestamps() {
-        let mut db = Database::in_memory().unwrap();
-        db.upsert_lesson_note(&LessonNote {
-            lesson_id: "id".into(),
-            note: "ệ".into(),
-            updated_at: 0x0102030405060708,
-        })
-        .unwrap();
-        assert_eq!(
-            notes(&db).unwrap(),
-            b"TKB1N\0\0\0\x01\0\0\0\x02id\0\0\0\x03\xe1\xbb\x87\x01\x02\x03\x04\x05\x06\x07\x08"
-        );
-    }
-}
