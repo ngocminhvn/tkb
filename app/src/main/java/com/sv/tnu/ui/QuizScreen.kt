@@ -72,8 +72,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.sv.tnu.quiz.QuizDeck
 import com.sv.tnu.quiz.QuizImportResult
 import com.sv.tnu.quiz.QuizImporter
@@ -205,7 +203,7 @@ fun QuizScreen(
         refreshLibrary()
     }
 
-    BackHandler(enabled = page != QuizPage.LIBRARY) { returnToLibrary() }
+    BackHandler(enabled = page != QuizPage.LIBRARY && !busy) { returnToLibrary() }
 
     if (deleteCandidate != null) {
         AlertDialog(
@@ -270,7 +268,7 @@ fun QuizScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    QuizCircleBackButton(isDark = isDark) {
+                    QuizCircleBackButton(isDark = isDark, enabled = !busy) {
                         if (page == QuizPage.LIBRARY) onBack() else returnToLibrary()
                     }
                     Spacer(modifier = Modifier.width(14.dp))
@@ -462,6 +460,7 @@ fun QuizScreen(
                                 Switch(
                                     checked = autoGrade,
                                     onCheckedChange = { updateAutoGrade(it) },
+                                    enabled = !busy,
                                 )
                             }
                         }
@@ -476,7 +475,30 @@ fun QuizScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (decks.isEmpty() && !busy) {
+                        if (busy) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
+                                ),
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(42.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 4.dp,
+                                    )
+                                }
+                            }
+                        } else if (decks.isEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
@@ -520,7 +542,7 @@ fun QuizScreen(
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { selectedDeckId = deck.id },
+                                            .clickable(enabled = !busy) { selectedDeckId = deck.id },
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isSelected) {
@@ -583,6 +605,7 @@ fun QuizScreen(
                                                 )
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     IconButton(
+                                                        enabled = !busy,
                                                         onClick = { deleteCandidate = deck },
                                                         modifier = Modifier.size(28.dp),
                                                     ) {
@@ -626,7 +649,7 @@ fun QuizScreen(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                                 title = "Làm theo thứ tự",
-                                enabled = hasDeck,
+                                enabled = hasDeck && !busy,
                                 isDark = isDark,
                                 onClick = {
                                     activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = false, timed = false) }
@@ -636,7 +659,7 @@ fun QuizScreen(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.Shuffle,
                                 title = "Trộn câu hỏi",
-                                enabled = hasDeck,
+                                enabled = hasDeck && !busy,
                                 isDark = isDark,
                                 onClick = {
                                     activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = true, timed = false) }
@@ -654,7 +677,7 @@ fun QuizScreen(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.ErrorOutline,
                                 title = "Ôn câu sai",
-                                enabled = hasDeck,
+                                enabled = hasDeck && !busy,
                                 isDark = isDark,
                                 onClick = {
                                     activeDeck?.let { openPractice(it, wrongOnly = true, shuffle = false, timed = false) }
@@ -664,7 +687,7 @@ fun QuizScreen(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.Timer,
                                 title = "Thi thử tính giờ",
-                                enabled = hasDeck,
+                                enabled = hasDeck && !busy,
                                 isDark = isDark,
                                 onClick = {
                                     activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = true, timed = true) }
@@ -775,7 +798,17 @@ fun QuizScreen(
                                     }
                                 },
                             ) {
-                                Text("Lưu ${value.questions.size} câu vào máy", fontWeight = FontWeight.Bold)
+                                if (busy) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Đang lưu...", fontWeight = FontWeight.Bold)
+                                } else {
+                                    Text("Lưu ${value.questions.size} câu vào máy", fontWeight = FontWeight.Bold)
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(4.dp))
@@ -1024,33 +1057,12 @@ fun QuizScreen(
         }
     }
 
-    // Modal loading: dim the entire screen, block interaction, and keep layout fixed.
-    if (busy) {
-        Dialog(
-            onDismissRequest = {},
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false,
-                usePlatformDefaultWidth = false,
-            ),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 4.dp,
-                )
-            }
-        }
-    }
 }
 
 @Composable
 private fun QuizCircleBackButton(
     isDark: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Box(
@@ -1073,7 +1085,7 @@ private fun QuizCircleBackButton(
                 CircleShape,
             )
             .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
