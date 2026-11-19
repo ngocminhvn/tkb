@@ -361,25 +361,60 @@ fun QuizScreen(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)
                                 .verticalScroll(rememberScrollState()),
                         ) {
-                            Text(
-                                "Câu " + (currentIndex + 1) + "/" + questions.size,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Câu " + (currentIndex + 1) + "/" + questions.size,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                if (question.correct.size > 1) {
+                                    Text(
+                                        "Chọn nhiều đáp án",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(8.dp))
                             QuizQuestionCard(
                                 question = question,
                                 number = currentIndex + 1,
                                 chosen = selected,
+                                isAnswered = markedCorrect != null,
                                 onToggle = { choice ->
-                                    selected = if (question.correct.size > 1) {
+                                    val nextSelected = if (question.correct.size > 1) {
                                         selected.toMutableSet().apply {
                                             if (!add(choice)) remove(choice)
                                         }
                                     } else {
                                         setOf(choice)
                                     }
-                                    markedCorrect = null
+                                    selected = nextSelected
+                                    if (nextSelected.isNotEmpty()) {
+                                        scope.launch {
+                                            try {
+                                                val correct = withContext(Dispatchers.IO) {
+                                                    storage.saveAnswer(question, nextSelected)
+                                                }
+                                                markedCorrect = correct
+                                                questions = questions.toMutableList().also {
+                                                    it[currentIndex] = question.copy(
+                                                        selected = nextSelected, wasCorrect = correct,
+                                                    )
+                                                }
+                                                refreshLibrary()
+                                            } catch (e: Exception) {
+                                                error = e.message ?: "Không lưu được đáp án"
+                                            }
+                                        }
+                                    } else {
+                                        markedCorrect = null
+                                    }
                                 },
                             )
                             Spacer(modifier = Modifier.height(12.dp))
@@ -388,39 +423,29 @@ fun QuizScreen(
                                     if (markedCorrect == true) "Chính xác!" else
                                         "Chưa đúng. Đáp án: " +
                                             question.correct.joinToString(", ") { ('A' + it).toString() },
-                                    color = if (markedCorrect == true) MaterialTheme.colorScheme.primary
+                                    color = if (markedCorrect == true) Color(0xFF2E7D32)
                                         else MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold,
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
-                            Button(
-                                enabled = selected.isNotEmpty() && !busy,
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                onClick = {
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            val correct = withContext(Dispatchers.IO) {
-                                                storage.saveAnswer(question, selected)
-                                            }
-                                            markedCorrect = correct
-                                            questions = questions.toMutableList().also {
-                                                it[currentIndex] = question.copy(
-                                                    selected = selected, wasCorrect = correct,
-                                                )
-                                            }
-                                            refreshLibrary()
-                                        } catch (e: Exception) {
-                                            error = e.message ?: "Không lưu được đáp án"
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
-                                },
-                            ) { Text("Kiểm tra đáp án") }
-                            if (markedCorrect != null) {
-                                OutlinedButton(
-                                    modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                if (currentIndex > 0) {
+                                    OutlinedButton(
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            currentIndex--
+                                            val prev = questions[currentIndex]
+                                            selected = prev.selected ?: emptySet()
+                                            markedCorrect = prev.wasCorrect
+                                        },
+                                    ) { Text("Câu trước") }
+                                }
+                                Button(
+                                    modifier = Modifier.weight(1f),
                                     onClick = {
                                         if (currentIndex == questions.lastIndex) {
                                             returnToLibrary()
@@ -448,6 +473,7 @@ private fun QuizQuestionCard(
     question: QuizQuestion,
     number: Int,
     chosen: Set<Int>,
+    isAnswered: Boolean = false,
     onToggle: (Int) -> Unit,
 ) {
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
@@ -467,12 +493,28 @@ private fun QuizQuestionCard(
             Text("Câu " + number + ". " + question.prompt, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             question.options.forEachIndexed { index, option ->
+                val isSelected = index in chosen
+                val isCorrectAnswer = isAnswered && index in question.correct
+                val isWrongSelection = isAnswered && isSelected && index !in question.correct
+                val textColor = when {
+                    isCorrectAnswer -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+                    isWrongSelection -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onToggle(index) }.padding(vertical = 3.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggle(index) }
+                        .padding(vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Checkbox(checked = index in chosen, onCheckedChange = { onToggle(index) })
-                    Text(('A' + index).toString() + ". " + option, modifier = Modifier.weight(1f))
+                    Checkbox(checked = isSelected, onCheckedChange = { onToggle(index) })
+                    Text(
+                        text = ('A' + index).toString() + ". " + option,
+                        color = textColor,
+                        fontWeight = if (isCorrectAnswer || isWrongSelection) FontWeight.Medium else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
