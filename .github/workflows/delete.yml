@@ -1,0 +1,100 @@
+name: Delete All Workflow Runs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: delete-all-workflow-runs
+  cancel-in-progress: false
+
+jobs:
+  delete-history:
+    name: Delete completed workflow run history
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Delete completed workflow run history
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          deleted=0
+          failed=0
+
+          echo "Starting deletion of completed workflow runs in ${GITHUB_REPOSITORY}..."
+
+          while true; do
+            # Check remaining API rate limit
+            remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo 1000)
+            if (( remaining < 20 )); then
+              echo "::warning::GitHub API rate limit nearly exhausted (remaining: $remaining). Stopping batch."
+              break
+            fi
+
+            # Fetch up to 100 completed runs with retry on transient network/server errors (e.g. HTTP 502)
+            run_ids=()
+            for attempt in 1 2 3 4; do
+              if raw_ids=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?status=completed&per_page=100" --jq '.workflow_runs[].id' 2>/dev/null); then
+                if [[ -n "$raw_ids" ]]; then
+                  mapfile -t run_ids <<< "$raw_ids"
+                fi
+                break
+              fi
+              echo "::warning::Fetch attempt $attempt failed (transient error / HTTP 502). Retrying in $(( attempt * 3 ))s..."
+              sleep $(( attempt * 3 ))
+            done
+
+            total_in_batch="${#run_ids[@]}"
+            if (( total_in_batch == 0 )); then
+              echo "No more completed workflow runs found."
+              break
+            fi
+
+            echo "Fetched $total_in_batch completed runs. Deleting..."
+            batch_deleted=0
+
+            for run_id in "${run_ids[@]}"; do
+              success=false
+              for attempt in 1 2 3; do
+                if gh api --silent -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/$run_id" 2>/dev/null; then
+                  success=true
+                  break
+                fi
+                sleep "$attempt"
+              done
+
+              if [[ "$success" == "true" ]]; then
+                deleted=$((deleted + 1))
+                batch_deleted=$((batch_deleted + 1))
+                echo "Deleted run $run_id ($deleted total)"
+              else
+                failed=$((failed + 1))
+                echo "::warning::Failed to delete run $run_id"
+              fi
+            done
+
+            # Prevent infinite loop if all runs in the current batch failed to delete
+            if (( batch_deleted == 0 )); then
+              echo "::error::Unable to delete any runs in the current batch. Aborting to avoid infinite loop."
+              break
+            fi
+          done
+
+          {
+            echo "### Workflow run history cleanup"
+            echo
+            echo "- Deleted runs: $deleted"
+            echo "- Failed deletions: $failed"
+            echo
+            echo "Active and currently running workflows were preserved."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if (( failed > 0 )); then
+            exit 1
+          fi
