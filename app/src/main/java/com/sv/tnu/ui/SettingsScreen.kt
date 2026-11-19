@@ -238,7 +238,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = "Cài đặt",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 )
             }
         },

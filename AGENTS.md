@@ -14,6 +14,7 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 
 ### Quy trình bắt buộc
 
+- Trước khi động vào bất kỳ file nào hoặc bắt đầu công việc, BẮT BUỘC phải chạy `git pull` để lấy code mới nhất về trước.
 - Làm trực tiếp trên `main`. Không tạo nhánh mới.
 - Không tạo APK debug, kể cả để kiểm thử. Dùng các bài test Rust/JNI và build Release khi cần APK.
 - Khi thay đổi file thì chú ý bảo toàn hoặc nâng cấp, ưu tiên Rust, không thay thế bằng công nghệ hoặc thư viện khác.
