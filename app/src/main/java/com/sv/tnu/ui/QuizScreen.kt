@@ -72,6 +72,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sv.tnu.quiz.QuizDeck
 import com.sv.tnu.quiz.QuizImportResult
 import com.sv.tnu.quiz.QuizImporter
@@ -332,12 +334,6 @@ fun QuizScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { scaffoldPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(scaffoldPadding).padding(contentPadding)) {
-            if (busy) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                ) { CircularProgressIndicator(modifier = Modifier.size(28.dp)) }
-            }
             if (error != null) {
                 Text(
                     error.orEmpty(),
@@ -410,7 +406,7 @@ fun QuizScreen(
                                     Icon(
                                         imageVector = Icons.Default.AutoStories,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.secondary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(28.dp),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
@@ -501,7 +497,7 @@ fun QuizScreen(
                                     Icon(
                                         Icons.Default.MenuBook,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
                                         modifier = Modifier.size(36.dp),
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -1024,6 +1020,29 @@ fun QuizScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Modal loading: dim the entire screen, block interaction, and keep layout fixed.
+    if (busy) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false,
+            ),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 4.dp,
+                )
             }
         }
     }
