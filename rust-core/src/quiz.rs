@@ -83,11 +83,17 @@ fn question_header(text: &str) -> Option<&str> {
             return Some(tail[digits..].trim_start_matches(['.', ':', ')', '-', ' ']).trim());
         }
     }
+    // Đối với câu không có tiền tố "Câu": chỉ nhận dạng nếu là "<số>." với số > 0 (ví dụ "491. ...")
+    // Tránh nhận nhầm code C++ như "0) sum += i;"
     let digits = text.bytes().take_while(u8::is_ascii_digit).count();
-    if digits > 0 && text.as_bytes().get(digits).is_some_and(|c| matches!(c, b'.' | b')' | b':')) {
-        let remainder = text[digits + 1..].trim();
-        if !remainder.is_empty() {
-            return Some(remainder);
+    if digits > 0 && text.as_bytes().get(digits) == Some(&b'.') {
+        if let Ok(num) = text[..digits].parse::<usize>() {
+            if num > 0 {
+                let remainder = text[digits + 1..].trim();
+                if !remainder.is_empty() {
+                    return Some(remainder);
+                }
+            }
         }
     }
     None
@@ -783,12 +789,16 @@ pub fn parse_docx_bytes(bytes: &[u8]) -> Result<Vec<QuizQuestion>, String> {
     parse_source_lines(&lines)
 }
 
+pub fn extract_pdf_text(pdf_bytes: &[u8]) -> Result<String, String> {
+    pdf_extract::extract_text_from_mem(pdf_bytes)
+        .map_err(|e| format!("Không thể trích xuất văn bản từ tệp PDF: {e}"))
+}
+
 pub fn parse_plain_text(text: &str) -> Result<Vec<QuizQuestion>, String> {
     let lines: Vec<SourceLine> = text
         .lines()
         .map(str::trim)
         .filter(|l| !l.is_empty())
-        .filter(|l| !(l.len() <= 4 && l.chars().all(|c| c.is_ascii_digit())))
         .filter(|l| !l.eq_ignore_ascii_case("chỉnh sửa bằng wps office"))
         .map(|l| SourceLine {
             text: l.to_string(),
@@ -806,13 +816,11 @@ pub fn import_quiz(
     let questions = match file_ext.to_lowercase().as_str() {
         "docx" => parse_docx_bytes(file_bytes)?,
         "pdf" => {
-            if file_bytes.starts_with(b"%PDF") {
-                return Err("Tệp PDF cần được trích xuất văn bản trước khi xử lý.".into());
+            let text = extract_pdf_text(file_bytes)?;
+            if text.trim().is_empty() {
+                return Err("PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ.".into());
             }
-            let s = std::str::from_utf8(file_bytes)
-                .map_err(|e| format!("Dữ liệu văn bản PDF không hợp lệ: {e}"))?
-                .trim_start_matches('\u{feff}');
-            parse_plain_text(s)?
+            parse_plain_text(&text)?
         }
         "json" => {
             let s = std::str::from_utf8(file_bytes)
@@ -1556,6 +1564,19 @@ mod tests {
     #[test]
     fn pdf_import_error_handling() {
         let invalid = b"%PDF-1.4 corrupt data";
+        assert!(extract_pdf_text(invalid).is_err());
         assert!(import_quiz(invalid, "pdf", "Test").is_err());
+    }
+
+    #[test]
+    fn parses_user_sample_pdf_if_available() {
+        let path = "/home/minh/.gemini/antigravity/brain/bb69f2cb-1b98-4e1a-80ed-d48b668671da/.user_uploaded/media_1795068217271_842a82d8.pdf";
+        if let Ok(bytes) = std::fs::read(path) {
+            let res = import_quiz(&bytes, "pdf", "Tin học trong kỹ thuật").unwrap();
+            assert_eq!(res.1.len(), 500);
+            for q in &res.1 {
+                assert_eq!(q.options.len(), 4);
+            }
+        }
     }
 }

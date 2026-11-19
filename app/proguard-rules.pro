@@ -35,7 +35,3 @@
 
 # Offline quiz JNI entry points must retain exported Rust symbol names.
 -keep class com.sv.tnu.rust.RustQuizCore { *; }
-
--keep class com.tom_roush.pdfbox.** { *; }
--dontwarn com.tom_roush.pdfbox.**
--dontwarn org.bouncycastle.**

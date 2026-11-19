@@ -181,8 +181,8 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 ## 7. Ôn tập trắc nghiệm (mô-đun độc lập)
 
 - Tab Thêm `ui/MainScreen.kt` mở màn `ui/QuizScreen.kt`; khi thoát không làm mới/recreate `TimetableViewModel`.
-- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework (dùng PDFBox-Android trích xuất plain text chuẩn xác cho PDF văn bản; chuyển trực tiếp bytes cho Rust đối với DOCX/TXT/JSON), Rust xử lý lọc chữ đỏ, đánh số và phân tích câu hỏi mà không qua JSON hay thư viện Java trung gian.
-- Parser câu hỏi và SQLite thuần Rust: `rust-core/src/quiz.rs` đảm nhiệm parse DOCX/TXT/JSON/PDF text, giải nén ZIP, lọc chữ đỏ, phân tách lựa chọn, định dạng nhị phân `TKB1Q`/`TKB1D`, và CRUD cơ sở dữ liệu `quiz.db` qua `rusqlite`.
+- `quiz/QuizImporter.kt` đọc tệp qua Android Storage Access Framework, chuyển trực tiếp bytes thô cho Rust đối với toàn bộ định dạng DOCX/PDF/TXT/JSON mà không qua thư viện trung gian Java.
+- Parser câu hỏi và SQLite thuần Rust: `rust-core/src/quiz.rs` đảm nhiệm trích xuất văn bản PDF bằng `pdf-extract` (hỗ trợ đầy đủ Adobe CMap/CID/font matrix và tiếng Việt có dấu), giải nén DOCX ZIP, lọc chữ đỏ, phân tách lựa chọn, định dạng nhị phân `TKB1Q`/`TKB1D`, và CRUD cơ sở dữ liệu `quiz.db` qua `rusqlite`.
 - JNI bridge: `rust/RustQuizCore.kt` và các entry JNI trong `rust-core/src/android.rs`. Được bảo vệ bởi R8 `-keep class com.sv.tnu.rust.RustQuizCore { *; }`.
 - `quiz/QuizStorage.kt` chuyển toàn bộ thao tác sang Rust, tạo/quản lý SQLite `quiz.db` riêng, **không thay đổi** `tkb.db` hoặc migration của lịch học; không mở đồng thời bằng SQLite Android và Rust; không gửi bài lên máy chủ.
 - Sau khi sửa, test Rust `cargo test --locked --manifest-path rust-core/Cargo.toml`, `cargo clippy`, build Release 4 ABI, so sánh APK size với baseline và thử DOCX chữ đỏ/PDF chữ/PDF scan/TXT/JSON trên thiết bị Android.
