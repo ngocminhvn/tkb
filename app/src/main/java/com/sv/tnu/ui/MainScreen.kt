@@ -323,7 +323,7 @@ private fun MoreScreen(
                 Column {
                     Text(
                         text = "Thêm",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     )
                 }
             }

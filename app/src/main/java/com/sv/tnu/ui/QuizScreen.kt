@@ -309,7 +309,7 @@ fun QuizScreen(
                         QuizPage.PREVIEW -> "Kiểm tra đề"
                         QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
                     },
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
