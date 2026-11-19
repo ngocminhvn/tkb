@@ -17,6 +17,9 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 - Làm trực tiếp trên `main`. Không tạo nhánh mới.
 - Không tạo APK debug, kể cả để kiểm thử. Dùng các bài test Rust/JNI và build Release khi cần APK.
 - Khi thay đổi file thì chú ý bảo toàn hoặc nâng cấp, ưu tiên Rust, không thay thế bằng công nghệ hoặc thư viện khác.
+- Kiểm thử chỉ thực hiện cục bộ trên máy của agent/nhà phát triển (test cục bộ), tuyệt đối không commit và không push các file test/module test lên repo.
+- Viết tên hàm, biến, method rõ ràng, chuẩn xác theo đúng chức năng nghiệp vụ kỹ thuật; tuyệt đối không đặt tên riêng, tên tùy tiện hoặc thiếu ý nghĩa chức năng.
+- Các file và logic xử lý API mạng portal phải đặt theo trường duy nhất hiện đang được hỗ trợ là TNUT (`schools/tnut/`, `TnutApi.kt`, `TnutApiClient.kt`, `TnutRepository.kt`, `TnutSchoolProvider.kt`).
 - Khi hoàn tất và kiểm tra xong, commit rồi push thẳng lên `origin/main` để GitHub Actions build. Kiểm tra trạng thái workflow và báo lại.
 
 ### Những điều bắt buộc giữ nguyên, trừ khi yêu cầu có nêu rõ và đã có phương án migrate/test
@@ -56,7 +59,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
 | `.../ui/MainScreen.kt` | Khung màn hình chính, tab/navigation, mở cài đặt, kết nối update, điều hướng tab Thêm | TNUT parsing |
 | `.../ui/GradesScreen.kt` | Màn hình xem điểm, GPA tích lũy, điểm học kỳ, điểm thành phần và bộ lọc học kỳ | Gọi HTTP trực tiếp |
-| `.../grades/` | `GradeModels.kt`, `GradeParser.kt`, `GradeRepository.kt`, `GradeViewModel.kt`: parse điểm portal, cache offline | Hardcode giao diện |
+| `.../grades/` | `GradeModels.kt`, `GradeRepository.kt`, `GradeViewModel.kt`: parse điểm portal và cache qua Rust/TKB1G | Hardcode giao diện |
 | `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi và ánh xạ chỉ số timeline từ Rust, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
 | `.../ui/WeekDatePicker.kt` | Thanh ngày, chọn ngày/tuần, lịch tháng, thao tác kéo/chạm | Lấy token/API |
 | `.../ui/SettingsScreen.kt` | Compose cài đặt giao diện, nhắc lịch, tài khoản, kiểm tra cập nhật (đã bỏ chỉnh số tuần) | SQL migration |

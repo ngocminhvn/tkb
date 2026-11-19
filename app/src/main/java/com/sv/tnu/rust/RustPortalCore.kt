@@ -396,7 +396,7 @@ object PortalBinaryDecoder {
     fun decodeSavedAvatar(bytes: ByteArray): SavedAvatar {
         val reader = Reader(bytes, 'A'.code.toByte())
         val name = reader.string()
-        val saved = reader.byte() == 1.toByte()
+        val saved = reader.bool()
         reader.finish()
         return SavedAvatar(name, saved)
     }

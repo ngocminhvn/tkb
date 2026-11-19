@@ -11,6 +11,7 @@ import android.util.TypedValue
 import android.widget.RemoteViews
 import com.sv.tnu.MainActivity
 import com.sv.tnu.R
+import com.sv.tnu.data.AuthStore
 import com.sv.tnu.rust.RustScheduleCore
 import java.util.Calendar
 import kotlinx.coroutines.CoroutineScope
