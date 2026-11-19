@@ -790,8 +790,9 @@ pub fn parse_docx_bytes(bytes: &[u8]) -> Result<Vec<QuizQuestion>, String> {
 }
 
 pub fn extract_pdf_text(pdf_bytes: &[u8]) -> Result<String, String> {
-    pdf_extract::extract_text_from_mem(pdf_bytes)
-        .map_err(|e| format!("Không thể trích xuất văn bản từ tệp PDF: {e}"))
+    let lines = crate::pdf_extract::extract_source_lines_from_mem(pdf_bytes)
+        .map_err(|e| format!("Không thể đọc tệp PDF: {e}"))?;
+    Ok(lines.into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n"))
 }
 
 pub fn parse_plain_text(text: &str) -> Result<Vec<QuizQuestion>, String> {
@@ -816,11 +817,12 @@ pub fn import_quiz(
     let questions = match file_ext.to_lowercase().as_str() {
         "docx" => parse_docx_bytes(file_bytes)?,
         "pdf" => {
-            let text = extract_pdf_text(file_bytes)?;
-            if text.trim().is_empty() {
+            let lines = crate::pdf_extract::extract_source_lines_from_mem(file_bytes)
+                .map_err(|e| format!("Không thể đọc tệp PDF: {e}"))?;
+            if lines.is_empty() {
                 return Err("PDF không có lớp văn bản. Bản scan cần OCR và chưa được hỗ trợ.".into());
             }
-            parse_plain_text(&text)?
+            parse_source_lines(&lines)?
         }
         "json" => {
             let s = std::str::from_utf8(file_bytes)
@@ -1574,6 +1576,10 @@ mod tests {
         if let Ok(bytes) = std::fs::read(path) {
             let res = import_quiz(&bytes, "pdf", "Tin học trong kỹ thuật").unwrap();
             assert_eq!(res.1.len(), 500);
+            let answered = res.1.iter().filter(|q| !q.correct.is_empty()).count();
+            let unanswered = res.1.iter().filter(|q| q.correct.is_empty()).count();
+            assert_eq!(answered, 498);
+            assert_eq!(unanswered, 2);
             for q in &res.1 {
                 assert_eq!(q.options.len(), 4);
             }

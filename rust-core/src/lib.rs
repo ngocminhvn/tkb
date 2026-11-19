@@ -3,6 +3,7 @@
 
 pub mod auth;
 pub mod quiz;
+pub mod pdf_extract;
 pub mod autosync;
 pub mod database;
 pub mod timeline;

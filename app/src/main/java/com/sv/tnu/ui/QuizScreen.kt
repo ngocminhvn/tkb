@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -40,7 +43,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,10 +64,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sv.tnu.quiz.QuizDeck
 import com.sv.tnu.quiz.QuizImportResult
@@ -258,43 +263,53 @@ fun QuizScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(start = 12.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = {
+                    QuizCircleBackButton(isDark = isDark) {
                         if (page == QuizPage.LIBRARY) onBack() else returnToLibrary()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Text(
                         text = when (page) {
                             QuizPage.LIBRARY -> "Ôn tập trắc nghiệm"
                             QuizPage.PREVIEW -> "Kiểm tra đề"
                             QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
                         },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
                 if (page == QuizPage.LIBRARY) {
-                    Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.04f),
+                                CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 } else if (page == QuizPage.PRACTICE && isTimedMode) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         ) {
                             Icon(
                                 Icons.Default.Timer,
@@ -358,12 +373,12 @@ fun QuizScreen(
                                     if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                                 ),
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
                                     Icon(
                                         imageVector = Icons.Default.UploadFile,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(26.dp),
+                                        modifier = Modifier.size(28.dp),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -391,12 +406,12 @@ fun QuizScreen(
                                     if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                                 ),
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
                                     Icon(
                                         imageVector = Icons.Default.AutoStories,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.secondary,
-                                        modifier = Modifier.size(26.dp),
+                                        modifier = Modifier.size(28.dp),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -419,7 +434,7 @@ fun QuizScreen(
                         // 2. Chức năng bật/tắt Tự động chấm
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
                             ),
@@ -431,7 +446,7 @@ fun QuizScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -466,12 +481,42 @@ fun QuizScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         if (decks.isEmpty() && !busy) {
-                            Text(
-                                "Chưa có bộ đề nào. Hãy nhấn Import để thêm tài liệu ôn tập.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 12.dp),
-                            )
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
+                                ),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        Icons.Default.MenuBook,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(36.dp),
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Chưa có bộ đề nào",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "Nhấn nút Import đề ở trên để bắt đầu ôn tập.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 decks.forEach { deck ->
@@ -491,7 +536,7 @@ fun QuizScreen(
                                         border = BorderStroke(
                                             if (isSelected) 1.5.dp else 1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary
-                                            else if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                                             else if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
                                         ),
                                     ) {
                                         Column(modifier = Modifier.padding(14.dp)) {
@@ -631,41 +676,91 @@ fun QuizScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(100.dp))
                     }
                 }
                 QuizPage.PREVIEW -> {
                     val value = imported
                     if (value != null) {
-                        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                        ) {
                             OutlinedTextField(
                                 value = deckName,
                                 onValueChange = { deckName = it },
                                 singleLine = true,
                                 label = { Text("Tên bộ đề") },
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(value.notice, style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(10.dp))
+
                             val unanswered = value.questions.count { it.correct.isEmpty() }
-                            if (unanswered > 0) {
-                                Text(
-                                    "Còn " + unanswered + " câu chưa có đáp án. Chọn đáp án trước khi lưu.",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                            val answered = value.questions.size - unanswered
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (unanswered == 0) Color(0xFF2E7D32).copy(alpha = 0.4f)
+                                    else if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f),
+                                ),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = if (unanswered == 0) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = if (unanswered == 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Đã nhận diện ${value.questions.size} câu hỏi",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = if (unanswered == 0) {
+                                                "Tất cả ${value.questions.size} câu đều có đáp án (nhận diện từ chữ đỏ)."
+                                            } else {
+                                                "Đã nhận ${answered} câu có đáp án đỏ · Còn ${unanswered} câu chưa có đáp án."
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (unanswered == 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             if (unanswered > 0 || showMissingOnly) {
                                 OutlinedButton(
                                     modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
                                     onClick = { showMissingOnly = !showMissingOnly },
                                 ) {
-                                    Text(if (showMissingOnly) "Xem tất cả câu hỏi" else
-                                        "Chỉ xem " + unanswered + " câu thiếu đáp án")
+                                    Text(
+                                        if (showMissingOnly) "Xem tất cả câu hỏi (${value.questions.size})"
+                                        else "Chỉ xem $unanswered câu thiếu đáp án",
+                                    )
                                 }
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
+
                             Button(
-                                enabled = !busy && unanswered == 0 && deckName.isNotBlank(),
+                                enabled = !busy && deckName.isNotBlank(),
+                                shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
                                     scope.launch {
@@ -683,16 +778,25 @@ fun QuizScreen(
                                         }
                                     }
                                 },
-                            ) { Text("Lưu " + value.questions.size + " câu vào máy") }
+                            ) {
+                                Text("Lưu ${value.questions.size} câu vào máy", fontWeight = FontWeight.Bold)
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "Nhấn vào đáp án để chỉnh; có thể chọn nhiều đáp án đúng.",
-                                style = MaterialTheme.typography.bodySmall,
+                                "Chạm vào đáp án để chỉnh; có thể chọn nhiều đáp án đúng.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+
                             val visibleQuestions = value.questions.withIndex().filter {
                                 !showMissingOnly || it.value.correct.isEmpty()
                             }
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                            ) {
                                 items(visibleQuestions, key = { it.index }) { entry ->
                                     val index = entry.index
                                     val question = entry.value
@@ -700,6 +804,7 @@ fun QuizScreen(
                                         question = question,
                                         number = index + 1,
                                         chosen = question.correct,
+                                        isPreviewMode = true,
                                         onToggle = { option ->
                                             val updated = value.questions.toMutableList()
                                             val next = question.correct.toMutableSet().apply {
@@ -793,6 +898,7 @@ fun QuizScreen(
                                 question = question,
                                 number = currentIndex + 1,
                                 chosen = selected,
+                                isPreviewMode = false,
                                 isAnswered = markedCorrect != null,
                                 onToggle = { choice ->
                                     val nextSelected = if (question.correct.size > 1) {
@@ -826,31 +932,61 @@ fun QuizScreen(
                                     enabled = selected.isNotEmpty(),
                                     onClick = { submitAnswer(selected) },
                                     modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
                                 ) {
-                                    Text("Kiểm tra đáp án")
+                                    Text("Kiểm tra đáp án", fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                             }
 
                             if (markedCorrect != null) {
-                                Text(
-                                    if (markedCorrect == true) "Chính xác!" else
-                                        "Chưa đúng. Đáp án: " +
-                                            question.correct.joinToString(", ") { ('A' + it).toString() },
-                                    color = if (markedCorrect == true) Color(0xFF2E7D32)
-                                    else MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (markedCorrect == true) {
+                                        if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
+                                    } else {
+                                        if (isDark) Color(0xFF381B1B) else Color(0xFFFFEBEE)
+                                    },
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (markedCorrect == true) Color(0xFF2E7D32).copy(alpha = 0.5f)
+                                        else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                    ),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = if (markedCorrect == true) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                                            contentDescription = null,
+                                            tint = if (markedCorrect == true) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (markedCorrect == true) "Chính xác!" else
+                                                "Chưa đúng. Đáp án: " +
+                                                    question.correct.joinToString(", ") { ('A' + it).toString() },
+                                            color = if (markedCorrect == true) Color(0xFF2E7D32)
+                                            else MaterialTheme.colorScheme.error,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
                             }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 if (currentIndex > 0) {
                                     OutlinedButton(
                                         modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
                                         onClick = {
                                             currentIndex--
                                             val prev = questions[currentIndex]
@@ -861,6 +997,7 @@ fun QuizScreen(
                                 }
                                 Button(
                                     modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
                                     onClick = {
                                         if (currentIndex == questions.lastIndex) {
                                             if (isTimedMode) {
@@ -876,16 +1013,56 @@ fun QuizScreen(
                                         }
                                     },
                                 ) {
-                                    Text(if (currentIndex == questions.lastIndex) "Kết thúc" else "Câu tiếp theo")
+                                    Text(
+                                        if (currentIndex == questions.lastIndex) "Kết thúc" else "Câu tiếp theo",
+                                        fontWeight = FontWeight.Bold,
+                                    )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(120.dp))
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun QuizCircleBackButton(
+    isDark: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .shadow(
+                elevation = 3.dp,
+                shape = CircleShape,
+                spotColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color(0x18000000),
+            )
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.12f)
+                else Color.White.copy(alpha = 0.65f),
+                CircleShape,
+            )
+            .border(
+                1.dp,
+                if (isDark) Color.White.copy(alpha = 0.20f)
+                else Color.White.copy(alpha = 0.85f),
+                CircleShape,
+            )
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Quay lại",
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -900,7 +1077,7 @@ private fun QuizModeItem(
 ) {
     Card(
         modifier = modifier.clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF3F5F9),
         ),
@@ -912,20 +1089,20 @@ private fun QuizModeItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
         }
@@ -937,6 +1114,7 @@ private fun QuizQuestionCard(
     question: QuizQuestion,
     number: Int,
     chosen: Set<Int>,
+    isPreviewMode: Boolean = false,
     isAnswered: Boolean = false,
     onToggle: (Int) -> Unit,
 ) {
@@ -947,38 +1125,106 @@ private fun QuizQuestionCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 2.dp else 1.dp),
         border = BorderStroke(
             1.dp,
             if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text("Câu " + number + ". " + question.prompt, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Câu $number. ${question.prompt}",
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             question.options.forEachIndexed { index, option ->
                 val isSelected = index in chosen
-                val isCorrectAnswer = isAnswered && index in question.correct
-                val isWrongSelection = isAnswered && isSelected && index !in question.correct
-                val textColor = when {
+                val isCorrectAnswer = (isAnswered || isPreviewMode) && index in question.correct
+                val isWrongSelection = isAnswered && !isPreviewMode && isSelected && index !in question.correct
+
+                val rowBgColor = when {
+                    isCorrectAnswer -> if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
+                    isWrongSelection -> if (isDark) Color(0xFF381B1B) else Color(0xFFFFEBEE)
+                    isSelected -> if (isDark) Color(0xFF222B3D) else Color(0xFFEAF1FF)
+                    else -> Color.Transparent
+                }
+
+                val rowBorderColor = when {
+                    isCorrectAnswer -> Color(0xFF2E7D32).copy(alpha = if (isDark) 0.6f else 0.4f)
+                    isWrongSelection -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    else -> if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.05f)
+                }
+
+                val badgeBgColor = when {
+                    isCorrectAnswer -> Color(0xFF2E7D32)
+                    isWrongSelection -> MaterialTheme.colorScheme.error
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    else -> if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f)
+                }
+
+                val badgeTextColor = when {
+                    isCorrectAnswer || isWrongSelection || isSelected -> Color.White
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                val optionTextColor = when {
                     isCorrectAnswer -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
                     isWrongSelection -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurface
                 }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .background(rowBgColor, RoundedCornerShape(12.dp))
+                        .border(1.dp, rowBorderColor, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable { onToggle(index) }
-                        .padding(vertical = 3.dp),
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Checkbox(checked = isSelected, onCheckedChange = { onToggle(index) })
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(badgeBgColor, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = ('A' + index).toString(),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = badgeTextColor,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
                     Text(
-                        text = ('A' + index).toString() + ". " + option,
-                        color = textColor,
-                        fontWeight = if (isCorrectAnswer || isWrongSelection) FontWeight.Medium else FontWeight.Normal,
+                        text = option,
+                        color = optionTextColor,
+                        fontWeight = if (isCorrectAnswer || isWrongSelection || isSelected) FontWeight.Medium else FontWeight.Normal,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
+
+                    if (isCorrectAnswer) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Đáp án đúng",
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else if (isWrongSelection) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = "Chọn sai",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
