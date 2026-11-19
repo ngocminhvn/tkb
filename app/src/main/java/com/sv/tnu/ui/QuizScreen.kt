@@ -29,20 +29,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -110,7 +110,24 @@ fun QuizScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var deleteCandidate by remember { mutableStateOf<QuizDeck?>(null) }
 
-    // Chế độ tự động chấm: lưu vào SharedPreferences
+    // 4 tùy chọn làm bài trắc nghiệm: lưu vào SharedPreferences
+    var shuffleQuestions by remember {
+        mutableStateOf(sharedPrefs.getBoolean("quiz_shuffle_questions", true))
+    }
+    fun updateShuffleQuestions(enabled: Boolean) {
+        shuffleQuestions = enabled
+        sharedPrefs.edit().putBoolean("quiz_shuffle_questions", enabled).apply()
+    }
+
+    var shuffleOptions by remember {
+        mutableStateOf(sharedPrefs.getBoolean("quiz_shuffle_options", true))
+    }
+    fun updateShuffleOptions(enabled: Boolean) {
+        shuffleOptions = enabled
+        sharedPrefs.edit().putBoolean("quiz_shuffle_options", enabled).apply()
+    }
+
+    // Chế độ tự động chấm (hiện đáp án ngay khi chọn): lưu vào SharedPreferences
     var autoGrade by remember {
         mutableStateOf(sharedPrefs.getBoolean("auto_grade", true))
     }
@@ -120,6 +137,14 @@ fun QuizScreen(
     }
 
     // Chế độ tính giờ
+    var isTimedModeOption by remember {
+        mutableStateOf(sharedPrefs.getBoolean("quiz_timed_mode", false))
+    }
+    fun updateTimedMode(enabled: Boolean) {
+        isTimedModeOption = enabled
+        sharedPrefs.edit().putBoolean("quiz_timed_mode", enabled).apply()
+    }
+
     var isTimedMode by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var showFinishExamDialog by remember { mutableStateOf(false) }
@@ -154,7 +179,13 @@ fun QuizScreen(
         refreshLibrary()
     }
 
-    fun openPractice(deck: QuizDeck, wrongOnly: Boolean, shuffle: Boolean = false, timed: Boolean = false) {
+    fun openPractice(
+        deck: QuizDeck,
+        wrongOnly: Boolean = false,
+        shuffle: Boolean = false,
+        shuffleOpts: Boolean = false,
+        timed: Boolean = false,
+    ) {
         scope.launch {
             busy = true
             error = null
@@ -163,7 +194,31 @@ fun QuizScreen(
                 if (found.isEmpty()) {
                     error = if (wrongOnly) "Chưa có câu trả lời sai để ôn lại." else "Bộ đề chưa có câu hỏi."
                 } else {
-                    val finalQuestions = if (shuffle) found.shuffled() else found
+                    var finalQuestions = if (shuffle) found.shuffled() else found
+                    if (shuffleOpts) {
+                        finalQuestions = finalQuestions.map { q ->
+                            if (q.options.size > 1) {
+                                val indices = q.options.indices.shuffled()
+                                val newOptions = indices.map { q.options[it] }
+                                val newCorrect = indices.mapIndexedNotNull { newIdx, oldIdx ->
+                                    if (q.correct.contains(oldIdx)) newIdx else null
+                                }.toSet()
+                                val newSelected = q.selected?.let { sel ->
+                                    indices.mapIndexedNotNull { newIdx, oldIdx ->
+                                        if (sel.contains(oldIdx)) newIdx else null
+                                    }.toSet()
+                                }
+                                q.copy(
+                                    options = newOptions,
+                                    correct = newCorrect,
+                                    selected = newSelected,
+                                    originalIndices = indices,
+                                )
+                            } else {
+                                q
+                            }
+                        }
+                    }
                     questions = finalQuestions
                     currentIndex = 0
                     selected = finalQuestions[0].selected ?: emptySet()
@@ -425,7 +480,7 @@ fun QuizScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 2. Chức năng bật/tắt Tự động chấm
+                        // 2. Tùy chọn làm bài: 4 checkbox cân đối 2x2
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -437,31 +492,52 @@ fun QuizScreen(
                                 if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
                             ),
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                    Text(
-                                        "Tự động chấm khi chọn đáp án",
-                                        fontWeight = FontWeight.SemiBold,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    QuizCheckboxItem(
+                                        modifier = Modifier.weight(1f),
+                                        label = "Trộn thứ tự câu hỏi",
+                                        checked = shuffleQuestions,
+                                        enabled = !busy,
+                                        onCheckedChange = { updateShuffleQuestions(it) },
                                     )
-                                    Text(
-                                        if (autoGrade) "Chấm ngay khi chọn (ẩn nút kiểm tra)"
-                                        else "Hiện nút \"Kiểm tra đáp án\" thủ công",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    QuizCheckboxItem(
+                                        modifier = Modifier.weight(1f),
+                                        label = "Đảo đáp án A/B/C/D",
+                                        checked = shuffleOptions,
+                                        enabled = !busy,
+                                        onCheckedChange = { updateShuffleOptions(it) },
                                     )
                                 }
-                                Switch(
-                                    checked = autoGrade,
-                                    onCheckedChange = { updateAutoGrade(it) },
-                                    enabled = !busy,
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    QuizCheckboxItem(
+                                        modifier = Modifier.weight(1f),
+                                        label = "Hiện đáp án ngay khi chọn",
+                                        checked = autoGrade,
+                                        enabled = !busy,
+                                        onCheckedChange = { updateAutoGrade(it) },
+                                    )
+                                    QuizCheckboxItem(
+                                        modifier = Modifier.weight(1f),
+                                        label = "Bật tính giờ làm bài",
+                                        checked = isTimedModeOption,
+                                        enabled = !busy,
+                                        onCheckedChange = { updateTimedMode(it) },
+                                    )
+                                }
                             }
                         }
 
@@ -533,7 +609,16 @@ fun QuizScreen(
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable(enabled = !busy) { selectedDeckId = deck.id },
+                                            .clickable(enabled = !busy) {
+                                                selectedDeckId = deck.id
+                                                openPractice(
+                                                    deck = deck,
+                                                    wrongOnly = false,
+                                                    shuffle = shuffleQuestions,
+                                                    shuffleOpts = shuffleOptions,
+                                                    timed = isTimedModeOption,
+                                                )
+                                            },
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isSelected) {
@@ -637,71 +722,6 @@ fun QuizScreen(
                                     }
                                 }
                             }
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // 4. Chế độ luyện tập
-                        Text(
-                            "Chế độ luyện tập",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        val hasDeck = activeDeck != null
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            QuizModeItem(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                title = "Làm theo thứ tự",
-                                enabled = hasDeck && !busy,
-                                isDark = isDark,
-                                onClick = {
-                                    activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = false, timed = false) }
-                                },
-                            )
-                            QuizModeItem(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Shuffle,
-                                title = "Trộn câu hỏi",
-                                enabled = hasDeck && !busy,
-                                isDark = isDark,
-                                onClick = {
-                                    activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = true, timed = false) }
-                                },
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            QuizModeItem(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.ErrorOutline,
-                                title = "Ôn câu sai",
-                                enabled = hasDeck && !busy,
-                                isDark = isDark,
-                                onClick = {
-                                    activeDeck?.let { openPractice(it, wrongOnly = true, shuffle = false, timed = false) }
-                                },
-                            )
-                            QuizModeItem(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Timer,
-                                title = "Thi thử tính giờ",
-                                enabled = hasDeck && !busy,
-                                isDark = isDark,
-                                onClick = {
-                                    activeDeck?.let { openPractice(it, wrongOnly = false, shuffle = true, timed = true) }
-                                },
-                            )
                         }
 
                         Spacer(modifier = Modifier.height(100.dp))
@@ -867,13 +887,17 @@ fun QuizScreen(
                         fun submitAnswer(choices: Set<Int>) {
                             scope.launch {
                                 try {
-                                    val correct = withContext(Dispatchers.IO) {
-                                        storage.saveAnswer(question, choices)
+                                    val toSave = question.originalIndices?.let { orig ->
+                                        choices.map { orig[it] }.toSet()
+                                    } ?: choices
+                                    withContext(Dispatchers.IO) {
+                                        storage.saveAnswer(question, toSave)
                                     }
-                                    markedCorrect = correct
+                                    val isCorrect = question.correct.isNotEmpty() && choices == question.correct
+                                    markedCorrect = isCorrect
                                     questions = questions.toMutableList().also {
                                         it[currentIndex] = question.copy(
-                                            selected = choices, wasCorrect = correct,
+                                            selected = choices, wasCorrect = isCorrect,
                                         )
                                     }
                                     refreshLibrary()
@@ -1107,45 +1131,37 @@ private fun QuizCircleBackButton(
 }
 
 @Composable
-private fun QuizModeItem(
+private fun QuizCheckboxItem(
     modifier: Modifier = Modifier,
-    icon: ImageVector,
-    title: String,
+    label: String,
+    checked: Boolean,
     enabled: Boolean,
-    isDark: Boolean,
-    onClick: () -> Unit,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    Card(
-        modifier = modifier.clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF3F5F9),
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f),
-        ),
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-            )
-        }
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = CheckboxDefaults.colors(
+                checkedColor = MaterialTheme.colorScheme.primary,
+            ),
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

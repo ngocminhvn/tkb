@@ -53,6 +53,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +83,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sv.tnu.grades.GradeCourse
 import com.sv.tnu.grades.GradeOverview
 import com.sv.tnu.grades.GradeSemester
@@ -103,16 +106,10 @@ fun GradesScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val expandedCourses by viewModel.expandedCourses.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
-    // Nếu thời gian tải từ API lâu hơn 350ms, hiển thị icon load ở giữa màn hình
-    var showCenterLoader by remember { mutableStateOf(false) }
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) {
-            delay(350L)
-            showCenterLoader = true
-        } else {
-            showCenterLoader = false
-        }
+    LaunchedEffect(Unit) {
+        viewModel.autoSelectCurrentSemester()
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "spin")
@@ -167,29 +164,13 @@ fun GradesScreen(
 
                 Spacer(modifier = Modifier.width(14.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Xem điểm",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val studentName = when (val s = uiState) {
-                        is GradeUiState.Success -> s.transcript.studentName.ifBlank { s.transcript.studentId }
-                        is GradeUiState.Loading -> s.cached?.studentName ?: ""
-                        is GradeUiState.Error -> s.cached?.studentName ?: ""
-                        else -> ""
-                    }
-                    if (studentName.isNotBlank()) {
-                        Text(
-                            text = studentName,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+                Text(
+                    text = "Xem điểm",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
 
                 // Nút refresh xoay vòng
                 Box(
@@ -254,7 +235,8 @@ fun GradesScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(
-                                    strokeWidth = 3.dp,
+                                    modifier = Modifier.size(42.dp),
+                                    strokeWidth = 4.dp,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
@@ -347,44 +329,60 @@ fun GradesScreen(
                     )
                 }
 
-                GradeUiState.Initial -> {}
             }
+        }
 
-            // Icon loading nổi ở giữa màn hình khi đồng bộ kéo dài
-            AnimatedVisibility(
-                visible = showCenterLoader && isRefreshing,
-                enter = fadeIn(tween(200)),
-                exit = fadeOut(tween(200)),
-                modifier = Modifier.align(Alignment.Center),
+        if (isRefreshing) {
+            Dialog(
+                onDismissRequest = {},
+                properties = DialogProperties(
+                    dismissOnBackPress = false,
+                    dismissOnClickOutside = false,
+                    usePlatformDefaultWidth = false,
+                ),
             ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = if (isDark) Color(0xEE1A202C) else Color(0xF4FFFFFF),
-                    shadowElevation = 8.dp,
-                    border = BorderStroke(
-                        1.dp,
-                        if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
-                    ),
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Đang đồng bộ dữ liệu mới nhất...",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(42.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 4.dp,
+                    )
                 }
             }
+        }
+
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissError,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Không thể tải bảng điểm",
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                text = {
+                    Text(
+                        text = errorMessage!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::dismissError) {
+                        Text("Đóng")
+                    }
+                },
+                shape = RoundedCornerShape(22.dp),
+            )
         }
     }
 }
@@ -535,8 +533,10 @@ private fun GradeContent(
             }
         } else {
             filteredSemesters.forEach { semester ->
-                item(key = "header_${semester.hocKy}") {
-                    SemesterHeaderCard(semester = semester, isDark = isDark)
+                if (selectedSemester == null) {
+                    item(key = "header_${semester.hocKy}") {
+                        SemesterHeaderCard(semester = semester, isDark = isDark)
+                    }
                 }
 
                 items(semester.courses, key = { "${semester.hocKy}_${it.maMon}_${it.nhomTo}" }) { course ->
@@ -588,55 +588,86 @@ private fun SemesterSelectCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Học kỳ xem điểm",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = displayText,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Học kỳ xem điểm",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = displayText,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Chọn học kỳ",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(26.dp),
+                )
             }
 
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Chọn học kỳ",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(26.dp),
-            )
+            if (selectedSemester != null) {
+                val hasStats = (selectedSemester.dtbHk4.isNotBlank() && selectedSemester.dtbHk4 != "-") ||
+                    (selectedSemester.dtbHk10.isNotBlank() && selectedSemester.dtbHk10 != "-") ||
+                    (selectedSemester.soTinChiHk.isNotBlank() && selectedSemester.soTinChiHk != "-") ||
+                    (selectedSemester.diemRlHk.isNotBlank() && selectedSemester.diemRlHk != "-")
+                if (hasStats) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (selectedSemester.dtbHk4.isNotBlank() && selectedSemester.dtbHk4 != "-") {
+                            SemesterStatBadge(label = "TB (4)", value = selectedSemester.dtbHk4, isPrimary = true)
+                        }
+                        if (selectedSemester.dtbHk10.isNotBlank() && selectedSemester.dtbHk10 != "-") {
+                            SemesterStatBadge(label = "TB (10)", value = selectedSemester.dtbHk10)
+                        }
+                        if (selectedSemester.soTinChiHk.isNotBlank() && selectedSemester.soTinChiHk != "-") {
+                            SemesterStatBadge(label = "Đạt", value = "${selectedSemester.soTinChiHk} TC")
+                        }
+                        if (selectedSemester.diemRlHk.isNotBlank() && selectedSemester.diemRlHk != "-") {
+                            SemesterStatBadge(label = "ĐRL", value = selectedSemester.diemRlHk)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -970,41 +1001,53 @@ private fun SemesterHeaderCard(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                if (semester.dtbHk4.isNotBlank() && semester.dtbHk4 != "-") {
-                    Text(
-                        text = "TB HK (4): ${semester.dtbHk4}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                if (semester.dtbHk10.isNotBlank() && semester.dtbHk10 != "-") {
-                    Text(
-                        text = "TB HK (10): ${semester.dtbHk10}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (semester.soTinChiHk.isNotBlank() && semester.soTinChiHk != "-") {
-                    Text(
-                        text = "Đạt: ${semester.soTinChiHk} TC",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (semester.diemRlHk.isNotBlank() && semester.diemRlHk != "-") {
-                    Text(
-                        text = "ĐRL: ${semester.diemRlHk}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            val hasStats = (semester.dtbHk4.isNotBlank() && semester.dtbHk4 != "-") ||
+                (semester.dtbHk10.isNotBlank() && semester.dtbHk10 != "-") ||
+                (semester.soTinChiHk.isNotBlank() && semester.soTinChiHk != "-") ||
+                (semester.diemRlHk.isNotBlank() && semester.diemRlHk != "-")
+            if (hasStats) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (semester.dtbHk4.isNotBlank() && semester.dtbHk4 != "-") {
+                        SemesterStatBadge(label = "TB (4)", value = semester.dtbHk4, isPrimary = true)
+                    }
+                    if (semester.dtbHk10.isNotBlank() && semester.dtbHk10 != "-") {
+                        SemesterStatBadge(label = "TB (10)", value = semester.dtbHk10)
+                    }
+                    if (semester.soTinChiHk.isNotBlank() && semester.soTinChiHk != "-") {
+                        SemesterStatBadge(label = "Đạt", value = "${semester.soTinChiHk} TC")
+                    }
+                    if (semester.diemRlHk.isNotBlank() && semester.diemRlHk != "-") {
+                        SemesterStatBadge(label = "ĐRL", value = semester.diemRlHk)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SemesterStatBadge(
+    label: String,
+    value: String,
+    isPrimary: Boolean = false,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$label: ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            softWrap = false,
+        )
     }
 }
 

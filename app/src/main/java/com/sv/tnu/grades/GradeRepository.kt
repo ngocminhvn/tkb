@@ -30,6 +30,8 @@ class GradeRepository(
 
     private val jsonMediaType = "application/json; charset=UTF-8".toMediaType()
 
+    fun getCurrentSemesterId(): String? = authStore.hocKy.takeIf { it != 0 }?.toString()
+
     private fun cacheFile(): File {
         val user = authStore.username?.takeIf { it.isNotBlank() } ?: "default"
         return File(context.filesDir, "grades_cache_${user}.json")

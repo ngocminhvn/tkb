@@ -42,10 +42,37 @@ class GradeViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     private var hasInitializedSemester = false
 
     init {
         loadInitial()
+    }
+
+    fun dismissError() {
+        _errorMessage.value = null
+    }
+
+    fun resolveCurrentSemester(semesters: List<GradeSemester>): String? {
+        val target = repository.getCurrentSemesterId()
+        if (target != null && semesters.any { it.hocKy == target }) {
+            return target
+        }
+        return semesters.lastOrNull()?.hocKy
+    }
+
+    fun autoSelectCurrentSemester() {
+        val transcript = when (val state = _uiState.value) {
+            is GradeUiState.Success -> state.transcript
+            is GradeUiState.Loading -> state.cached
+            is GradeUiState.Error -> state.cached
+            else -> null
+        }
+        if (transcript != null && transcript.semesters.isNotEmpty()) {
+            _selectedSemester.value = resolveCurrentSemester(transcript.semesters)
+        }
     }
 
     private fun loadInitial() {
@@ -53,10 +80,8 @@ class GradeViewModel(
             val cached = repository.loadCachedTranscript()
             if (cached != null && cached.semesters.isNotEmpty()) {
                 _uiState.value = GradeUiState.Success(cached, isOffline = false)
-                if (!hasInitializedSemester) {
-                    _selectedSemester.value = cached.semesters.lastOrNull()?.hocKy
-                    hasInitializedSemester = true
-                }
+                _selectedSemester.value = resolveCurrentSemester(cached.semesters)
+                hasInitializedSemester = true
             } else {
                 _uiState.value = GradeUiState.Loading(cached)
             }
@@ -90,15 +115,16 @@ class GradeViewModel(
         result.onSuccess { transcript ->
             hasSyncedInSession = true
             _uiState.value = GradeUiState.Success(transcript, isOffline = false)
-            if (!hasInitializedSemester && transcript.semesters.isNotEmpty()) {
-                _selectedSemester.value = transcript.semesters.lastOrNull()?.hocKy
+            if (_selectedSemester.value == null || !hasInitializedSemester) {
+                _selectedSemester.value = resolveCurrentSemester(transcript.semesters)
                 hasInitializedSemester = true
             }
         }.onFailure { err ->
+            val message = describeGradeError(err)
+            _errorMessage.value = message
             if (cached != null) {
                 _uiState.value = GradeUiState.Success(cached, isOffline = true)
             } else {
-                val message = err.message ?: "Không thể kết nối tới cổng portal TNUT."
                 _uiState.value = GradeUiState.Error(message, cached)
             }
         }
@@ -121,4 +147,25 @@ class GradeViewModel(
             current + courseKey
         }
     }
+}
+
+private fun describeGradeError(cause: Throwable): String {
+    val detail = cause.message?.trim()?.take(400).orEmpty()
+    return when (cause) {
+        is retrofit2.HttpException -> when (cause.code()) {
+            401 -> "HTTP 401: Phiên đăng nhập hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại."
+            403 -> "HTTP 403: Máy chủ từ chối quyền truy cập bảng điểm."
+            404 -> "HTTP 404: Không tìm thấy API bảng điểm."
+            429 -> "HTTP 429: Máy chủ giới hạn yêu cầu. Hãy thử lại sau."
+            in 500..599 -> "HTTP ${cause.code()}: Máy chủ TNUT đang gặp sự cố. $detail"
+            else -> "HTTP ${cause.code()}: ${detail.ifBlank { "Yêu cầu bảng điểm bị từ chối." }}"
+        }
+        is java.net.SocketTimeoutException -> "Hết thời gian chờ kết nối hoặc phản hồi từ portal TNUT. $detail"
+        is java.net.UnknownHostException -> "Không tìm thấy máy chủ portal TNUT. Kiểm tra Wi-Fi/4G. $detail"
+        is java.net.ConnectException -> "Không kết nối được tới portal TNUT. $detail"
+        is javax.net.ssl.SSLException -> "Kết nối bảo mật SSL/TLS tới portal không thành công. $detail"
+        else -> detail.ifBlank {
+            "Không thể tải bảng điểm (${cause.javaClass.simpleName}). Hãy thử lại sau."
+        }
+    }.trim()
 }

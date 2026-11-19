@@ -11,6 +11,7 @@ data class QuizQuestion(
     val id: Long = 0L,
     val selected: Set<Int>? = null,
     val wasCorrect: Boolean? = null,
+    val originalIndices: List<Int>? = null,
 )
 
 data class QuizDeck(

@@ -1,24 +1,30 @@
 package com.sv.tnu.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -57,16 +63,42 @@ fun TimetableSyncDialog(
     val warning = (status as? TimetableSyncStatus.Success)?.examWarning
     val failure = (status as? TimetableSyncStatus.Failure)?.detail
 
+    if (loading) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false,
+            ),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(42.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 4.dp,
+                )
+            }
+        }
+        return
+    }
+
+    if (warning == null && failure == null) {
+        // Đồng bộ thành công không có cảnh báo: tự động đóng loading
+        LaunchedEffect(Unit) {
+            onDismiss()
+        }
+        return
+    }
+
     AlertDialog(
-        onDismissRequest = { if (!loading) onDismiss() },
+        onDismissRequest = onDismiss,
         shape = RoundedCornerShape(22.dp),
         icon = {
-            val icon = when {
-                loading -> Icons.Default.Sync
-                failure != null -> Icons.Default.ErrorOutline
-                warning != null -> Icons.Default.WarningAmber
-                else -> Icons.Default.CheckCircle
-            }
+            val icon = if (failure != null) Icons.Default.ErrorOutline else Icons.Default.WarningAmber
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -76,46 +108,32 @@ fun TimetableSyncDialog(
         },
         title = {
             Text(
-                text = when {
-                    loading -> "Đang đồng bộ thời khóa biểu"
-                    failure != null -> "Đồng bộ thất bại"
-                    warning != null -> "Đồng bộ chưa hoàn tất"
-                    else -> "Đồng bộ thành công"
-                },
+                text = if (failure != null) "Đồng bộ thất bại" else "Đồng bộ chưa hoàn tất",
                 fontWeight = FontWeight.Bold,
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when {
-                    loading -> {
-                        Text("Đang lấy lịch học và lịch thi từ portal TNUT. Dữ liệu đã lưu vẫn được giữ nguyên.")
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-                    failure != null -> {
-                        Text(
-                            text = failure,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    warning != null -> {
-                        Text("Lịch học đã được đồng bộ và lưu vào máy.")
-                        Text(
-                            "Lịch thi chưa đồng bộ đầy đủ: $warning",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    else -> Text("Lịch học và lịch thi đã được kiểm tra và đồng bộ. Lịch đã lưu có thể xem offline.")
+                if (failure != null) {
+                    Text(
+                        text = failure,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else if (warning != null) {
+                    Text("Lịch học đã được đồng bộ và lưu vào máy.")
+                    Text(
+                        "Lịch thi chưa đồng bộ đầy đủ: $warning",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !loading,
-            ) { Text(if (loading) "Đang đồng bộ…" else "Đóng") }
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
         },
     )
 }

@@ -437,7 +437,7 @@ class TimetableViewModel(
                             Log.w("TimetableViewModel", "Could not read just-synced timetable", e)
                         }
                         _lastSyncTime.value = authStore.lastSyncTime
-                        if (showDialog) _syncStatus.value = TimetableSyncStatus.Success(repository.lastSyncWarning.value)
+                        if (showDialog) _syncStatus.value = if (repository.lastSyncWarning.value != null) TimetableSyncStatus.Success(repository.lastSyncWarning.value) else null
                     }
                     .onFailure { cause ->
                         val issue = if (cause is retrofit2.HttpException && cause.code() == 401) {
