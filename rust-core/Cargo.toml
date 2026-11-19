@@ -28,7 +28,6 @@ log = "0.4"
 pom = "1.1.0"
 cff-parser = "0.2.0"
 ttf-parser = "0.25.1"
-postscript = "0.14.1"
 
 [profile.release]
 opt-level = 3

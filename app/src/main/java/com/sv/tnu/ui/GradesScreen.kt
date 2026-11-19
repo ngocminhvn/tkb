@@ -329,6 +329,7 @@ fun GradesScreen(
                     )
                 }
 
+                GradeUiState.Initial -> {}
             }
         }
 

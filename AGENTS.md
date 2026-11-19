@@ -16,6 +16,7 @@ Tài liệu này áp dụng cho **toàn bộ repository `ngocminhvn/tkb`**. Trư
 
 - Làm trực tiếp trên `main`. Không tạo nhánh mới.
 - Không tạo APK debug, kể cả để kiểm thử. Dùng các bài test Rust/JNI và build Release khi cần APK.
+- Khi thay đổi file thì chú ý bảo toàn hoặc nâng cấp, ưu tiên Rust, không thay thế bằng công nghệ hoặc thư viện khác.
 - Khi hoàn tất và kiểm tra xong, commit rồi push thẳng lên `origin/main` để GitHub Actions build. Kiểm tra trạng thái workflow và báo lại.
 
 ### Những điều bắt buộc giữ nguyên, trừ khi yêu cầu có nêu rõ và đã có phương án migrate/test
