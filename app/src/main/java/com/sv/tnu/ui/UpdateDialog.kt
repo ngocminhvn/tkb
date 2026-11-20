@@ -92,6 +92,7 @@ fun UpdateDialog(
                             LinearWavyProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -109,7 +110,7 @@ fun UpdateDialog(
                                 )
                             }
                         } else {
-                            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                             Text(
                                 text = AppUpdateManager.formatBytes(downloadedBytes),
                                 style = MaterialTheme.typography.bodySmall,

@@ -58,7 +58,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
 | `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
-| `.../ui/MainScreen.kt` | Khung màn hình chính, tab/navigation, mở cài đặt, kết nối update, điều hướng tab Thêm | TNUT parsing |
+| `.../ui/MainScreen.kt` | Khung điều hướng, animation chỉ một composition; GlassTabBar sở hữu lớp kính chọn tab; mở cài đặt và update | TNUT parsing |
 | `.../ui/GradesScreen.kt` | Màn hình xem điểm, GPA tích lũy, điểm học kỳ, điểm thành phần và bộ lọc học kỳ | Gọi HTTP trực tiếp |
 | `.../grades/` | `GradeModels.kt`, `GradeRepository.kt`, `GradeViewModel.kt`: parse điểm portal và cache qua Rust/TKB1G | Hardcode giao diện |
 | `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi và ánh xạ chỉ số timeline từ Rust, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |

@@ -2,7 +2,6 @@ package com.sv.tnu.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -87,14 +86,9 @@ private fun CalendarDay(
         label = "Selected calendar day",
     )
     val dayScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.10f else 1f,
+        targetValue = if (isSelected) 1.035f else 1f,
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
         label = "expressiveSelectedDayScale",
-    )
-    val cornerRadius by animateDpAsState(
-        targetValue = if (isSelected) 12.dp else 19.dp,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "expressiveSelectedDayShape",
     )
     val day = ymd.substringAfterLast('-').toIntOrNull()?.toString() ?: "-"
     Column(
@@ -115,11 +109,11 @@ private fun CalendarDay(
         }
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(36.dp)
                 .graphicsLayer { scaleX = dayScale; scaleY = dayScale }
                 .background(
                     color = highlightColor,
-                    shape = RoundedCornerShape(cornerRadius),
+                    shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,
         ) {

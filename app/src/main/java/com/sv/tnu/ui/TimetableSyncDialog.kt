@@ -78,7 +78,11 @@ fun TimetableSyncDialog(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                ContainedLoadingIndicator(modifier = Modifier.size(64.dp))
+                ContainedLoadingIndicator(
+                    modifier = Modifier.size(64.dp),
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    indicatorColor = MaterialTheme.colorScheme.primary,
+                )
             }
         }
         return

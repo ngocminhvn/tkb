@@ -531,7 +531,7 @@ fun QuizScreen(
                                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        LoadingIndicator(modifier = Modifier.size(42.dp))
+                                        LoadingIndicator(modifier = Modifier.size(42.dp), color = MaterialTheme.colorScheme.primary)
                                     }
                                 } else {
                                     Column(
@@ -673,7 +673,7 @@ fun QuizScreen(
                                             ),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        LoadingIndicator(modifier = Modifier.size(42.dp))
+                                        LoadingIndicator(modifier = Modifier.size(42.dp), color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

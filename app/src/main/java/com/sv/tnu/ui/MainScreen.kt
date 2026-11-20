@@ -1,14 +1,8 @@
 package com.sv.tnu.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,6 +65,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,7 +83,9 @@ import com.sv.tnu.ui.components.UserAvatar
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 import com.sv.tnu.vmFactory
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -153,21 +151,36 @@ fun MainScreen(
         showGrades = false
     }
 
+    // Animate only the active tab's graphics layer: never compose two heavy screens together.
     val expressiveMotionScheme = MaterialTheme.motionScheme
+    val tabOpacity = remember { Animatable(1f) }
+    val tabSlidePx = remember { Animatable(0f) }
+    var previousTabIndex by remember { mutableIntStateOf(selectedIndex) }
+    val tabTravelPx = with(LocalDensity.current) { 14.dp.toPx() }
+
+    LaunchedEffect(selectedIndex) {
+        if (previousTabIndex != selectedIndex) {
+            val direction = if (selectedIndex > previousTabIndex) 1f else -1f
+            previousTabIndex = selectedIndex
+            tabOpacity.snapTo(0.92f)
+            tabSlidePx.snapTo(direction * tabTravelPx)
+            coroutineScope {
+                launch { tabOpacity.animateTo(1f, expressiveMotionScheme.fastEffectsSpec()) }
+                launch { tabSlidePx.animateTo(0f, expressiveMotionScheme.fastSpatialSpec()) }
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // Tab content
-        AnimatedContent(
-            targetState = selectedIndex,
-            transitionSpec = {
-                val direction = if (targetState > initialState) 1 else -1
-                (slideInHorizontally(animationSpec = expressiveMotionScheme.defaultSpatialSpec()) { it / 5 * direction } +
-                    fadeIn(animationSpec = expressiveMotionScheme.defaultEffectsSpec())) togetherWith
-                    (slideOutHorizontally(animationSpec = expressiveMotionScheme.defaultSpatialSpec()) { -it / 6 * direction } +
-                        fadeOut(animationSpec = expressiveMotionScheme.defaultEffectsSpec()))
-            },
-            label = "expressiveTabTransition",
-        ) { tabIndex ->
-            when (NavigationTab.entries[tabIndex]) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = tabOpacity.value
+                    translationX = tabSlidePx.value
+                },
+        ) {
+            when (NavigationTab.entries[selectedIndex]) {
             NavigationTab.TIMETABLE -> {
                 // Equivalent to leaving and reopening this tab once after the
                 // first successful sync; preserves the ViewModel and Room data.
@@ -249,7 +262,7 @@ fun MainScreen(
             val tab = NavigationTab.entries[index]
             val tint = if (isSelected) selectedColor else unselectedColor
             val iconScale by animateFloatAsState(
-                targetValue = if (isSelected) 1.13f else 1f,
+                targetValue = if (isSelected) 1.06f else 1f,
                 animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
                 label = "expressiveNavigationIconScale",
             )
@@ -259,26 +272,15 @@ fun MainScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Box(
+                Icon(
+                    imageVector = tab.icon,
+                    contentDescription = tab.title,
+                    tint = tint,
                     modifier = Modifier
-                        .width(56.dp)
-                        .height(30.dp)
-                        .background(
-                            color = if (isSelected) selectedColor.copy(alpha = 0.20f) else Color.Transparent,
-                            shape = RoundedCornerShape(percent = 50),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = tab.title,
-                        tint = tint,
-                        modifier = Modifier
-                            .size(23.dp)
-                            .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
-                    )
-                }
-                Spacer(modifier = Modifier.height(1.dp))
+                        .size(23.dp)
+                        .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
                     style = MaterialTheme.typography.labelSmall,
@@ -378,7 +380,7 @@ private fun MoreScreen(
                 .padding(padding)
                 .padding(contentPadding)
                 .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = "HỌC TẬP & ĐÀO TẠO",
@@ -395,7 +397,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenGrades),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -413,16 +415,16 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.School,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
 
@@ -432,7 +434,7 @@ private fun MoreScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "Xem điểm",
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -473,7 +475,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenQuiz),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -491,16 +493,16 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoStories,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
 
@@ -509,7 +511,7 @@ private fun MoreScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Ôn tập",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(2.dp))

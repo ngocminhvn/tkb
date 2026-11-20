@@ -238,7 +238,7 @@ fun GradesScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                LoadingIndicator(modifier = Modifier.size(42.dp))
+                                LoadingIndicator(modifier = Modifier.size(42.dp), color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
                                     "Đang tải bảng điểm từ portal TNUT...",
@@ -346,7 +346,7 @@ fun GradesScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    LoadingIndicator(modifier = Modifier.size(42.dp))
+                    LoadingIndicator(modifier = Modifier.size(42.dp), color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

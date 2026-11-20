@@ -951,7 +951,7 @@ fun TimetableScreen(
                         .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    LoadingIndicator(modifier = Modifier.size(36.dp))
+                    LoadingIndicator(modifier = Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
                 }
             } else if (displayedGrouped.isEmpty()) {
                 Box(
