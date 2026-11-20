@@ -1,7 +1,14 @@
 package com.sv.tnu.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -146,9 +154,15 @@ fun MainScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Tab content
-        Crossfade(
+        AnimatedContent(
             targetState = selectedIndex,
-            animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+            transitionSpec = {
+                val direction = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(animationSpec = tween(320)) { it / 5 * direction } +
+                    fadeIn(animationSpec = tween(190))) togetherWith
+                    (slideOutHorizontally(animationSpec = tween(240)) { -it / 6 * direction } +
+                        fadeOut(animationSpec = tween(160)))
+            },
             label = "expressiveTabTransition",
         ) { tabIndex ->
             when (NavigationTab.entries[tabIndex]) {
@@ -232,22 +246,41 @@ fun MainScreen(
         ) { index, isSelected ->
             val tab = NavigationTab.entries[index]
             val tint = if (isSelected) selectedColor else unselectedColor
+            val iconScale by animateFloatAsState(
+                targetValue = if (isSelected) 1.13f else 1f,
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                label = "expressiveNavigationIconScale",
+            )
 
             Column(
                 modifier = Modifier.fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(
-                    imageVector = tab.icon,
-                    contentDescription = tab.title,
-                    tint = tint,
-                    modifier = Modifier.size(23.dp),
-                )
-                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(30.dp)
+                        .background(
+                            color = if (isSelected) selectedColor.copy(alpha = 0.20f) else Color.Transparent,
+                            shape = RoundedCornerShape(percent = 50),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = tab.title,
+                        tint = tint,
+                        modifier = Modifier
+                            .size(23.dp)
+                            .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+                    )
+                }
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = tab.title,
                     style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = tint,
                 )
             }
@@ -360,7 +393,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenGrades),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -378,16 +411,16 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.School,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(26.dp),
                         )
                     }
 
@@ -397,7 +430,7 @@ private fun MoreScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "Xem điểm",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -438,7 +471,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onOpenQuiz),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -456,16 +489,16 @@ private fun MoreScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoStories,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(26.dp),
                         )
                     }
 
@@ -474,7 +507,7 @@ private fun MoreScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Ôn tập",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(2.dp))

@@ -2,6 +2,8 @@ package com.sv.tnu.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -35,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,6 +85,16 @@ private fun CalendarDay(
         animationSpec = tween(durationMillis = 120),
         label = "Selected calendar day",
     )
+    val dayScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.10f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "expressiveSelectedDayScale",
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isSelected) 12.dp else 19.dp,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "expressiveSelectedDayShape",
+    )
     val day = ymd.substringAfterLast('-').toIntOrNull()?.toString() ?: "-"
     Column(
         modifier = modifier
@@ -100,10 +114,11 @@ private fun CalendarDay(
         }
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(38.dp)
+                .graphicsLayer { scaleX = dayScale; scaleY = dayScale }
                 .background(
                     color = highlightColor,
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(cornerRadius),
                 ),
             contentAlignment = Alignment.Center,
         ) {
