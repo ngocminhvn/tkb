@@ -13,3 +13,4 @@ Edge inward swipe between adjacent tabs (24dp sides, 56dp threshold) without int
 Bound edge swipe to 180dp thumb zones with Compose systemGestureExclusion (Android Back preserved outside).
 TRY M3E CONTROLS TimePickerDialog, connected ToggleButton Group, SplitButton import quick; only this commit triggers CI.
 Build requested: verify TKB1Q PDF/DOCX quiz save fix (eea7c8b), 2026-11-20.
+Build requested: quiz always-on timer, auto-advance and wrong-answer review (6c19269), 2026-11-20.
