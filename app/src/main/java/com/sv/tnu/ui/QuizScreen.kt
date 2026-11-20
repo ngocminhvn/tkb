@@ -46,7 +46,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -248,8 +247,7 @@ fun QuizScreen(
             title = { Text("Xóa bộ đề?") },
             text = { Text("Bộ đề và toàn bộ tiến độ sẽ bị xóa khỏi thiết bị.") },
             confirmButton = {
-                TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = {
+                TextButton(onClick = {
                     val deck = deleteCandidate ?: return@TextButton
                     deleteCandidate = null
                     scope.launch {
@@ -258,8 +256,7 @@ fun QuizScreen(
                     }
                 }) { Text("Xóa") }
             },
-            dismissButton = { TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = { deleteCandidate = null }) { Text("Hủy") } },
+            dismissButton = { TextButton(onClick = { deleteCandidate = null }) { Text("Hủy") } },
         )
     }
 
@@ -288,8 +285,7 @@ fun QuizScreen(
                 }
             },
             confirmButton = {
-                TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = {
+                TextButton(onClick = {
                     showFinishExamDialog = false
                     returnToLibrary()
                 }) { Text("Xác nhận") }
@@ -317,7 +313,7 @@ fun QuizScreen(
                         QuizPage.PREVIEW -> "Kiểm tra đề"
                         QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
                     },
-                    style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -325,7 +321,7 @@ fun QuizScreen(
 
                 if (page == QuizPage.PRACTICE && isTimedMode) {
                     Surface(
-                        shape = MaterialTheme.shapes.large,
+                        shape = RoundedCornerShape(16.dp),
                         color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                     ) {
@@ -380,7 +376,7 @@ fun QuizScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .expressiveClickable(enabled = !busy) { filePicker.launch(arrayOf("*/*")) },
-                                shape = MaterialTheme.shapes.large,
+                                shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
                                 ),
@@ -400,7 +396,7 @@ fun QuizScreen(
                                     Text(
                                         "Import đề",
                                         fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMediumEmphasized,
+                                        style = MaterialTheme.typography.titleMedium,
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -413,7 +409,7 @@ fun QuizScreen(
 
                             Card(
                                 modifier = Modifier.weight(1f),
-                                shape = MaterialTheme.shapes.large,
+                                shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
                                 ),
@@ -433,7 +429,7 @@ fun QuizScreen(
                                     Text(
                                         "Bộ đề đã lưu",
                                         fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMediumEmphasized,
+                                        style = MaterialTheme.typography.titleMedium,
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -450,7 +446,7 @@ fun QuizScreen(
                         // 2. Tùy chọn làm bài: 4 checkbox cân đối 2x2
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
                             ),
@@ -513,7 +509,7 @@ fun QuizScreen(
                         // 3. Danh sách bộ đề
                         Text(
                             "Bộ đề của tôi",
-                            style = MaterialTheme.typography.titleMediumEmphasized,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -521,7 +517,7 @@ fun QuizScreen(
                         if (decks.isEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.large,
+                                shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
                                 ),
@@ -582,7 +578,7 @@ fun QuizScreen(
                                                     timed = isTimedModeOption,
                                                 )
                                             },
-                                        shape = MaterialTheme.shapes.large,
+                                        shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isSelected) {
                                                 if (isDark) Color(0xFF222B3D) else Color(0xFFEAF1FF)
@@ -605,11 +601,11 @@ fun QuizScreen(
                                                 Text(
                                                     text = deck.title,
                                                     fontWeight = FontWeight.Bold,
-                                                    style = MaterialTheme.typography.titleMediumEmphasized,
+                                                    style = MaterialTheme.typography.titleMedium,
                                                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                                                 )
                                                 Surface(
-                                                    shape = MaterialTheme.shapes.medium,
+                                                    shape = RoundedCornerShape(12.dp),
                                                     color = if (isSelected) {
                                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                                                     } else {
@@ -671,7 +667,7 @@ fun QuizScreen(
                                     Box(
                                         modifier = Modifier
                                             .matchParentSize()
-                                            .clip(MaterialTheme.shapes.large)
+                                            .clip(RoundedCornerShape(16.dp))
                                             .background(
                                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
                                             ),
@@ -699,7 +695,7 @@ fun QuizScreen(
                                 onValueChange = { deckName = it },
                                 singleLine = true,
                                 label = { Text("Tên bộ đề") },
-                                shape = MaterialTheme.shapes.medium,
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Spacer(modifier = Modifier.height(10.dp))
@@ -709,7 +705,7 @@ fun QuizScreen(
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
+                                shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
                                 ),
@@ -753,8 +749,8 @@ fun QuizScreen(
 
                             if (unanswered > 0 || showMissingOnly) {
                                 OutlinedButton(
-                shapes = ButtonDefaults.shapes(),
                                     modifier = Modifier.fillMaxWidth(),
+                                    shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                     onClick = { showMissingOnly = !showMissingOnly },
                                 ) {
                                     Text(
@@ -766,8 +762,8 @@ fun QuizScreen(
                             }
 
                             Button(
-                shapes = ButtonDefaults.shapes(),
                                 enabled = !busy && deckName.isNotBlank(),
+                                shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
                                     scope.launch {
@@ -787,10 +783,9 @@ fun QuizScreen(
                                 },
                             ) {
                                 if (busy) {
-                                    CircularProgressIndicator(
+                                    LoadingIndicator(
                                         modifier = Modifier.size(18.dp),
                                         color = MaterialTheme.colorScheme.onPrimary,
-                                        strokeWidth = 2.dp,
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Đang lưu...", fontWeight = FontWeight.Bold)
@@ -879,14 +874,14 @@ fun QuizScreen(
                             ) {
                                 Text(
                                     "Câu " + (currentIndex + 1) + "/" + questions.size,
-                                    style = MaterialTheme.typography.titleMediumEmphasized,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (question.correct.size > 1) {
                                         Surface(
-                                            shape = MaterialTheme.shapes.small,
+                                            shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
                                             modifier = Modifier.padding(end = 8.dp),
                                         ) {
@@ -950,11 +945,11 @@ fun QuizScreen(
                             // Khi chế độ chấm thủ công: hiện nút "Kiểm tra đáp án"
                             if (!autoGrade && markedCorrect == null) {
                                 Button(
-                shapes = ButtonDefaults.shapes(),
                                     enabled = selected.isNotEmpty(),
                                     onClick = { submitAnswer(selected) },
                                     modifier = Modifier.fillMaxWidth(),
-                                    ) {
+                                    shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
+                                ) {
                                     Text("Kiểm tra đáp án", fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -963,7 +958,7 @@ fun QuizScreen(
                             if (markedCorrect != null) {
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = RoundedCornerShape(12.dp),
                                     color = if (markedCorrect == true) {
                                         if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
                                     } else {
@@ -1006,8 +1001,8 @@ fun QuizScreen(
                             ) {
                                 if (currentIndex > 0) {
                                     OutlinedButton(
-                shapes = ButtonDefaults.shapes(),
                                         modifier = Modifier.weight(1f),
+                                        shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                         onClick = {
                                             currentIndex--
                                             val prev = questions[currentIndex]
@@ -1017,8 +1012,8 @@ fun QuizScreen(
                                     ) { Text("Câu trước") }
                                 }
                                 Button(
-                shapes = ButtonDefaults.shapes(),
                                     modifier = Modifier.weight(1f),
+                                    shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                     onClick = {
                                         if (currentIndex == questions.lastIndex) {
                                             if (isTimedMode) {
@@ -1099,7 +1094,7 @@ private fun QuizCheckboxItem(
 ) {
     Row(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
+            .clip(RoundedCornerShape(8.dp))
             .expressiveClickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(vertical = 4.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1136,7 +1131,7 @@ private fun QuizQuestionCard(
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1195,9 +1190,9 @@ private fun QuizQuestionCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        .background(rowBgColor, MaterialTheme.shapes.medium)
-                        .border(1.dp, rowBorderColor, MaterialTheme.shapes.medium)
-                        .clip(MaterialTheme.shapes.medium)
+                        .background(rowBgColor, RoundedCornerShape(12.dp))
+                        .border(1.dp, rowBorderColor, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .expressiveClickable { onToggle(index) }
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,

@@ -159,10 +159,10 @@ fun MainScreen(
             targetState = selectedIndex,
             transitionSpec = {
                 val direction = if (targetState > initialState) 1 else -1
-                (slideInHorizontally(animationSpec = tween(320)) { it / 5 * direction } +
-                    fadeIn(animationSpec = tween(190))) togetherWith
-                    (slideOutHorizontally(animationSpec = tween(240)) { -it / 6 * direction } +
-                        fadeOut(animationSpec = tween(160)))
+                (slideInHorizontally(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) { it / 5 * direction } +
+                    fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec())) togetherWith
+                    (slideOutHorizontally(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) { -it / 6 * direction } +
+                        fadeOut(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()))
             },
             label = "expressiveTabTransition",
         ) { tabIndex ->
@@ -364,7 +364,7 @@ private fun MoreScreen(
                 Column {
                     Text(
                         text = "Thêm",
-                        style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     )
                 }
             }
@@ -394,7 +394,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenGrades),
-                shape = MaterialTheme.shapes.extraExtraLarge,
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -413,7 +413,7 @@ private fun MoreScreen(
                     Box(
                         modifier = Modifier
                             .size(52.dp)
-                            .clip(MaterialTheme.shapes.largeIncreased)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -431,13 +431,13 @@ private fun MoreScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "Xem điểm",
-                                style = MaterialTheme.typography.titleLargeEmphasized,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
-                                    .clip(MaterialTheme.shapes.small)
+                                    .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
@@ -472,7 +472,7 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenQuiz),
-                shape = MaterialTheme.shapes.extraExtraLarge,
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -491,7 +491,7 @@ private fun MoreScreen(
                     Box(
                         modifier = Modifier
                             .size(52.dp)
-                            .clip(MaterialTheme.shapes.largeIncreased)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -508,7 +508,7 @@ private fun MoreScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Ôn tập",
-                            style = MaterialTheme.typography.titleLargeEmphasized,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -532,7 +532,7 @@ private fun MoreScreen(
             // Tip card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF171B22) else Color(0xFFF1F5F9),
                 ),

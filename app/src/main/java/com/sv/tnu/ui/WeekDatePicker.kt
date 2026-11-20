@@ -83,7 +83,7 @@ private fun CalendarDay(
             isToday -> selectedDayColor.copy(alpha = 0.15f)
             else -> Color.Transparent
         },
-        animationSpec = tween(durationMillis = 120),
+        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
         label = "Selected calendar day",
     )
     val dayScale by animateFloatAsState(
@@ -272,7 +272,7 @@ fun WeekDatePicker(
                     IconButton(onClick = { monthOffset-- }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Tháng trước")
                     }
-                    Text(monthView.first, style = MaterialTheme.typography.titleMediumEmphasized)
+                    Text(monthView.first, style = MaterialTheme.typography.titleMedium)
                     IconButton(onClick = { monthOffset++ }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Tháng sau")
                     }

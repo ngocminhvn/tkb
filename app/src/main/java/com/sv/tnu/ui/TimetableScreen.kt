@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -933,7 +932,7 @@ fun TimetableScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = RoundedCornerShape(14.dp),
                 ) {
                     Text(
                         text = it,
@@ -1030,7 +1029,7 @@ fun TimetableScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(76.dp),
-                                        shape = MaterialTheme.shapes.largeIncreased,
+                                        shape = RoundedCornerShape(18.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                                         ),
@@ -1122,7 +1121,7 @@ private fun AutoFitSubjectTitle(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-    val baseStyle = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold)
+    val baseStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
     // Shrink through the real text layout instead of BoxWithConstraints
     // subcomposition plus repeated TextMeasurer passes while the list scrolls.
     var fontSize by remember(title, baseStyle.fontSize) { mutableStateOf(baseStyle.fontSize) }
@@ -1160,7 +1159,7 @@ private fun LessonCard(
     val isDark = LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1201,7 +1200,7 @@ private fun LessonCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.small)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1292,7 +1291,7 @@ private fun LessonCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.small)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
                         .expressiveClickable(onClick = onEditNote)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1330,7 +1329,6 @@ private fun LessonNoteDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
-                    shape = MaterialTheme.shapes.large,
                     value = note,
                     onValueChange = { value ->
                         if (value.length <= 500) note = value
@@ -1347,14 +1345,12 @@ private fun LessonNoteDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = { onSave(note.trim()) }) {
+            TextButton(onClick = { onSave(note.trim()) }) {
                 Text("Lưu")
             }
         },
         dismissButton = {
-            TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = onDismiss) {
+            TextButton(onClick = onDismiss) {
                 Text("Huỷ")
             }
         },
@@ -1367,7 +1363,7 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
     val examRed = Color(0xFFE53935)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.largeIncreased,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1408,7 +1404,7 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.small)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(examRed.copy(alpha = 0.10f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,

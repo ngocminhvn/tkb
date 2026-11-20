@@ -28,7 +28,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -190,7 +190,7 @@ fun LoginScreen(
                         )
                     },
                     singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
+                    shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -215,7 +215,7 @@ fun LoginScreen(
                         )
                     },
                     singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
+                    shape = RoundedCornerShape(14.dp),
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -241,7 +241,7 @@ fun LoginScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.medium)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.errorContainer)
                             .padding(12.dp),
                     ) {
@@ -256,10 +256,10 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                shapes = ButtonDefaults.shapes(),
                     onClick = { viewModel.login(username, password) },
                     enabled = state !is LoginUiState.Loading,
                     interactionSource = loginInteraction,
+                    shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(14.dp), pressedShape = RoundedCornerShape(18.dp)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -270,10 +270,9 @@ fun LoginScreen(
                     ),
                 ) {
                     if (state is LoginUiState.Loading) {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.size(22.dp),
                             color = Color.White,
-                            strokeWidth = 2.dp,
                         )
                     } else {
                         Text(

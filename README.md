@@ -9,7 +9,7 @@
 
 > **Dành cho AI/code agent:** Đọc [AGENTS.md](AGENTS.md) trước khi sửa. File này xác định nơi chịu trách nhiệm cho từng tính năng, luồng dữ liệu, các bất biến về SQLite/JNI và bộ test bắt buộc.
 
-Material 3 Expressive áp dụng toàn diện ở các màn Compose: shape tokens, chữ nhấn mạnh, nút morphing, phản hồi chạm và loading. Thanh điều hướng và bề mặt Liquid Glass vẫn được giữ nguyên. Widget hệ thống và hộp thoại Android vẫn dùng API nền tảng.
+Material 3 Expressive **1.5.0 stable** (Compose BOM **2026.11.01**) cho giao diện Compose, motion và nút morphing với dáng bo góc nhỏ (12–16dp), phản hồi chạm và LoadingIndicator. **Giữ nguyên hình dạng card, hộp thoại và bố cục của build #395**; không áp dụng bo góc tròn quá mức toàn cục. Liquid Glass nguyên bản vẫn làm nền và thanh điều hướng. Widget và hộp thoại hệ thống Android không thay đổi.
 
 ## Tính năng hiện có
 

@@ -241,7 +241,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = "Cài đặt",
-                    style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 )
             }
         },
@@ -260,7 +260,7 @@ fun SettingsScreen(
             // Student summary card with gradient matching OverviewGpaCard
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
             ) {
@@ -270,7 +270,7 @@ fun SettingsScreen(
                         .border(
                             1.dp,
                             if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
-                            MaterialTheme.shapes.extraLarge,
+                            RoundedCornerShape(22.dp),
                         )
                         .padding(18.dp),
                 ) {
@@ -312,7 +312,7 @@ fun SettingsScreen(
                             Column {
                                 Text(
                                     text = "Mã SV: ${authStore.username ?: "—"}",
-                                    style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
@@ -354,14 +354,14 @@ fun SettingsScreen(
             // Utilities section
             Text(
                 text = "Tiện ích & Cài đặt",
-                style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
             )
 
             // Switch Hiện lịch thi học kỳ trên TKB trang chủ
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.largeIncreased,
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -448,7 +448,7 @@ fun SettingsScreen(
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.largeIncreased,
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -557,7 +557,7 @@ fun SettingsScreen(
                 subtitle = if (refreshing) "Đang tải dữ liệu mới từ portal..." else "Lần cuối: ${formatLastSync(lastSyncTime)}",
                 trailing = {
                     if (refreshing) {
-                        LoadingIndicator(modifier = Modifier.size(32.dp))
+                        LoadingIndicator(modifier = Modifier.size(20.dp))
                     } else {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -584,7 +584,6 @@ fun SettingsScreen(
 
             // Logout Button
             Button(
-                shapes = ButtonDefaults.shapes(),
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -593,6 +592,7 @@ fun SettingsScreen(
                     containerColor = if (isDark) Color(0xFF2C1618) else Color(0xFFFEE2E2),
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
+                shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(16.dp), pressedShape = RoundedCornerShape(20.dp)),
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.35f else 0.25f),
@@ -621,12 +621,12 @@ fun SettingsScreen(
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = RoundedCornerShape(20.dp),
                 containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Đăng xuất tài khoản",
-                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     )
                 },
                 text = {
@@ -637,7 +637,6 @@ fun SettingsScreen(
                 },
                 confirmButton = {
                     TextButton(
-                shapes = ButtonDefaults.shapes(),
                         onClick = {
                             showLogoutDialog = false
                             onLogout()
@@ -651,8 +650,7 @@ fun SettingsScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = { showLogoutDialog = false }) {
+                    TextButton(onClick = { showLogoutDialog = false }) {
                         Text("Hủy")
                     }
                 },
@@ -663,12 +661,12 @@ fun SettingsScreen(
         if (showExamDialog) {
             AlertDialog(
                 onDismissRequest = { showExamDialog = false },
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = RoundedCornerShape(20.dp),
                 containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
-                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     )
                 },
                 text = {
@@ -680,7 +678,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            LoadingIndicator(modifier = Modifier.size(36.dp))
+                            LoadingIndicator(modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Đang tải lịch thi từ nhà trường...",
@@ -712,7 +710,7 @@ fun SettingsScreen(
                                 val isHoan = exam.isHoanThi
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                                     ),
@@ -780,8 +778,7 @@ fun SettingsScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(
-                shapes = ButtonDefaults.shapes(),onClick = { showExamDialog = false }) {
+                    TextButton(onClick = { showExamDialog = false }) {
                         Text("Đóng")
                     }
                 },
@@ -810,7 +807,7 @@ private fun ReminderSettingCard(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onPickTime),
-        shape = MaterialTheme.shapes.largeIncreased,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -875,12 +872,12 @@ private fun StatItem(
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(14.dp))
             .background(if (isDark) Color(0xFF1E2433).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
             .border(
                 1.dp,
                 if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF60A5FA).copy(alpha = 0.20f),
-                MaterialTheme.shapes.medium,
+                RoundedCornerShape(14.dp),
             )
             .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,
@@ -922,7 +919,7 @@ private fun ActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onClick),
-        shape = MaterialTheme.shapes.largeIncreased,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),

@@ -74,7 +74,7 @@ fun UpdateDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "${currentVersionName.ifBlank { "Bản hiện tại" }} → ${updateInfo.versionName}",
-                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -146,9 +146,9 @@ fun UpdateDialog(
         dismissButton = {
             if (!downloading) {
                 OutlinedButton(
-                shapes = ButtonDefaults.shapes(),
                     onClick = onDismiss,
-                    ) {
+                    shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
+                ) {
                     Text("Để sau")
                 }
             }
@@ -157,30 +157,30 @@ fun UpdateDialog(
             when {
                 downloading -> {
                     FilledTonalButton(
-                shapes = ButtonDefaults.shapes(),
                         enabled = false,
                         onClick = {},
-                        ) {
+                        shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
+                    ) {
                         Text("${percent ?: 0}%")
                     }
                 }
 
                 downloadResult?.file != null || downloadResult?.uri != null -> {
                     Button(
-                shapes = ButtonDefaults.shapes(),
                         onClick = {
                             AppUpdateManager.installApk(context, downloadResult)
                         },
-                        ) {
+                        shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
+                    ) {
                         Text("Cài đặt ngay")
                     }
                 }
 
                 else -> {
                     Button(
-                shapes = ButtonDefaults.shapes(),
                         onClick = { onStartDownload(updateInfo) },
-                        ) {
+                        shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
+                    ) {
                         Text("Cập nhật ngay")
                     }
                 }
