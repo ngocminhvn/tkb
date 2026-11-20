@@ -105,6 +105,9 @@ fun MainScreen(
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    // The upstream glass selector stores its own animated pose. Invalidate that
+    // pose only for tab changes initiated outside the navbar (swipes and Back).
+    var navigationBarResetKey by remember { mutableIntStateOf(0) }
     var showQuiz by rememberSaveable { mutableStateOf(false) }
     var showGrades by rememberSaveable { mutableStateOf(false) }
     val firstLoginRenderEpoch by timetableViewModel.firstLoginRenderEpoch.collectAsState()
@@ -145,18 +148,12 @@ fun MainScreen(
         appUpdateViewModel.checkForUpdate(manual = false)
     }
 
-    // Khi đang ở các trang phụ (Thêm, Cài đặt), bấm nút back của máy thì quay lại TKB
-    BackHandler(enabled = selectedIndex != 0 && !showQuiz && !showGrades) {
-        selectedIndex = 0
-    }
-    BackHandler(enabled = selectedIndex == NavigationTab.MORE.ordinal && (showQuiz || showGrades)) {
-        showQuiz = false
-        showGrades = false
-    }
-
-    // Share navigation semantics between full-width swipes and GlassTabBar taps.
-    fun selectNavigationTab(index: Int) {
+    // One source of truth for the rendered screen and selected tab.
+    // External navigation reinitializes Liquid Glass's internal selector pose;
+    // tabbar taps still retain the library's smooth internal animation.
+    fun selectNavigationTab(index: Int, fromOutsideNavBar: Boolean = false) {
         if (index !in NavigationTab.entries.indices) return
+        if (index != selectedIndex && fromOutsideNavBar) navigationBarResetKey++
         selectedIndex = index
         if (index != NavigationTab.MORE.ordinal) {
             showQuiz = false
@@ -165,6 +162,14 @@ fun MainScreen(
         if (index == NavigationTab.TIMETABLE.ordinal) {
             timetableViewModel.requestReturnToToday()
         }
+    }
+
+    BackHandler(enabled = selectedIndex != 0 && !showQuiz && !showGrades) {
+        selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true)
+    }
+    BackHandler(enabled = selectedIndex == NavigationTab.MORE.ordinal && (showQuiz || showGrades)) {
+        showQuiz = false
+        showGrades = false
     }
 
     // One active screen at a time. A short non-spring fade avoids horizontal
@@ -201,7 +206,9 @@ fun MainScreen(
                                 swipeDistance >= swipeThreshold -> selectedIndex - 1
                                 else -> selectedIndex
                             }
-                            if (next != selectedIndex) selectNavigationTab(next)
+                            if (next in NavigationTab.entries.indices && next != selectedIndex) {
+                                selectNavigationTab(next, fromOutsideNavBar = true)
+                            }
                             swipeDistance = 0f
                         },
                         onHorizontalDrag = { change, amount ->
@@ -246,7 +253,7 @@ fun MainScreen(
                     )
                 } else {
                     MoreScreen(
-                        onBack = { selectedIndex = 0 },
+                        onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true) },
                         onOpenGrades = { showGrades = true },
                         onOpenQuiz = { showQuiz = true },
                         contentPadding = PaddingValues(bottom = 96.dp),
@@ -260,7 +267,7 @@ fun MainScreen(
                     timetableViewModel = timetableViewModel,
                     appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
-                    onBack = { selectedIndex = 0 },
+                    onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true) },
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
@@ -271,38 +278,42 @@ fun MainScreen(
         val selectedColor = MaterialTheme.colorScheme.primary
         val unselectedColor = if (isDark) Color(0xFF9EA7B8) else Color(0xFF5E6573)
 
-        GlassTabBar(
-            itemCount = NavigationTab.entries.size,
-            selectedIndex = selectedIndex,
-            onSelected = ::selectNavigationTab,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-                .navigationBarsPadding(),
-            height = 64.dp,
-        ) { index, isSelected ->
-            val tab = NavigationTab.entries[index]
-            val tint = if (isSelected) selectedColor else unselectedColor
-            Column(
-                modifier = Modifier.fillMaxHeight(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(
-                    imageVector = tab.icon,
-                    contentDescription = tab.title,
-                    tint = tint,
-                    modifier = Modifier.size(23.dp),
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = tab.title,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = tint,
-                )
+        // Only edge swipes and Back re-key the nav selector; taps retain motion.
+        key(navigationBarResetKey) {
+            GlassTabBar(
+                itemCount = NavigationTab.entries.size,
+                selectedIndex = selectedIndex,
+                onSelected = { index -> selectNavigationTab(index) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                height = 64.dp,
+            ) { index, isSelected ->
+                val tab = NavigationTab.entries[index]
+                val tint = if (isSelected) selectedColor else unselectedColor
+                Column(
+                    modifier = Modifier.fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = tab.title,
+                        tint = tint,
+                        modifier = Modifier.size(23.dp),
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = tab.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = tint,
+                    )
+                }
             }
         }
+
 
         // Show sync results over any optional app-update prompt, on every tab.
         if (syncStatus != null) {
