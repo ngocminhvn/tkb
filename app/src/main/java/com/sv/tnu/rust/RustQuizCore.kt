@@ -233,6 +233,17 @@ object RustQuizCore {
                     null -> -1
                 },
             )
+
+            // TKB1Q always ends each question with original_indices.
+            // Without this field, Rust reads the next question's ID as a
+            // length and saving multi-question PDF/DOCX imports fails.
+            val originalIndices = q.originalIndices
+            if (originalIndices == null) {
+                dos.writeInt(-1)
+            } else {
+                dos.writeInt(originalIndices.size)
+                for (index in originalIndices) dos.writeInt(index)
+            }
         }
         dos.flush()
         return bos.toByteArray()
