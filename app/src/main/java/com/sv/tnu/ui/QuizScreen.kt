@@ -2,6 +2,8 @@
 
 package com.sv.tnu.ui
 
+import com.sv.tnu.ui.theme.AppCardDefaults
+
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -453,14 +455,8 @@ fun QuizScreen(
                                     .weight(1f)
                                     .expressiveClickable(enabled = !busy) { filePicker.launch(arrayOf("*/*")) },
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
-                                ),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                                ),
+                                colors = AppCardDefaults.colors(lightContainer = Color(0xFFF4F6FA)),
+                                border = AppCardDefaults.border(),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Icon(
@@ -491,14 +487,8 @@ fun QuizScreen(
                                         showWrongDeckPicker = true
                                     },
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
-                                ),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                                ),
+                                colors = AppCardDefaults.colors(lightContainer = Color(0xFFF4F6FA)),
+                                border = AppCardDefaults.border(),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Icon(
@@ -531,10 +521,7 @@ fun QuizScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF8F9FB),
-                            ),
+                            colors = AppCardDefaults.colors(lightContainer = Color(0xFFF8F9FB)),
                             border = BorderStroke(
                                 1.dp,
                                 if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
@@ -603,10 +590,7 @@ fun QuizScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF8F9FB),
-                                ),
+                                colors = AppCardDefaults.colors(lightContainer = Color(0xFFF8F9FB)),
                                 border = BorderStroke(
                                     1.dp,
                                     if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
@@ -792,10 +776,7 @@ fun QuizScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
-                                ),
+                                colors = AppCardDefaults.colors(lightContainer = Color(0xFFF4F6FA)),
                                 border = BorderStroke(
                                     1.dp,
                                     if (unanswered == 0) Color(0xFF2E7D32).copy(alpha = 0.4f)
@@ -1249,16 +1230,10 @@ private fun QuizQuestionCard(
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 2.dp else 1.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-        ),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(darkDp = 2.dp, lightDp = 1.dp),
+        border = AppCardDefaults.border(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(

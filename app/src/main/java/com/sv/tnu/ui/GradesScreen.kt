@@ -2,6 +2,8 @@
 
 package com.sv.tnu.ui
 
+import com.sv.tnu.ui.theme.AppCardDefaults
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
@@ -273,10 +275,7 @@ fun GradesScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    containerColor = if (isDark) Color(0xFF293C54) else Color.White,
-                                ),
+                                colors = AppCardDefaults.colors(tone = AppCardDefaults.Tone.Raised),
                             ) {
                                 Column(
                                     modifier = Modifier.padding(24.dp),
@@ -577,14 +576,8 @@ private fun SemesterSelectCard(
             .fillMaxWidth()
             .expressiveClickable { showDialog = true },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF263951) else Color.White,
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-        ),
+        colors = AppCardDefaults.colors(),
+        border = AppCardDefaults.border(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -857,7 +850,7 @@ private fun OverviewGpaCard(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
                     contentColor = MaterialTheme.colorScheme.onSurface,containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
+        elevation = AppCardDefaults.elevation(darkDp = 4.dp, lightDp = 2.dp),
     ) {
         Box(
             modifier = Modifier
@@ -991,10 +984,7 @@ private fun SemesterHeaderCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF21334B) else Color(0xFFF1F5F9),
-        ),
+        colors = AppCardDefaults.colors(tone = AppCardDefaults.Tone.Muted),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
@@ -1063,12 +1053,9 @@ private fun CourseGradeCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(),
     ) {
         Column(
             modifier = Modifier

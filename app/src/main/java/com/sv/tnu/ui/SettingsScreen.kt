@@ -2,6 +2,8 @@
 
 package com.sv.tnu.ui
 
+import com.sv.tnu.ui.theme.AppCardDefaults
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -309,7 +311,7 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
                     contentColor = MaterialTheme.colorScheme.onSurface,containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
+                elevation = AppCardDefaults.elevation(darkDp = 4.dp, lightDp = 2.dp),
             ) {
                 Box(
                     modifier = Modifier
@@ -409,16 +411,10 @@ fun SettingsScreen(
             // Switch Hiện lịch thi học kỳ trên TKB trang chủ
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                ),
+                shape = AppCardDefaults.shape,
+                colors = AppCardDefaults.colors(),
+                elevation = AppCardDefaults.elevation(),
+                border = AppCardDefaults.border(),
             ) {
                 Row(
                     modifier = Modifier
@@ -499,16 +495,10 @@ fun SettingsScreen(
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                ),
+                shape = AppCardDefaults.shape,
+                colors = AppCardDefaults.colors(),
+                elevation = AppCardDefaults.elevation(),
+                border = AppCardDefaults.border(),
             ) {
                 Row(
                     modifier = Modifier
@@ -834,16 +824,10 @@ private fun ReminderSettingCard(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onPickTime),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-        ),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(),
+        border = AppCardDefaults.border(),
     ) {
         Row(
             modifier = Modifier
@@ -949,16 +933,10 @@ private fun ActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-        ),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(),
+        border = AppCardDefaults.border(),
     ) {
         Row(
             modifier = Modifier

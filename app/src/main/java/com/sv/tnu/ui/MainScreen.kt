@@ -1,5 +1,7 @@
 package com.sv.tnu.ui
 
+import com.sv.tnu.ui.theme.AppCardDefaults
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -409,16 +411,10 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenGrades),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                ),
+                shape = AppCardDefaults.shape,
+                colors = AppCardDefaults.colors(),
+                elevation = AppCardDefaults.elevation(),
+                border = AppCardDefaults.border(),
             ) {
                 Row(
                     modifier = Modifier
@@ -490,16 +486,10 @@ private fun MoreScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenQuiz),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
-                ),
+                shape = AppCardDefaults.shape,
+                colors = AppCardDefaults.colors(),
+                elevation = AppCardDefaults.elevation(),
+                border = AppCardDefaults.border(),
             ) {
                 Row(
                     modifier = Modifier
@@ -554,14 +544,8 @@ private fun MoreScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    containerColor = if (isDark) Color(0xFF21334B) else Color(0xFFF1F5F9),
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.06f),
-                ),
+                colors = AppCardDefaults.colors(tone = AppCardDefaults.Tone.Muted),
+                border = AppCardDefaults.border(subtle = true),
             ) {
                 Row(
                     modifier = Modifier

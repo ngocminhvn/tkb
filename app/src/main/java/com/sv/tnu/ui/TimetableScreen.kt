@@ -2,6 +2,8 @@
 
 package com.sv.tnu.ui
 
+import com.sv.tnu.ui.theme.AppCardDefaults
+
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -1005,16 +1007,10 @@ fun TimetableScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(76.dp),
-                                        shape = RoundedCornerShape(18.dp),
-                                        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-                                        ),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.08f),
-                                        ),
+                                        shape = AppCardDefaults.shape,
+                                        colors = AppCardDefaults.colors(),
+                                        elevation = AppCardDefaults.elevation(),
+                                        border = AppCardDefaults.border(),
                                     ) {
                                         Box(
                                             modifier = Modifier.fillMaxSize(),
@@ -1136,14 +1132,11 @@ private fun LessonCard(
     val isDark = LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(),
         border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                 else BorderStroke(1.dp, if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f)),
+                 else AppCardDefaults.border(),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // The pencil replaces the old credits badge. The note editor
@@ -1341,14 +1334,11 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
     val examRed = Color(0xFFE53935)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-            containerColor = if (isDark) Color(0xFF253850) else Color.White,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
+        shape = AppCardDefaults.shape,
+        colors = AppCardDefaults.colors(),
+        elevation = AppCardDefaults.elevation(),
         border = if (isToday) BorderStroke(1.5.dp, examRed)
-                 else BorderStroke(1.dp, if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f)),
+                 else AppCardDefaults.border(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Tên môn & Huy hiệu "THI" màu đỏ thay cho phần tín chỉ
