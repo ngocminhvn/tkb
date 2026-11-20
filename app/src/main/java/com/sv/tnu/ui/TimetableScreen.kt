@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import com.sv.tnu.ui.glass.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LoadingIndicator
@@ -803,7 +802,7 @@ fun TimetableScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = .62f))
+                    .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
                     .height(64.dp)
                     .padding(horizontal = 20.dp),
@@ -896,7 +895,7 @@ fun TimetableScreen(
                 }
             }
         },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -919,7 +918,7 @@ fun TimetableScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             error?.let {
-                GlassCard(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
@@ -1001,7 +1000,7 @@ fun TimetableScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 when (val item = row.item) {
-                                    null -> GlassCard(
+                                    null -> Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(76.dp),

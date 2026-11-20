@@ -1,9 +1,6 @@
 package com.sv.tnu.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
@@ -14,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.sv.tnu.ui.glass.LiquidGlassTheme
-import com.sv.tnu.ui.glass.GlassGradientBackground
 
 private val DarkBackground = Color(0xFF0F1115)
 private val DarkSurface = Color(0xFF16191F)
@@ -79,12 +75,7 @@ fun TkbTheme(
         LiquidGlassTheme(
             dark = darkTheme,
             background = colorScheme.background,
-            content = {
-                Box(Modifier.fillMaxSize()) {
-                    GlassGradientBackground(Modifier.fillMaxSize())
-                    content()
-                }
-            },
+            content = content,
         )
     }
 }

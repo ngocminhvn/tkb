@@ -208,13 +208,3 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Các hàng Tiện ích/Cài đặt giữ `heightIn(min = 72.dp)` để gọn, vẫn tự giãn khi chữ dài/scale lớn; không dùng `height(72.dp)` cứng.
 
 - Expressive experimental UI: `SettingsScreen.kt` dùng Compose TimePickerDialog + connected ToggleButton group, `QuizScreen.kt` giữ thẻ Import đề gốc (đã gỡ SplitButton trùng chức năng). Điều hướng tab và chiều cao hàng Cài đặt không thay đổi.
-
- 
-## Liquid Glass UI port (2026-11-20)
-
-Sử dụng `dev.shayxo.liquidglass:liquidglass:1.0.0` thay fake glass trước đây;
-adapter trong `ui/glass/LiquidGlass.kt` giữ theme/tab callback.
-`ui/glass/GlassComponents.kt` tạo nền gradient primary tĩnh, card kính chọn lọc
-và button kính tối đa 272dp có M3E animated shapes. Các Scaffold con nền trong suốt.
-Không thêm shader lên mọi LazyColumn item. Giữ nguyên JNI/Rust/DB/token/key ký.
-Phải build Release và kiểm tra trên Android thực tế trước khi coi đã hoàn tất.

@@ -46,17 +46,16 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
-import com.sv.tnu.ui.glass.GlassButton as Button
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import com.sv.tnu.ui.glass.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import com.sv.tnu.ui.glass.GlassIconButton as IconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDialog
@@ -292,7 +291,7 @@ fun SettingsScreen(
                 )
             }
         },
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -305,7 +304,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Student summary card with gradient matching OverviewGpaCard
-            GlassCard(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -406,7 +405,7 @@ fun SettingsScreen(
             )
 
             // Switch Hiện lịch thi học kỳ trên TKB trang chủ
-            GlassCard(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
@@ -494,7 +493,7 @@ fun SettingsScreen(
             // configurable before/after week window.
 
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
-            GlassCard(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
@@ -824,7 +823,7 @@ private fun ReminderSettingCard(
     onPickTime: () -> Unit,
 ) {
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
-    GlassCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onPickTime),
@@ -937,7 +936,7 @@ private fun ActionCard(
     onClick: () -> Unit,
 ) {
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
-    GlassCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable(onClick = onClick),
