@@ -21,9 +21,9 @@ import androidx.core.view.WindowCompat
 import com.sv.tnu.ui.glass.LiquidGlassTheme
 
 // Near-black Dark Mode with a very subtle blue glow; Light Mode is unchanged.
-private val DarkBackground = Color(0xFF0B0E15)
-private val DarkSurface = Color(0xFF171D29)
-private val DarkSurfaceVariant = Color(0xFF212B3A)
+private val DarkBackground = Color(0xFF080A10)
+private val DarkSurface = Color(0xFF141923)
+private val DarkSurfaceVariant = Color(0xFF1D2532)
 private val DarkAccentBlue = Color(0xFF74A9EF)
 private val AccentBlue = Color(0xFF0A84FF)
 private val AccentGreen = Color(0xFF30D158)
@@ -50,13 +50,13 @@ fun TkbTheme(
             onSurfaceVariant = Color(0xFFAAB7CC),
             outline = Color(0xFF4B5B73),
             outlineVariant = Color(0xFF303D51),
-            surfaceDim = Color(0xFF0D121B),
-            surfaceBright = Color(0xFF29374C),
-            surfaceContainerLowest = Color(0xFF0F141D),
-            surfaceContainerLow = Color(0xFF131A25),
-            surfaceContainer = Color(0xFF171E2A),
-            surfaceContainerHigh = Color(0xFF1D2737),
-            surfaceContainerHighest = Color(0xFF243148),
+            surfaceDim = Color(0xFF090E15),
+            surfaceBright = Color(0xFF263346),
+            surfaceContainerLowest = Color(0xFF0B0F17),
+            surfaceContainerLow = Color(0xFF101620),
+            surfaceContainer = Color(0xFF141B26),
+            surfaceContainerHigh = Color(0xFF1A2432),
+            surfaceContainerHighest = Color(0xFF202C40),
             errorContainer = Color(0xFF5C1B1B),
             onErrorContainer = Color(0xFFFFDAD6),
         )
@@ -102,7 +102,7 @@ fun TkbTheme(
                     val radius = maxOf(size.width, size.height)
                     val topGlow = Brush.radialGradient(
                         colors = listOf(
-                            colorScheme.primary.copy(alpha = if (darkTheme) 0.11f else 0.09f),
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.09f else 0.09f),
                             Color.Transparent,
                         ),
                         center = Offset(size.width * 0.12f, size.height * 0.06f),
@@ -110,7 +110,7 @@ fun TkbTheme(
                     )
                     val bottomGlow = Brush.radialGradient(
                         colors = listOf(
-                            colorScheme.primary.copy(alpha = if (darkTheme) 0.045f else 0.055f),
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.035f else 0.055f),
                             Color.Transparent,
                         ),
                         center = Offset(size.width * 0.94f, size.height * 0.92f),

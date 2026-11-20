@@ -22,3 +22,4 @@ Dark mode readable ink, softened midnight gradient, refined card surfaces.
 Centralize card visuals in AppCardDefaults for shared dark/light theme maintenance.
 Near-black Dark Mode with blue glow; remove redundant answer-result card while retaining option highlights.
 Synchronize GlassTabBar indicator with the root page after edge swipe and Back transitions.
+Smooth edge-swipe navigation without remounting Liquid Glass; subtly darker Dark Mode.

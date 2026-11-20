@@ -105,9 +105,6 @@ fun MainScreen(
     onLogout: () -> Unit,
 ) {
     var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
-    // The upstream glass selector stores its own animated pose. Invalidate that
-    // pose only for tab changes initiated outside the navbar (swipes and Back).
-    var navigationBarResetKey by remember { mutableIntStateOf(0) }
     var showQuiz by rememberSaveable { mutableStateOf(false) }
     var showGrades by rememberSaveable { mutableStateOf(false) }
     val firstLoginRenderEpoch by timetableViewModel.firstLoginRenderEpoch.collectAsState()
@@ -148,12 +145,11 @@ fun MainScreen(
         appUpdateViewModel.checkForUpdate(manual = false)
     }
 
-    // One source of truth for the rendered screen and selected tab.
-    // External navigation reinitializes Liquid Glass's internal selector pose;
-    // tabbar taps still retain the library's smooth internal animation.
-    fun selectNavigationTab(index: Int, fromOutsideNavBar: Boolean = false) {
+    // Keep selectedIndex as the only source of truth for both content and
+    // GlassTabBar. Recreating the bar at each edge swipe snaps its optical
+    // selector and causes a visible hitch.
+    fun selectNavigationTab(index: Int) {
         if (index !in NavigationTab.entries.indices) return
-        if (index != selectedIndex && fromOutsideNavBar) navigationBarResetKey++
         selectedIndex = index
         if (index != NavigationTab.MORE.ordinal) {
             showQuiz = false
@@ -165,24 +161,26 @@ fun MainScreen(
     }
 
     BackHandler(enabled = selectedIndex != 0 && !showQuiz && !showGrades) {
-        selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true)
+        selectNavigationTab(NavigationTab.TIMETABLE.ordinal)
     }
     BackHandler(enabled = selectedIndex == NavigationTab.MORE.ordinal && (showQuiz || showGrades)) {
         showQuiz = false
         showGrades = false
     }
 
-    // One active screen at a time. A short non-spring fade avoids horizontal
-    // jitter and a second expensive timetable layout during fast tab switching.
-    val tabOpacity = remember { Animatable(1f) }
+    // Single-screen lightweight translation on tab changes. No crossfade of
+    // two large timetable trees, no glass remount, and no spring overshoot.
+    val pageEnter = remember { Animatable(1f) }
     var previousTabIndex by remember { mutableIntStateOf(selectedIndex) }
+    var pageDirection by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedIndex) {
         if (previousTabIndex != selectedIndex) {
+            pageDirection = if (selectedIndex > previousTabIndex) 1 else -1
             previousTabIndex = selectedIndex
-            tabOpacity.snapTo(0.96f)
-            tabOpacity.animateTo(
+            pageEnter.snapTo(0f)
+            pageEnter.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing),
             )
         }
     }
@@ -192,32 +190,49 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(selectedIndex, showQuiz, showGrades) {
-                    // Full-screen horizontal navigation is for the three root tabs.
-                    // Quiz/practice and grade detail retain their own gestures.
+                    // Only gestures starting at either outer edge change the
+                    // root tab. Leave inner horizontal drags to timetable,
+                    // scrolling and Material components.
                     if (showQuiz || showGrades) return@pointerInput
                     var swipeDistance = 0f
+                    var edgeSwipe = false
+                    val edgeWidth = 56.dp.toPx()
                     val swipeThreshold = 64.dp.toPx()
                     detectHorizontalDragGestures(
-                        onDragStart = { swipeDistance = 0f },
-                        onDragCancel = { swipeDistance = 0f },
+                        onDragStart = { start ->
+                            swipeDistance = 0f
+                            edgeSwipe = start.x <= edgeWidth ||
+                                start.x >= size.width - edgeWidth
+                        },
+                        onDragCancel = {
+                            swipeDistance = 0f
+                            edgeSwipe = false
+                        },
                         onDragEnd = {
-                            val next = when {
+                            val next = if (edgeSwipe) when {
                                 swipeDistance <= -swipeThreshold -> selectedIndex + 1
                                 swipeDistance >= swipeThreshold -> selectedIndex - 1
                                 else -> selectedIndex
-                            }
-                            if (next in NavigationTab.entries.indices && next != selectedIndex) {
-                                selectNavigationTab(next, fromOutsideNavBar = true)
-                            }
+                            } else selectedIndex
                             swipeDistance = 0f
+                            edgeSwipe = false
+                            if (next in NavigationTab.entries.indices && next != selectedIndex) {
+                                selectNavigationTab(next)
+                            }
                         },
                         onHorizontalDrag = { change, amount ->
-                            swipeDistance += amount
-                            change.consume()
+                            if (edgeSwipe) {
+                                swipeDistance += amount
+                                change.consume()
+                            }
                         },
                     )
                 }
-                .graphicsLayer { alpha = tabOpacity.value },
+                .graphicsLayer {
+                    val remaining = 1f - pageEnter.value
+                    translationX = pageDirection * remaining * 12.dp.toPx()
+                    alpha = 1f - remaining * 0.035f
+                },
         ) {
             when (NavigationTab.entries[selectedIndex]) {
             NavigationTab.TIMETABLE -> {
@@ -253,7 +268,7 @@ fun MainScreen(
                     )
                 } else {
                     MoreScreen(
-                        onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true) },
+                        onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal) },
                         onOpenGrades = { showGrades = true },
                         onOpenQuiz = { showQuiz = true },
                         contentPadding = PaddingValues(bottom = 96.dp),
@@ -267,7 +282,7 @@ fun MainScreen(
                     timetableViewModel = timetableViewModel,
                     appUpdateViewModel = appUpdateViewModel,
                     onLogout = onLogout,
-                    onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal, fromOutsideNavBar = true) },
+                    onBack = { selectNavigationTab(NavigationTab.TIMETABLE.ordinal) },
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
             }
@@ -278,42 +293,39 @@ fun MainScreen(
         val selectedColor = MaterialTheme.colorScheme.primary
         val unselectedColor = if (isDark) Color(0xFF9EA7B8) else Color(0xFF5E6573)
 
-        // Only edge swipes and Back re-key the nav selector; taps retain motion.
-        key(navigationBarResetKey) {
-            GlassTabBar(
-                itemCount = NavigationTab.entries.size,
-                selectedIndex = selectedIndex,
-                onSelected = { index -> selectNavigationTab(index) },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-                    .navigationBarsPadding(),
-                height = 64.dp,
-            ) { index, isSelected ->
-                val tab = NavigationTab.entries[index]
-                val tint = if (isSelected) selectedColor else unselectedColor
-                Column(
-                    modifier = Modifier.fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = tab.title,
-                        tint = tint,
-                        modifier = Modifier.size(23.dp),
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = tab.title,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = tint,
-                    )
+        // Persistent glass selector follows the same selectedIndex as the page.
+        GlassTabBar(
+                    itemCount = NavigationTab.entries.size,
+                    selectedIndex = selectedIndex,
+                    onSelected = { index -> selectNavigationTab(index) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .navigationBarsPadding(),
+                    height = 64.dp,
+                ) { index, isSelected ->
+                    val tab = NavigationTab.entries[index]
+                    val tint = if (isSelected) selectedColor else unselectedColor
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.title,
+                            tint = tint,
+                            modifier = Modifier.size(23.dp),
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = tab.title,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = tint,
+                        )
+                    }
                 }
-            }
-        }
-
 
         // Show sync results over any optional app-update prompt, on every tab.
         if (syncStatus != null) {
