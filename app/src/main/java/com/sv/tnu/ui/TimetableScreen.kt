@@ -17,7 +17,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -787,12 +786,6 @@ fun TimetableScreen(
         if (requestedScrollDay == requested) requestedScrollDay = null
     }
 
-    // The horizontal swipe detector must not restart whenever scrolling
-    // selects another day, or fast continuous swipes can be interrupted.
-    val currentSwipeDay = rememberUpdatedState<(Int) -> Unit> { direction ->
-        changeSelectedDay(direction)
-    }
-
     val isDark = LocalGlassConfig.current.dark
     val infiniteTransition = rememberInfiniteTransition(label = "spin")
     val spinAngle by infiniteTransition.animateFloat(
@@ -977,25 +970,7 @@ fun TimetableScreen(
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                var totalDrag = 0f
-                                detectHorizontalDragGestures(
-                                    onDragStart = { totalDrag = 0f },
-                                    onHorizontalDrag = { change, drag ->
-                                        totalDrag += drag
-                                        change.consume()
-                                    },
-                                    onDragEnd = {
-                                        if (kotlin.math.abs(totalDrag) > 64.dp.toPx()) {
-                                            currentSwipeDay.value(if (totalDrag < 0f) 1 else -1)
-                                        }
-                                        totalDrag = 0f
-                                    },
-                                    onDragCancel = { totalDrag = 0f },
-                                )
-                            },
+                        modifier = Modifier.fillMaxSize(),
                         // The timeline continues across week boundaries without a pager.
                         contentPadding = PaddingValues(
                             top = 4.dp,

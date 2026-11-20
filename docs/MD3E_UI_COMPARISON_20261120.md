@@ -61,3 +61,11 @@
 - Vuốt từ mép phải sang trái → tab kế tiếp, từ mép trái sang phải → tab trước; giới hạn ở ba tab TKB, Thêm, Cài đặt.
 - Không áp dụng lên toàn màn hình: để trống đầu trang và 104dp cuối dành cho kính Liquid Glass, không ảnh hưởng thao tác cuộn hay bấm tab. Chỉ đặt systemGestureExclusion trong hai vùng vuốt 180dp, để cử chỉ Back Android vẫn hoạt động ở các mép còn lại.
 - System Back có thể vẫn được hệ điều hành ưu tiên trong vùng bắt buộc (mandatory system gestures) trên một số phiên bản/ROM; không ghi đè Back trên toàn bộ cạnh.
+
+## Giai đoạn 1 — Chuyển toàn bộ thao tác vuốt ngang sang navigation chung
+
+- Bỏ `EdgeTabSwipeHandle` 24×180dp ở góc dưới và `systemGestureExclusion`, nhường cạnh hệ thống cho Back.
+- `MainScreen` nhận vuốt ngang từ nội dung ở cả ba tab; trái → tab kế, phải → tab trước (ngưỡng 64dp), dùng chung `selectNavigationTab` với thanh Liquid Glass nên quay lại TKB vẫn xử lý ngày hôm nay.
+- Bỏ vuốt ngang đổi ngày khỏi `TimetableScreen.LazyColumn`; `WeekDatePicker` giữ cuộn dọc mở/thu tháng, chạm ngày để chọn.
+- Các trang con Xem điểm, Ôn tập không tự chuyển tab khi thực hiện thao tác đặc thù của trang.
+- Kiểm tra trên thiết bị: cuộn dọc TKB, vuốt ngang giữa màn ở ba tab, vuốt lịch tháng theo chiều dọc, Back Android, vuốt liên tục qua hai tab.

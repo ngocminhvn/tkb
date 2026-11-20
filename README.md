@@ -4,7 +4,7 @@
 
 - Lấy dữ liệu theo phiên đăng nhập **trực tiếp** từ [portal.tnut.edu.vn](https://portal.tnut.edu.vn), không qua API/máy chủ trung gian do dự án vận hành.
 - Lưu dữ liệu trong **Rust SQLite** để xem offline; giữ cache cũ khi đồng bộ lỗi. Cài đặt hiển thị nhận diện tài khoản SV TNUT, số buổi thi đã lưu và học kỳ hiện tại.
-- Giao diện **Kotlin + Jetpack Compose (Material 3 Expressive 1.5)**, chuyển tab một composition với fade không nảy, tab kính chỉ có một chuyển động, vuốt từ hai mép dưới để đổi tab liền kề (vùng 180dp, giữ Back hệ thống ngoài vùng này), ngày tròn 36dp, các hàng thao tác đồng bộ tối thiểu 88dp và Liquid Glass giữ nguyên; nghiệp vụ lịch, giao thức dữ liệu TNUT và xử lý gói cập nhật chạy bằng **Rust** qua JNI.
+- Giao diện **Kotlin + Jetpack Compose (Material 3 Expressive 1.5)**, chuyển tab một composition với fade không nảy, tab kính chỉ có một chuyển động, vuốt ngang trên nội dung cả ba tab để chuyển liền kề giống thanh Liquid Glass; bỏ vuốt đổi ngày trên timeline, ngày tròn 36dp, các hàng thao tác đồng bộ tối thiểu 88dp và Liquid Glass giữ nguyên; nghiệp vụ lịch, giao thức dữ liệu TNUT và xử lý gói cập nhật chạy bằng **Rust** qua JNI.
 - **Chỉ hỗ trợ Android và TNUT** tại thời điểm tài liệu này được cập nhật. Kiến trúc có interface cho trường khác nhưng chưa bật đổi trường.
 
 > **Dành cho AI/code agent:** Đọc [AGENTS.md](AGENTS.md) trước khi sửa. File này xác định nơi chịu trách nhiệm cho từng tính năng, luồng dữ liệu, các bất biến về SQLite/JNI và bộ test bắt buộc.

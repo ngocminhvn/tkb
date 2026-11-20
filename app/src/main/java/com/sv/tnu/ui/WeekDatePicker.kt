@@ -6,7 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -188,25 +188,20 @@ fun WeekDatePicker(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .pointerInput(weekStartYmd, showMonth, selectedYmd) {
-                var dx = 0f
-                var dy = 0f
-                detectDragGestures(
-                    onDragStart = { dx = 0f; dy = 0f },
+            .pointerInput(showMonth) {
+                // Keep month expand/collapse vertical; horizontal drags now
+                // belong to the parent navigation across all three tabs.
+                var verticalDrag = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { verticalDrag = 0f },
                     onDragEnd = {
-                        when {
-                            abs(dx) > abs(dy) && abs(dx) > 65f -> {
-                                // Swiping the date strip moves ONE day, not
-                                // an entire week; the caller clamps semesters.
-                                onMoveDay(if (dx < 0f) 1 else -1)
-                            }
-                            dy > 55f -> showMonth = true
-                            dy < -55f -> showMonth = false
-                        }
+                        if (verticalDrag > 55f) showMonth = true
+                        if (verticalDrag < -55f) showMonth = false
+                        verticalDrag = 0f
                     },
-                    onDrag = { change, amount ->
-                        dx += amount.x
-                        dy += amount.y
+                    onDragCancel = { verticalDrag = 0f },
+                    onVerticalDrag = { change, amount ->
+                        verticalDrag += amount
                         change.consume()
                     },
                 )

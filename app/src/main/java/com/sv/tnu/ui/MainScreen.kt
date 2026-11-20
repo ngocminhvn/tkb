@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +55,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -71,7 +69,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -155,7 +152,7 @@ fun MainScreen(
         showGrades = false
     }
 
-    // Share navigation semantics between edge gestures and GlassTabBar taps.
+    // Share navigation semantics between full-width swipes and GlassTabBar taps.
     fun selectNavigationTab(index: Int) {
         if (index !in NavigationTab.entries.indices) return
         selectedIndex = index
@@ -187,6 +184,30 @@ fun MainScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(selectedIndex, showQuiz, showGrades) {
+                    // Full-screen horizontal navigation is for the three root tabs.
+                    // Quiz/practice and grade detail retain their own gestures.
+                    if (showQuiz || showGrades) return@pointerInput
+                    var swipeDistance = 0f
+                    val swipeThreshold = 64.dp.toPx()
+                    detectHorizontalDragGestures(
+                        onDragStart = { swipeDistance = 0f },
+                        onDragCancel = { swipeDistance = 0f },
+                        onDragEnd = {
+                            val next = when {
+                                swipeDistance <= -swipeThreshold -> selectedIndex + 1
+                                swipeDistance >= swipeThreshold -> selectedIndex - 1
+                                else -> selectedIndex
+                            }
+                            if (next != selectedIndex) selectNavigationTab(next)
+                            swipeDistance = 0f
+                        },
+                        onHorizontalDrag = { change, amount ->
+                            swipeDistance += amount
+                            change.consume()
+                        },
+                    )
+                }
                 .graphicsLayer { alpha = tabOpacity.value },
         ) {
             when (NavigationTab.entries[selectedIndex]) {
@@ -242,28 +263,6 @@ fun MainScreen(
                 )
             }
             }
-        }
-
-        // Edge-only gestures: short thumb-reachable zones above the floating glass bar.
-        // A 180dp system gesture exclusion per side allows tab swipes even with
-        // Android gesture navigation, while preserving Back in the rest of the edge.
-        if (selectedIndex > NavigationTab.TIMETABLE.ordinal) {
-            EdgeTabSwipeHandle(
-                fromLeft = true,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(bottom = 104.dp),
-                onSwipe = { selectNavigationTab(selectedIndex - 1) },
-            )
-        }
-        if (selectedIndex < NavigationTab.entries.lastIndex) {
-            EdgeTabSwipeHandle(
-                fromLeft = false,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 104.dp),
-                onSwipe = { selectNavigationTab(selectedIndex + 1) },
-            )
         }
 
         // Floating Liquid Glass Navigation Bar
@@ -323,51 +322,6 @@ fun MainScreen(
             )
         }
     }
-}
-
-/**
- * A short edge handle for adjacent tabs, bounded to 180dp of each lower
- * screen edge so Android's Back gesture remains available everywhere else.
- * A completed inward drag is required; accidental taps have no effect.
- */
-@Composable
-private fun EdgeTabSwipeHandle(
-    fromLeft: Boolean,
-    modifier: Modifier = Modifier,
-    onSwipe: () -> Unit,
-) {
-    val latestSwipe by rememberUpdatedState(onSwipe)
-    val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
-    Box(
-        modifier = modifier
-            .width(24.dp)
-            .height(180.dp)
-            .systemGestureExclusion()
-            .pointerInput(fromLeft, thresholdPx) {
-                var dragDistance = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { dragDistance = 0f },
-                    onDragCancel = { dragDistance = 0f },
-                    onDragEnd = {
-                        if ((fromLeft && dragDistance >= thresholdPx) ||
-                            (!fromLeft && dragDistance <= -thresholdPx)
-                        ) {
-                            latestSwipe()
-                        }
-                        dragDistance = 0f
-                    },
-                    onHorizontalDrag = { change, dragAmount ->
-                        // Only inward drags count; do not consume outward swipes.
-                        dragDistance += dragAmount
-                        if ((fromLeft && dragDistance > 0f && dragAmount > 0f) ||
-                            (!fromLeft && dragDistance < 0f && dragAmount < 0f)
-                        ) {
-                            change.consume()
-                        }
-                    },
-                )
-            },
-    )
 }
 
 /**
