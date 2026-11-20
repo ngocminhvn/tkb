@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -112,6 +113,7 @@ fun QuizScreen(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var deleteCandidate by remember { mutableStateOf<QuizDeck?>(null) }
+    var showWrongDeckPicker by remember { mutableStateOf(false) }
 
     // 4 tùy chọn làm bài trắc nghiệm: lưu vào SharedPreferences
     var shuffleQuestions by remember {
@@ -180,6 +182,7 @@ fun QuizScreen(
         selected = emptySet()
         markedCorrect = null
         showFinishExamDialog = false
+        showWrongDeckPicker = false
         refreshLibrary()
     }
 
@@ -249,6 +252,98 @@ fun QuizScreen(
     }
 
     BackHandler(enabled = page != QuizPage.LIBRARY && !busy && !answerPending) { returnToLibrary() }
+
+    if (showWrongDeckPicker) {
+        AlertDialog(
+            onDismissRequest = { showWrongDeckPicker = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = { Text("Làm lại câu sai") },
+            text = {
+                Column {
+                    Text(
+                        "Chọn bộ đề cần ôn lại. Các câu sai được lưu riêng theo từng bộ đề.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (decks.isEmpty()) {
+                        Text(
+                            "Bạn chưa import bộ đề nào.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(decks, key = { it.id }) { deck ->
+                                val wrongCount = (deck.attempted - deck.correct).coerceAtLeast(0)
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .expressiveClickable(enabled = !busy && wrongCount > 0) {
+                                            showWrongDeckPicker = false
+                                            selectedDeckId = deck.id
+                                            openPractice(
+                                                deck = deck,
+                                                wrongOnly = true,
+                                                shuffle = shuffleQuestions,
+                                                shuffleOpts = shuffleOptions,
+                                            )
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                deck.title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                if (wrongCount > 0) {
+                                                    "$wrongCount câu sai · Đã làm ${deck.attempted}/${deck.total}"
+                                                } else {
+                                                    "Chưa có câu trả lời sai"
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        if (wrongCount > 0) {
+                                            Icon(
+                                                Icons.Default.ChevronRight,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showWrongDeckPicker = false }) { Text("Đóng") }
+            },
+        )
+    }
 
     if (deleteCandidate != null) {
         AlertDialog(
@@ -368,15 +463,13 @@ fun QuizScreen(
             }
             when (page) {
                 QuizPage.LIBRARY -> {
-                    val activeDeck = decks.find { it.id == selectedDeckId } ?: decks.firstOrNull()
-
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        // 1. Hàng 2 thẻ: Import đề & làm lại câu sai của bộ đề đang chọn
+                        // 1. Hàng 2 thẻ: Import đề & chọn bộ đề để làm lại câu sai
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -419,20 +512,8 @@ fun QuizScreen(
                             Card(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .expressiveClickable(enabled = !busy && activeDeck != null) {
-                                        activeDeck?.let { deck ->
-                                            val wrongCount = deck.attempted - deck.correct
-                                            if (wrongCount > 0) {
-                                                openPractice(
-                                                    deck = deck,
-                                                    wrongOnly = true,
-                                                    shuffle = shuffleQuestions,
-                                                    shuffleOpts = shuffleOptions,
-                                                )
-                                            } else {
-                                                error = "Bộ đề này chưa có câu trả lời sai để làm lại."
-                                            }
-                                        }
+                                    .expressiveClickable(enabled = !busy) {
+                                        showWrongDeckPicker = true
                                     },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
@@ -457,16 +538,11 @@ fun QuizScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    val wrongCount = activeDeck?.let { it.attempted - it.correct } ?: 0
                                     Text(
-                                        when {
-                                            activeDeck == null -> "Chưa có bộ đề"
-                                            wrongCount == 0 -> "Chưa có câu sai"
-                                            else -> "$wrongCount câu sai · ${activeDeck.title}"
-                                        },
+                                        "Chọn bộ đề để ôn lại",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
+                                        maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
