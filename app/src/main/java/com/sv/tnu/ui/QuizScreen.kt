@@ -31,7 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -140,24 +139,25 @@ fun QuizScreen(
         sharedPrefs.edit().putBoolean("auto_grade", enabled).apply()
     }
 
-    // Chế độ tính giờ
-    var isTimedModeOption by remember {
-        mutableStateOf(sharedPrefs.getBoolean("quiz_timed_mode", false))
+    // Timer is on for every practice session. Advance is user-configurable.
+    var autoAdvance by remember {
+        mutableStateOf(sharedPrefs.getBoolean("quiz_auto_advance", false))
     }
-    fun updateTimedMode(enabled: Boolean) {
-        isTimedModeOption = enabled
-        sharedPrefs.edit().putBoolean("quiz_timed_mode", enabled).apply()
+    fun updateAutoAdvance(enabled: Boolean) {
+        autoAdvance = enabled
+        sharedPrefs.edit().putBoolean("quiz_auto_advance", enabled).apply()
     }
 
-    var isTimedMode by remember { mutableStateOf(false) }
+    var answerPending by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var showFinishExamDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(page, isTimedMode) {
-        if (page == QuizPage.PRACTICE && isTimedMode) {
+    LaunchedEffect(page) {
+        if (page == QuizPage.PRACTICE) {
             elapsedSeconds = 0
             while (true) {
                 delay(1000)
+                if (showFinishExamDialog) break
                 elapsedSeconds++
             }
         }
@@ -179,7 +179,7 @@ fun QuizScreen(
         imported = null
         selected = emptySet()
         markedCorrect = null
-        isTimedMode = false
+        showFinishExamDialog = false
         refreshLibrary()
     }
 
@@ -188,7 +188,6 @@ fun QuizScreen(
         wrongOnly: Boolean = false,
         shuffle: Boolean = false,
         shuffleOpts: Boolean = false,
-        timed: Boolean = false,
     ) {
         scope.launch {
             busy = true
@@ -200,15 +199,25 @@ fun QuizScreen(
                 if (finalQuestions.isEmpty()) {
                     error = if (wrongOnly) "Chưa có câu trả lời sai để ôn lại." else "Bộ đề chưa có câu hỏi."
                 } else {
-                    questions = finalQuestions
+                    // Retry is a new attempt. Keep previous mistakes in SQLite
+                    // until each question gets an updated answer.
+                    val sessionQuestions = if (wrongOnly) {
+                        finalQuestions.map { it.copy(selected = null, wasCorrect = null) }
+                    } else {
+                        finalQuestions
+                    }
+                    questions = sessionQuestions
                     currentIndex = 0
-                    selected = finalQuestions[0].selected ?: emptySet()
-                    markedCorrect = finalQuestions[0].wasCorrect
-                    isTimedMode = timed
+                    selected = sessionQuestions[0].selected ?: emptySet()
+                    markedCorrect = sessionQuestions[0].wasCorrect
                     page = QuizPage.PRACTICE
                 }
             } catch (e: Exception) {
-                error = e.message ?: "Không mở được bộ đề"
+                error = if (wrongOnly && e.message?.contains("Không có câu hỏi hợp lệ") == true) {
+                    "Chưa có câu trả lời sai để ôn lại."
+                } else {
+                    e.message ?: "Không mở được bộ đề"
+                }
             } finally {
                 busy = false
             }
@@ -239,7 +248,7 @@ fun QuizScreen(
         refreshLibrary()
     }
 
-    BackHandler(enabled = page != QuizPage.LIBRARY && !busy) { returnToLibrary() }
+    BackHandler(enabled = page != QuizPage.LIBRARY && !busy && !answerPending) { returnToLibrary() }
 
     if (deleteCandidate != null) {
         AlertDialog(
@@ -303,7 +312,7 @@ fun QuizScreen(
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                QuizCircleBackButton(isDark = isDark, enabled = !busy) {
+                QuizCircleBackButton(isDark = isDark, enabled = !busy && !answerPending) {
                     if (page == QuizPage.LIBRARY) onBack() else returnToLibrary()
                 }
                 Spacer(modifier = Modifier.width(14.dp))
@@ -311,7 +320,7 @@ fun QuizScreen(
                     text = when (page) {
                         QuizPage.LIBRARY -> "Ôn tập trắc nghiệm"
                         QuizPage.PREVIEW -> "Kiểm tra đề"
-                        QuizPage.PRACTICE -> if (isTimedMode) "Thi thử tính giờ" else "Làm bài"
+                        QuizPage.PRACTICE -> "Làm bài"
                     },
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
@@ -319,7 +328,7 @@ fun QuizScreen(
                     modifier = Modifier.weight(1f),
                 )
 
-                if (page == QuizPage.PRACTICE && isTimedMode) {
+                if (page == QuizPage.PRACTICE) {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
@@ -367,7 +376,7 @@ fun QuizScreen(
                             .padding(horizontal = 16.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        // 1. Hàng 2 thẻ: Import đề & Bộ đề đã lưu
+                        // 1. Hàng 2 thẻ: Import đề & làm lại câu sai của bộ đề đang chọn
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -408,7 +417,23 @@ fun QuizScreen(
                             }
 
                             Card(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .expressiveClickable(enabled = !busy && activeDeck != null) {
+                                        activeDeck?.let { deck ->
+                                            val wrongCount = deck.attempted - deck.correct
+                                            if (wrongCount > 0) {
+                                                openPractice(
+                                                    deck = deck,
+                                                    wrongOnly = true,
+                                                    shuffle = shuffleQuestions,
+                                                    shuffleOpts = shuffleOptions,
+                                                )
+                                            } else {
+                                                error = "Bộ đề này chưa có câu trả lời sai để làm lại."
+                                            }
+                                        }
+                                    },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
@@ -420,22 +445,29 @@ fun QuizScreen(
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Icon(
-                                        imageVector = Icons.Default.AutoStories,
+                                        imageVector = Icons.Default.ErrorOutline,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(28.dp),
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
-                                        "Bộ đề đã lưu",
+                                        "Làm lại câu sai",
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium,
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
+                                    val wrongCount = activeDeck?.let { it.attempted - it.correct } ?: 0
                                     Text(
-                                        "Học khi offline",
+                                        when {
+                                            activeDeck == null -> "Chưa có bộ đề"
+                                            wrongCount == 0 -> "Chưa có câu sai"
+                                            else -> "$wrongCount câu sai · ${activeDeck.title}"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
@@ -495,10 +527,10 @@ fun QuizScreen(
                                     )
                                     QuizCheckboxItem(
                                         modifier = Modifier.weight(1f),
-                                        label = "Bật tính giờ làm bài",
-                                        checked = isTimedModeOption,
+                                        label = "Tự chuyển câu khi chọn",
+                                        checked = autoAdvance,
                                         enabled = !busy,
-                                        onCheckedChange = { updateTimedMode(it) },
+                                        onCheckedChange = { updateAutoAdvance(it) },
                                     )
                                 }
                             }
@@ -575,7 +607,6 @@ fun QuizScreen(
                                                     wrongOnly = false,
                                                     shuffle = shuffleQuestions,
                                                     shuffleOpts = shuffleOptions,
-                                                    timed = isTimedModeOption,
                                                 )
                                             },
                                         shape = RoundedCornerShape(16.dp),
@@ -838,7 +869,10 @@ fun QuizScreen(
                     if (questions.isNotEmpty()) {
                         val question = questions[currentIndex]
 
-                        fun submitAnswer(choices: Set<Int>) {
+                        fun submitAnswer(choices: Set<Int>, advanceAfterSave: Boolean = false) {
+                            if (answerPending || choices.isEmpty()) return
+                            answerPending = true
+                            val answeredIndex = currentIndex
                             scope.launch {
                                 try {
                                     val toSave = question.originalIndices?.let { orig ->
@@ -848,15 +882,31 @@ fun QuizScreen(
                                         storage.saveAnswer(question, toSave)
                                     }
                                     val isCorrect = question.correct.isNotEmpty() && choices == question.correct
-                                    markedCorrect = isCorrect
+                                    markedCorrect = if (autoGrade || !advanceAfterSave) isCorrect else null
                                     questions = questions.toMutableList().also {
-                                        it[currentIndex] = question.copy(
+                                        it[answeredIndex] = question.copy(
                                             selected = choices, wasCorrect = isCorrect,
                                         )
                                     }
                                     refreshLibrary()
+                                    if (advanceAfterSave && page == QuizPage.PRACTICE) {
+                                        // Show feedback briefly, and advance only after persistence.
+                                        delay(if (autoGrade) 650L else 150L)
+                                        if (page == QuizPage.PRACTICE && currentIndex == answeredIndex) {
+                                            if (answeredIndex == questions.lastIndex) {
+                                                showFinishExamDialog = true
+                                            } else {
+                                                currentIndex = answeredIndex + 1
+                                                val next = questions[currentIndex]
+                                                selected = next.selected ?: emptySet()
+                                                markedCorrect = next.wasCorrect
+                                            }
+                                        }
+                                    }
                                 } catch (e: Exception) {
                                     error = e.message ?: "Không lưu được đáp án"
+                                } finally {
+                                    answerPending = false
                                 }
                             }
                         }
@@ -916,6 +966,7 @@ fun QuizScreen(
                                 chosen = selected,
                                 isPreviewMode = false,
                                 isAnswered = markedCorrect != null,
+                                enabled = !answerPending,
                                 onToggle = { choice ->
                                     val nextSelected = if (question.correct.size > 1) {
                                         selected.toMutableSet().apply {
@@ -926,15 +977,10 @@ fun QuizScreen(
                                     }
                                     selected = nextSelected
 
-                                    // Nếu chế độ tự động chấm: chấm điểm ngay lập tức
-                                    if (autoGrade) {
-                                        if (nextSelected.isNotEmpty()) {
-                                            submitAnswer(nextSelected)
-                                        } else {
-                                            markedCorrect = null
-                                        }
+                                    // For multiple answers, wait for explicit verification.
+                                    if (question.correct.size == 1 && (autoGrade || autoAdvance)) {
+                                        submitAnswer(nextSelected, advanceAfterSave = autoAdvance)
                                     } else {
-                                        // Chấm thủ công: chỉ chọn, chưa chấm
                                         markedCorrect = null
                                     }
                                 },
@@ -942,11 +988,11 @@ fun QuizScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Khi chế độ chấm thủ công: hiện nút "Kiểm tra đáp án"
-                            if (!autoGrade && markedCorrect == null) {
+                            // Multi-answer questions must be checked after the final choice.
+                            if ((question.correct.size > 1 || (!autoGrade && !autoAdvance)) && markedCorrect == null) {
                                 Button(
-                                    enabled = selected.isNotEmpty(),
-                                    onClick = { submitAnswer(selected) },
+                                    enabled = selected.isNotEmpty() && !answerPending,
+                                    onClick = { submitAnswer(selected, advanceAfterSave = autoAdvance) },
                                     modifier = Modifier.fillMaxWidth(),
                                     shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                 ) {
@@ -1002,6 +1048,7 @@ fun QuizScreen(
                                 if (currentIndex > 0) {
                                     OutlinedButton(
                                         modifier = Modifier.weight(1f),
+                                        enabled = !answerPending,
                                         shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                         onClick = {
                                             currentIndex--
@@ -1013,14 +1060,11 @@ fun QuizScreen(
                                 }
                                 Button(
                                     modifier = Modifier.weight(1f),
+                                    enabled = !answerPending,
                                     shapes = ButtonDefaults.shapes(shape = RoundedCornerShape(12.dp), pressedShape = RoundedCornerShape(16.dp)),
                                     onClick = {
                                         if (currentIndex == questions.lastIndex) {
-                                            if (isTimedMode) {
-                                                showFinishExamDialog = true
-                                            } else {
-                                                returnToLibrary()
-                                            }
+                                            showFinishExamDialog = true
                                         } else {
                                             currentIndex++
                                             val next = questions[currentIndex]
@@ -1113,7 +1157,7 @@ private fun QuizCheckboxItem(
             text = label,
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -1126,6 +1170,7 @@ private fun QuizQuestionCard(
     chosen: Set<Int>,
     isPreviewMode: Boolean = false,
     isAnswered: Boolean = false,
+    enabled: Boolean = true,
     onToggle: (Int) -> Unit,
 ) {
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
@@ -1193,7 +1238,7 @@ private fun QuizQuestionCard(
                         .background(rowBgColor, RoundedCornerShape(12.dp))
                         .border(1.dp, rowBorderColor, RoundedCornerShape(12.dp))
                         .clip(RoundedCornerShape(12.dp))
-                        .expressiveClickable { onToggle(index) }
+                        .expressiveClickable(enabled = enabled) { onToggle(index) }
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
