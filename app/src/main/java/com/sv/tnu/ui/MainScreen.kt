@@ -384,7 +384,7 @@ private fun MoreScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { padding ->
         Column(
             modifier = Modifier

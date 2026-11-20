@@ -17,3 +17,4 @@ Build requested: quiz always-on timer, auto-advance and wrong-answer review (6c1
 Build requested: wrong-answer per-deck picker popup (29c311e), 2026-11-20.
 
 Rebuild: restore pre-LiquidGlass UI while keeping only upstream Liquid Glass bottom navigation, 2026-11-20.
+UI update: practice timer placement and primary light/dark background gradient.

@@ -128,7 +128,7 @@ fun LoginScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { innerPadding ->
         Box(
             modifier = Modifier

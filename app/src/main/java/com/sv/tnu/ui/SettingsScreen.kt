@@ -291,7 +291,7 @@ fun SettingsScreen(
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { innerPadding ->
         Column(
             modifier = Modifier

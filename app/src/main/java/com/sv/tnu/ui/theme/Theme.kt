@@ -1,6 +1,12 @@
 package com.sv.tnu.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
@@ -72,10 +78,40 @@ fun TkbTheme(
         colorScheme = colorScheme,
         motionScheme = MotionScheme.expressive(),
     ) {
+        // Only the navigation bar uses Liquid Glass. The page background remains a
+        // lightweight, static primary-blue gradient in both light and dark themes.
         LiquidGlassTheme(
             dark = darkTheme,
             background = colorScheme.background,
-            content = content,
-        )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize().drawWithCache {
+                    val radius = maxOf(size.width, size.height)
+                    val topGlow = Brush.radialGradient(
+                        colors = listOf(
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.16f else 0.09f),
+                            Color.Transparent,
+                        ),
+                        center = Offset(size.width * 0.12f, size.height * 0.06f),
+                        radius = radius * 0.88f,
+                    )
+                    val bottomGlow = Brush.radialGradient(
+                        colors = listOf(
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.10f else 0.055f),
+                            Color.Transparent,
+                        ),
+                        center = Offset(size.width * 0.94f, size.height * 0.92f),
+                        radius = radius * 0.72f,
+                    )
+                    onDrawBehind {
+                        drawRect(colorScheme.background)
+                        drawRect(topGlow)
+                        drawRect(bottomGlow)
+                    }
+                },
+            ) {
+                content()
+            }
+        }
     }
 }

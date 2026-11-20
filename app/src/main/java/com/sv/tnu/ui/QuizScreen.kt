@@ -54,7 +54,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -423,35 +422,10 @@ fun QuizScreen(
                     modifier = Modifier.weight(1f),
                 )
 
-                if (page == QuizPage.PRACTICE) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Timer,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
+
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { scaffoldPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(scaffoldPadding).padding(contentPadding)) {
             if (error != null) {
@@ -1004,12 +978,14 @@ fun QuizScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
                                 )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
                                     if (question.correct.size > 1) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                            modifier = Modifier.padding(end = 8.dp),
                                         ) {
                                             Text(
                                                 "Chọn nhiều đáp án",
@@ -1019,18 +995,33 @@ fun QuizScreen(
                                             )
                                         }
                                     }
-                                    // Switch toggle nhanh ngay khi làm bài
-                                    Text(
-                                        if (autoGrade) "Tự động chấm" else "Chấm thủ công",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Switch(
-                                        checked = autoGrade,
-                                        onCheckedChange = { updateAutoGrade(it) },
-                                        modifier = Modifier.size(36.dp),
-                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                        ),
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Timer,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = String.format("%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
                                 }
                             }
 

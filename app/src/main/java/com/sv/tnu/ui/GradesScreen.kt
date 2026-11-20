@@ -211,7 +211,7 @@ fun GradesScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { padding ->
         Box(
             modifier = Modifier

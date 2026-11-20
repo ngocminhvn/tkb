@@ -802,7 +802,7 @@ fun TimetableScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(Color.Transparent)
                     .statusBarsPadding()
                     .height(64.dp)
                     .padding(horizontal = 20.dp),
@@ -895,7 +895,7 @@ fun TimetableScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { padding ->
         Column(
             modifier = Modifier
