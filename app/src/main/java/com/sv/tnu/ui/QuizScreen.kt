@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.MenuBook
@@ -44,6 +45,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SplitButtonLayout
+import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.LoadingIndicator
@@ -111,6 +116,7 @@ fun QuizScreen(
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var markedCorrect by remember { mutableStateOf<Boolean?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var showImportFormatMenu by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var deleteCandidate by remember { mutableStateOf<QuizDeck?>(null) }
 
@@ -442,6 +448,69 @@ fun QuizScreen(
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
+
+                        // MD3E SplitButton: the primary action is identical to the existing
+                        // import card, while the menu narrows the document MIME type.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            Box {
+                                SplitButtonLayout(
+                                    leadingButton = {
+                                        SplitButtonDefaults.TonalLeadingButton(
+                                            onClick = { filePicker.launch(arrayOf("*/*")) },
+                                            enabled = !busy,
+                                        ) {
+                                            Icon(
+                                                Icons.Default.UploadFile,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Import nhanh")
+                                        }
+                                    },
+                                    trailingButton = {
+                                        SplitButtonDefaults.TonalTrailingButton(
+                                            checked = showImportFormatMenu,
+                                            onCheckedChange = { showImportFormatMenu = it },
+                                            enabled = !busy,
+                                        ) {
+                                            Icon(
+                                                Icons.Default.KeyboardArrowDown,
+                                                contentDescription = "Chọn PDF hoặc Word",
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    },
+                                )
+                                DropdownMenu(
+                                    expanded = showImportFormatMenu,
+                                    onDismissRequest = { showImportFormatMenu = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("PDF") },
+                                        onClick = {
+                                            showImportFormatMenu = false
+                                            filePicker.launch(arrayOf("application/pdf"))
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Word (DOC/DOCX)") },
+                                        onClick = {
+                                            showImportFormatMenu = false
+                                            filePicker.launch(
+                                                arrayOf(
+                                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                    "application/msword",
+                                                )
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
 
                         // 2. Tùy chọn làm bài: 4 checkbox cân đối 2x2
                         Card(

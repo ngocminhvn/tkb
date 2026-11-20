@@ -178,3 +178,9 @@ Với JSON, chỉ số đáp án dạng số là **0-based**, ký tự là **A/B
 ### DOCX nhiều dòng
 
 Trình nhập DOCX tách nhãn A/B/C/D kể cả khi nhãn đứng trên một dòng riêng và lựa chọn là nhiều dòng C++, cũng như trường hợp nhiều lựa chọn gộp trong một đoạn, đáp án không đúng thứ tự hoặc câu hỏi chỉ có số (\`491.\`). Dấu màu đỏ được tính theo từng run định dạng OOXML chứ không theo màu chung của cả đoạn. Một số nhãn "a." được Word lưu ở \`w:numPr\` thay vì văn bản cũng được khôi phục. Câu không có màu đỏ cần được xác nhận thủ công; nút lọc câu thiếu đáp án trong màn hình xem trước giúp sửa nhanh. Khi file gốc tô đỏ nhiều lựa chọn, ứng dụng hiển thị cảnh báo để người dùng kiểm tra.
+
+### MD3 Expressive experimental controls (revert-safe)
+- Compose TimePickerDialog 24h cho giờ nhắc hôm nay/ngày mai, chuyển đồng hồ/bàn phím; lưu dữ liệu vào AuthStore và gọi ScheduleReminders.syncAll giống trước.
+- Connected ToggleButton group cho chế độ Sáng/Tối, vẫn lưu trong AuthStore; chiều cao nút 40dp.
+- SplitButton Import nhanh ở màn Ôn tập cho chọn mọi file, PDF hoặc Word; bộ đọc QuizImporter và ô import cũ giữ nguyên.
+- Các thay đổi thử nghiệm nằm riêng một commit, có thể git revert mà không ảnh hưởng commit vuốt tab hoặc thẻ Cài đặt gọn 72dp.

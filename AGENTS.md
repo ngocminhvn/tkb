@@ -206,3 +206,5 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Navigation gesture: `MainScreen.kt` nhận kéo ngang trên vùng nội dung 3 tab, threshold 64dp, đổi tab qua cùng `selectNavigationTab()` như GlassTabBar; không đặt overlay mép. `TimetableScreen.kt` không giữ `detectHorizontalDragGestures` đổi ngày nữa. `WeekDatePicker.kt` chỉ kéo dọc để mở/thu tháng, chạm ngày vẫn giữ. Không intercept ngang trên các màn Quiz/Grades con.
 
 - Các hàng Tiện ích/Cài đặt giữ `heightIn(min = 72.dp)` để gọn, vẫn tự giãn khi chữ dài/scale lớn; không dùng `height(72.dp)` cứng.
+
+- Expressive experimental UI: `SettingsScreen.kt` dùng Compose TimePickerDialog + connected ToggleButton group, `QuizScreen.kt` có SplitButton Import nhanh. Revert một commit thử nghiệm sẽ không đổi chiều cao hàng Cài đặt 72dp hoặc điều hướng tab.

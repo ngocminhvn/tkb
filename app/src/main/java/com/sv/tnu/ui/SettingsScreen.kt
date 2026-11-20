@@ -3,7 +3,6 @@
 package com.sv.tnu.ui
 
 import android.Manifest
-import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,6 +36,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Info
@@ -49,10 +50,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,6 +69,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -106,6 +115,7 @@ fun SettingsScreen(
     val examSyncError by timetableViewModel.examSyncError.collectAsState()
     var showExamDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var editingReminderTomorrow by remember { mutableStateOf<Boolean?>(null) }
 
     val context = LocalContext.current
     var remindToday by remember { mutableStateOf(authStore.remindToday) }
@@ -153,24 +163,7 @@ fun SettingsScreen(
     }
 
     fun pickReminderTime(tomorrow: Boolean) {
-        val oldMinutes = if (tomorrow) tomorrowMinutes else todayMinutes
-        TimePickerDialog(
-            context,
-            { _, hour, minute ->
-                val value = hour * 60 + minute
-                if (tomorrow) {
-                    tomorrowMinutes = value
-                    authStore.tomorrowReminderMinutes = value
-                } else {
-                    todayMinutes = value
-                    authStore.todayReminderMinutes = value
-                }
-                ScheduleReminders.syncAll(context)
-            },
-            oldMinutes / 60,
-            oldMinutes % 60,
-            true,
-        ).show()
+        editingReminderTomorrow = tomorrow
     }
     LaunchedEffect(authStore.username, avatarPath) {
         val username = authStore.username
@@ -196,6 +189,58 @@ fun SettingsScreen(
                     Color(0xFFE0F2FE),
                 ),
             )
+        }
+    }
+
+    // Compose Expressive time picker, retaining local preferences and alarm schedule.
+    val editingTomorrow = editingReminderTomorrow
+    if (editingTomorrow != null) {
+        key(editingTomorrow) {
+            val initialMinutes = if (editingTomorrow) tomorrowMinutes else todayMinutes
+            val timeState = rememberTimePickerState(
+                initialHour = initialMinutes / 60,
+                initialMinute = initialMinutes % 60,
+                is24Hour = true,
+            )
+            var useKeyboard by remember { mutableStateOf(false) }
+            TimePickerDialog(
+                onDismissRequest = { editingReminderTomorrow = null },
+                title = {
+                    Text(
+                        text = if (editingTomorrow) "Thông báo lịch ngày mai" else "Thông báo lịch hôm nay",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val newMinutes = timeState.hour * 60 + timeState.minute
+                        if (editingTomorrow) {
+                            tomorrowMinutes = newMinutes
+                            authStore.tomorrowReminderMinutes = newMinutes
+                        } else {
+                            todayMinutes = newMinutes
+                            authStore.todayReminderMinutes = newMinutes
+                        }
+                        ScheduleReminders.syncAll(context)
+                        editingReminderTomorrow = null
+                    }) { Text("Lưu") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { editingReminderTomorrow = null }) { Text("Hủy") }
+                },
+                modeToggleButton = {
+                    IconButton(onClick = { useKeyboard = !useKeyboard }) {
+                        Icon(
+                            imageVector = if (useKeyboard) Icons.Default.AccessTime else Icons.Default.Edit,
+                            contentDescription = if (useKeyboard) "Chọn trên đồng hồ" else "Nhập giờ",
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(24.dp),
+            ) {
+                if (useKeyboard) TimeInput(state = timeState)
+                else TimePicker(state = timeState)
+            }
         }
     }
 
@@ -495,60 +540,32 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Công tắc 2 option: [ Sáng | Tối ]
+                    // Compact single-select connected button group (MD3E 1.5.0).
                     Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (!isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                .expressiveClickable { authStore.isDarkMode = false }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center,
+                        ToggleButton(
+                            checked = !isDarkMode,
+                            onCheckedChange = { if (it) authStore.isDarkMode = false },
+                            shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
+                            modifier = Modifier.height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.LightMode,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (!isDarkMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Sáng",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (!isDarkMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                )
-                            }
+                            Icon(Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Sáng", style = MaterialTheme.typography.labelSmall)
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                .expressiveClickable { authStore.isDarkMode = true }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center,
+                        ToggleButton(
+                            checked = isDarkMode,
+                            onCheckedChange = { if (it) authStore.isDarkMode = true },
+                            shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                            modifier = Modifier.height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.DarkMode,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (isDarkMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Tối",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (isDarkMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                )
-                            }
+                            Icon(Icons.Default.DarkMode, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Tối", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }

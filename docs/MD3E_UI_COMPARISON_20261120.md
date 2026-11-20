@@ -69,3 +69,9 @@
 - Bỏ vuốt ngang đổi ngày khỏi `TimetableScreen.LazyColumn`; `WeekDatePicker` giữ cuộn dọc mở/thu tháng, chạm ngày để chọn.
 - Các trang con Xem điểm, Ôn tập không tự chuyển tab khi thực hiện thao tác đặc thù của trang.
 - Kiểm tra trên thiết bị: cuộn dọc TKB, vuốt ngang giữa màn ở ba tab, vuốt lịch tháng theo chiều dọc, Back Android, vuốt liên tục qua hai tab.
+
+## Thử nghiệm độc lập: TimePicker, connected ButtonGroup, SplitButton
+- TimePickerDialog Compose với TimePicker/TimeInput 24h thay TimePickerDialog nền tảng; chỉ commit khi bấm Lưu, đồng bộ lịch báo qua ScheduleReminders.syncAll.
+- Connected ToggleButton Sáng/Tối: dùng authStore.isDarkMode hiện tại, nút 40dp giữ card Cài đặt 72dp.
+- SplitButton cho chọn file DOC/DOCX/PDF hoặc mọi loại, tiếp tục dùng filePicker và QuizImporter cũ; không đổi dữ liệu offline.
+- Thử nghiệm có commit độc lập để hoàn tác không ảnh hưởng các thay đổi gesture hay kích thước.
