@@ -178,8 +178,8 @@ fun SettingsScreen(
         if (isDark) {
             Brush.linearGradient(
                 listOf(
-                    Color(0xFF1E293B),
-                    Color(0xFF0F172A),
+                    Color(0xFF2E4767),
+                    Color(0xFF21344F),
                 ),
             )
         } else {
@@ -307,7 +307,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                colors = CardDefaults.cardColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
             ) {
                 Box(
@@ -315,7 +316,7 @@ fun SettingsScreen(
                         .background(gradientBrush)
                         .border(
                             1.dp,
-                            if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
+                            if (isDark) Color(0xFFA9C9ED).copy(alpha = 0.28f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
                             RoundedCornerShape(22.dp),
                         )
                         .padding(18.dp),
@@ -359,6 +360,7 @@ fun SettingsScreen(
                                 Text(
                                     text = "Mã SV: ${authStore.username ?: "—"}",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
@@ -409,12 +411,13 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -447,6 +450,7 @@ fun SettingsScreen(
                         Text(
                             text = "Hiện lịch thi học kỳ",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -497,12 +501,13 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -531,6 +536,7 @@ fun SettingsScreen(
                         Text(
                             text = "Giao diện",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -642,7 +648,7 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
                 shape = RoundedCornerShape(20.dp),
-                containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
+                containerColor = if (isDark) Color(0xFF263951) else Color.White,
                 title = {
                     Text(
                         text = "Đăng xuất tài khoản",
@@ -682,7 +688,7 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showExamDialog = false },
                 shape = RoundedCornerShape(20.dp),
-                containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
+                containerColor = if (isDark) Color(0xFF263951) else Color.White,
                 title = {
                     Text(
                         text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
@@ -732,6 +738,7 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = CardDefaults.cardColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                                     ),
                                     border = if (isHoan) BorderStroke(1.dp, Color(0xFFFFA000)) else null,
@@ -829,12 +836,13 @@ private fun ReminderSettingCard(
             .expressiveClickable(onClick = onPickTime),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+            containerColor = if (isDark) Color(0xFF253850) else Color.White,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
         Row(
@@ -865,6 +873,7 @@ private fun ReminderSettingCard(
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                     ),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -894,7 +903,7 @@ private fun StatItem(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (isDark) Color(0xFF1E2433).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
+            .background(if (isDark) Color(0xFF2A405A).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
             .border(
                 1.dp,
                 if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF60A5FA).copy(alpha = 0.20f),
@@ -942,12 +951,13 @@ private fun ActionCard(
             .expressiveClickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+            containerColor = if (isDark) Color(0xFF253850) else Color.White,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
         Row(
@@ -976,6 +986,7 @@ private fun ActionCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(

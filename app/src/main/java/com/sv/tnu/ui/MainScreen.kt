@@ -411,12 +411,13 @@ private fun MoreScreen(
                     .expressiveClickable(onClick = onOpenGrades),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -449,6 +450,7 @@ private fun MoreScreen(
                                 "Xem điểm",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
@@ -490,12 +492,13 @@ private fun MoreScreen(
                     .expressiveClickable(onClick = onOpenQuiz),
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = if (isDark) Color(0xFF253850) else Color.White,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                 ),
             ) {
                 Row(
@@ -527,6 +530,7 @@ private fun MoreScreen(
                             "Ôn tập",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -551,11 +555,12 @@ private fun MoreScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF171B22) else Color(0xFFF1F5F9),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = if (isDark) Color(0xFF21334B) else Color(0xFFF1F5F9),
                 ),
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f),
+                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.06f),
                 ),
             ) {
                 Row(

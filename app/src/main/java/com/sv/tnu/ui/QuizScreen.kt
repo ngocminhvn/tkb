@@ -454,11 +454,12 @@ fun QuizScreen(
                                     .expressiveClickable(enabled = !busy) { filePicker.launch(arrayOf("*/*")) },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
                                 ),
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                                 ),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -491,11 +492,12 @@ fun QuizScreen(
                                     },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
                                 ),
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                                    if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                                 ),
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -530,7 +532,8 @@ fun QuizScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF8F9FB),
                             ),
                             border = BorderStroke(
                                 1.dp,
@@ -601,7 +604,8 @@ fun QuizScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF8F9FB),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF8F9FB),
                                 ),
                                 border = BorderStroke(
                                     1.dp,
@@ -661,16 +665,17 @@ fun QuizScreen(
                                             },
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                                             containerColor = if (isSelected) {
-                                                if (isDark) Color(0xFF222B3D) else Color(0xFFEAF1FF)
+                                                if (isDark) Color(0xFF314A69) else Color(0xFFEAF1FF)
                                             } else {
-                                                if (isDark) Color(0xFF1B2029) else Color.White
+                                                if (isDark) Color(0xFF253850) else Color.White
                                             },
                                         ),
                                         border = BorderStroke(
                                             if (isSelected) 1.5.dp else 1.dp,
                                             if (isSelected) MaterialTheme.colorScheme.primary
-                                             else if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+                                             else if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
                                         ),
                                     ) {
                                         Column(modifier = Modifier.padding(14.dp)) {
@@ -788,7 +793,8 @@ fun QuizScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isDark) Color(0xFF1B2029) else Color(0xFFF4F6FA),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    containerColor = if (isDark) Color(0xFF253850) else Color(0xFFF4F6FA),
                                 ),
                                 border = BorderStroke(
                                     1.dp,
@@ -1245,12 +1251,13 @@ private fun QuizQuestionCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+            containerColor = if (isDark) Color(0xFF253850) else Color.White,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 2.dp else 1.dp),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
+            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f),
         ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -1269,7 +1276,7 @@ private fun QuizQuestionCard(
                 val rowBgColor = when {
                     isCorrectAnswer -> if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
                     isWrongSelection -> if (isDark) Color(0xFF381B1B) else Color(0xFFFFEBEE)
-                    isSelected -> if (isDark) Color(0xFF222B3D) else Color(0xFFEAF1FF)
+                    isSelected -> if (isDark) Color(0xFF314A69) else Color(0xFFEAF1FF)
                     else -> Color.Transparent
                 }
 
@@ -1284,7 +1291,7 @@ private fun QuizQuestionCard(
                     isCorrectAnswer -> Color(0xFF2E7D32)
                     isWrongSelection -> MaterialTheme.colorScheme.error
                     isSelected -> MaterialTheme.colorScheme.primary
-                    else -> if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f)
+                    else -> if (isDark) Color(0xFF95B5DE).copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.06f)
                 }
 
                 val badgeTextColor = when {

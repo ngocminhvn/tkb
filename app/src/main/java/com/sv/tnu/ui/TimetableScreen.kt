@@ -923,6 +923,7 @@ fun TimetableScreen(
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
                     colors = CardDefaults.cardColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
                     shape = RoundedCornerShape(14.dp),
@@ -1006,12 +1007,13 @@ fun TimetableScreen(
                                             .height(76.dp),
                                         shape = RoundedCornerShape(18.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                            containerColor = if (isDark) Color(0xFF253850) else Color.White,
                                         ),
                                         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
                                         border = BorderStroke(
                                             1.dp,
-                                            if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f),
+                                            if (isDark) Color(0xFF95B5DE).copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.08f),
                                         ),
                                     ) {
                                         Box(
@@ -1136,11 +1138,12 @@ private fun LessonCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+            containerColor = if (isDark) Color(0xFF253850) else Color.White,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
         border = if (isToday) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                 else BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)),
+                 else BorderStroke(1.dp, if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f)),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // The pencil replaces the old credits badge. The note editor
@@ -1340,11 +1343,12 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+            containerColor = if (isDark) Color(0xFF253850) else Color.White,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 3.dp else 2.dp),
         border = if (isToday) BorderStroke(1.5.dp, examRed)
-                 else BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)),
+                 else BorderStroke(1.dp, if (isDark) Color(0xFF95B5DE).copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Tên môn & Huy hiệu "THI" màu đỏ thay cho phần tín chỉ
