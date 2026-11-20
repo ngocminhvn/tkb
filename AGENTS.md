@@ -66,7 +66,8 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../ui/SettingsScreen.kt` | Compose cài đặt giao diện, nhắc lịch, tài khoản, kiểm tra cập nhật (đã bỏ chỉnh số tuần) | SQL migration |
 | `.../ui/UpdateDialog.kt` | UI hộp thoại cập nhật APK | Tải file HTTP |
 | `.../ui/components/UserAvatar.kt` | Composable avatar dùng lại | Auth protocol |
-| `.../ui/glass/LiquidGlass.kt` | Hiệu ứng/liquid glass trên Compose | Nghiệp vụ portal |
+| `.../ui/glass/LiquidGlass.kt` | Hiệu ứng/liquid glass trên Compose, giữ nguyên nền và lens | Nghiệp vụ portal |
+| `.../ui/expressive/ExpressiveClick.kt` | Motion chạm Expressive cho card và row, giữ Liquid Glass | Nghiệp vụ, API, DB |
 | `.../ui/theme/Theme.kt` | Theme Compose | Xử lý lịch |
 | `.../notifications/ScheduleReminders.kt` | AlarmManager, thông báo, receivers lên lịch lại sau reboot/time change | Đồng bộ portal trong background |
 | `.../widget/TimetableWidgetProvider.kt` | AppWidgetProvider/RemoteViews, widget ngày & query SQLite | Màn hình Compose |

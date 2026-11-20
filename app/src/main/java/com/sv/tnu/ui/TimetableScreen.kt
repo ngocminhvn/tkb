@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.MeetingRoom
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -93,6 +94,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
+import com.sv.tnu.ui.expressive.expressiveClickable
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.data.CachedTimetable
 import com.sv.tnu.data.ExamEntity
@@ -887,7 +889,7 @@ fun TimetableScreen(
                             CircleShape,
                         )
                         .clip(CircleShape)
-                        .clickable(enabled = !refreshing) { viewModel.refresh() },
+                        .expressiveClickable(enabled = !refreshing) { viewModel.refresh() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -931,7 +933,7 @@ fun TimetableScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
                     Text(
                         text = it,
@@ -1028,7 +1030,7 @@ fun TimetableScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(76.dp),
-                                        shape = RoundedCornerShape(18.dp),
+                                        shape = MaterialTheme.shapes.largeIncreased,
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                                         ),
@@ -1120,7 +1122,7 @@ private fun AutoFitSubjectTitle(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-    val baseStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+    val baseStyle = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold)
     // Shrink through the real text layout instead of BoxWithConstraints
     // subcomposition plus repeated TextMeasurer passes while the list scrolls.
     var fontSize by remember(title, baseStyle.fontSize) { mutableStateOf(baseStyle.fontSize) }
@@ -1158,7 +1160,7 @@ private fun LessonCard(
     val isDark = LocalGlassConfig.current.dark
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1199,7 +1201,7 @@ private fun LessonCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1290,9 +1292,9 @@ private fun LessonCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                        .clickable(onClick = onEditNote)
+                        .expressiveClickable(onClick = onEditNote)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1328,6 +1330,7 @@ private fun LessonNoteDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
+                    shape = MaterialTheme.shapes.large,
                     value = note,
                     onValueChange = { value ->
                         if (value.length <= 500) note = value
@@ -1344,12 +1347,14 @@ private fun LessonNoteDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(note.trim()) }) {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = { onSave(note.trim()) }) {
                 Text("Lưu")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = onDismiss) {
                 Text("Huỷ")
             }
         },
@@ -1362,7 +1367,7 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
     val examRed = Color(0xFFE53935)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1403,7 +1408,7 @@ private fun ExamCard(exam: ExamEntity, endTime: String, isToday: Boolean) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(examRed.copy(alpha = 0.10f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,

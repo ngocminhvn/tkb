@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sv.tnu.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -71,7 +74,7 @@ fun UpdateDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     text = "${currentVersionName.ifBlank { "Bản hiện tại" }} → ${updateInfo.versionName}",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -143,9 +146,9 @@ fun UpdateDialog(
         dismissButton = {
             if (!downloading) {
                 OutlinedButton(
+                shapes = ButtonDefaults.shapes(),
                     onClick = onDismiss,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
+                    ) {
                     Text("Để sau")
                 }
             }
@@ -154,30 +157,30 @@ fun UpdateDialog(
             when {
                 downloading -> {
                     FilledTonalButton(
+                shapes = ButtonDefaults.shapes(),
                         enabled = false,
                         onClick = {},
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
+                        ) {
                         Text("${percent ?: 0}%")
                     }
                 }
 
                 downloadResult?.file != null || downloadResult?.uri != null -> {
                     Button(
+                shapes = ButtonDefaults.shapes(),
                         onClick = {
                             AppUpdateManager.installApk(context, downloadResult)
                         },
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
+                        ) {
                         Text("Cài đặt ngay")
                     }
                 }
 
                 else -> {
                     Button(
+                shapes = ButtonDefaults.shapes(),
                         onClick = { onStartDownload(updateInfo) },
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
+                        ) {
                         Text("Cập nhật ngay")
                     }
                 }

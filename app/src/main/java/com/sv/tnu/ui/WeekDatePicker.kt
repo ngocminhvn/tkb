@@ -43,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sv.tnu.ui.expressive.expressiveClickable
 import com.sv.tnu.data.WeekEntity
 import com.sv.tnu.rust.RustScheduleCore
 import java.util.Locale
@@ -98,7 +99,7 @@ private fun CalendarDay(
     val day = ymd.substringAfterLast('-').toIntOrNull()?.toString() ?: "-"
     Column(
         modifier = modifier
-            .clickable(enabled = enabled, onClick = onClick)
+            .expressiveClickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(1.dp),
@@ -239,7 +240,7 @@ fun WeekDatePicker(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
+                .expressiveClickable {
                     showMonth = !showMonth
                     if (showMonth) monthOffset = 0
                 }
@@ -271,7 +272,7 @@ fun WeekDatePicker(
                     IconButton(onClick = { monthOffset-- }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Tháng trước")
                     }
-                    Text(monthView.first, style = MaterialTheme.typography.titleMedium)
+                    Text(monthView.first, style = MaterialTheme.typography.titleMediumEmphasized)
                     IconButton(onClick = { monthOffset++ }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Tháng sau")
                     }

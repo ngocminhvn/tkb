@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sv.tnu.ui
 
 import android.Manifest
@@ -46,7 +48,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +73,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sv.tnu.ui.expressive.expressiveClickable
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.notifications.ScheduleReminders
 import com.sv.tnu.rust.RustScheduleCore
@@ -225,7 +228,7 @@ fun SettingsScreen(
                             CircleShape,
                         )
                         .clip(CircleShape)
-                        .clickable(onClick = onBack),
+                        .expressiveClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -238,7 +241,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = "Cài đặt",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
                 )
             }
         },
@@ -257,7 +260,7 @@ fun SettingsScreen(
             // Student summary card with gradient matching OverviewGpaCard
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
             ) {
@@ -267,7 +270,7 @@ fun SettingsScreen(
                         .border(
                             1.dp,
                             if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
-                            RoundedCornerShape(22.dp),
+                            MaterialTheme.shapes.extraLarge,
                         )
                         .padding(18.dp),
                 ) {
@@ -309,7 +312,7 @@ fun SettingsScreen(
                             Column {
                                 Text(
                                     text = "Mã SV: ${authStore.username ?: "—"}",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
@@ -351,14 +354,14 @@ fun SettingsScreen(
             // Utilities section
             Text(
                 text = "Tiện ích & Cài đặt",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
             )
 
             // Switch Hiện lịch thi học kỳ trên TKB trang chủ
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = MaterialTheme.shapes.largeIncreased,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -371,7 +374,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .expressiveClickable {
                             showExamDialog = true
                             timetableViewModel.fetchExamsOnly(force = true)
                         }
@@ -445,7 +448,7 @@ fun SettingsScreen(
             // Chế độ giao diện (Sáng / Tối) - Công tắc 2 option
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = MaterialTheme.shapes.largeIncreased,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -501,7 +504,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .background(if (!isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                .clickable { authStore.isDarkMode = false }
+                                .expressiveClickable { authStore.isDarkMode = false }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -525,7 +528,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .background(if (isDarkMode) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                .clickable { authStore.isDarkMode = true }
+                                .expressiveClickable { authStore.isDarkMode = true }
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -554,7 +557,7 @@ fun SettingsScreen(
                 subtitle = if (refreshing) "Đang tải dữ liệu mới từ portal..." else "Lần cuối: ${formatLastSync(lastSyncTime)}",
                 trailing = {
                     if (refreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        LoadingIndicator(modifier = Modifier.size(32.dp))
                     } else {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -581,6 +584,7 @@ fun SettingsScreen(
 
             // Logout Button
             Button(
+                shapes = ButtonDefaults.shapes(),
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -589,7 +593,6 @@ fun SettingsScreen(
                     containerColor = if (isDark) Color(0xFF2C1618) else Color(0xFFFEE2E2),
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
-                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.35f else 0.25f),
@@ -618,12 +621,12 @@ fun SettingsScreen(
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
-                shape = RoundedCornerShape(20.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Đăng xuất tài khoản",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                     )
                 },
                 text = {
@@ -634,6 +637,7 @@ fun SettingsScreen(
                 },
                 confirmButton = {
                     TextButton(
+                shapes = ButtonDefaults.shapes(),
                         onClick = {
                             showLogoutDialog = false
                             onLogout()
@@ -647,7 +651,8 @@ fun SettingsScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showLogoutDialog = false }) {
+                    TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = { showLogoutDialog = false }) {
                         Text("Hủy")
                     }
                 },
@@ -658,12 +663,12 @@ fun SettingsScreen(
         if (showExamDialog) {
             AlertDialog(
                 onDismissRequest = { showExamDialog = false },
-                shape = RoundedCornerShape(20.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
                 title = {
                     Text(
                         text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                     )
                 },
                 text = {
@@ -675,7 +680,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            LoadingIndicator(modifier = Modifier.size(36.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Đang tải lịch thi từ nhà trường...",
@@ -707,7 +712,7 @@ fun SettingsScreen(
                                 val isHoan = exam.isHoanThi
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = MaterialTheme.shapes.medium,
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                                     ),
@@ -775,7 +780,8 @@ fun SettingsScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showExamDialog = false }) {
+                    TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = { showExamDialog = false }) {
                         Text("Đóng")
                     }
                 },
@@ -803,8 +809,8 @@ private fun ReminderSettingCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onPickTime),
-        shape = RoundedCornerShape(18.dp),
+            .expressiveClickable(onClick = onPickTime),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -869,12 +875,12 @@ private fun StatItem(
     val isDark = com.sv.tnu.ui.glass.LocalGlassConfig.current.dark
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(if (isDark) Color(0xFF1E2433).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
             .border(
                 1.dp,
                 if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF60A5FA).copy(alpha = 0.20f),
-                RoundedCornerShape(14.dp),
+                MaterialTheme.shapes.medium,
             )
             .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,
@@ -915,8 +921,8 @@ private fun ActionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+            .expressiveClickable(onClick = onClick),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),

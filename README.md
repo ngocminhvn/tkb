@@ -9,6 +9,8 @@
 
 > **Dành cho AI/code agent:** Đọc [AGENTS.md](AGENTS.md) trước khi sửa. File này xác định nơi chịu trách nhiệm cho từng tính năng, luồng dữ liệu, các bất biến về SQLite/JNI và bộ test bắt buộc.
 
+Material 3 Expressive áp dụng toàn diện ở các màn Compose: shape tokens, chữ nhấn mạnh, nút morphing, phản hồi chạm và loading. Thanh điều hướng và bề mặt Liquid Glass vẫn được giữ nguyên. Widget hệ thống và hộp thoại Android vẫn dùng API nền tảng.
+
 ## Tính năng hiện có
 
 - Đăng nhập TNUT, làm mới phiên/token; thông báo rõ khi phiên không còn hợp lệ.

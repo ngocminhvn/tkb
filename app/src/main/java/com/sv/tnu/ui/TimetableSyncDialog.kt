@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.Icon
@@ -94,7 +95,7 @@ fun TimetableSyncDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(22.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         icon = {
             val icon = if (failure != null) Icons.Default.ErrorOutline else Icons.Default.WarningAmber
             Icon(
@@ -129,7 +130,8 @@ fun TimetableSyncDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = onDismiss) {
                 Text("Đóng")
             }
         },

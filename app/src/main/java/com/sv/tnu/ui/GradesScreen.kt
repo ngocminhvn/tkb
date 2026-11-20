@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sv.tnu.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -48,11 +50,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.sv.tnu.ui.expressive.expressiveClickable
 import com.sv.tnu.grades.GradeCourse
 import com.sv.tnu.grades.GradeOverview
 import com.sv.tnu.grades.GradeSemester
@@ -151,7 +155,7 @@ fun GradesScreen(
                             CircleShape,
                         )
                         .clip(CircleShape)
-                        .clickable(onClick = onBack),
+                        .expressiveClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -166,7 +170,7 @@ fun GradesScreen(
 
                 Text(
                     text = "Xem điểm",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -193,7 +197,7 @@ fun GradesScreen(
                             CircleShape,
                         )
                         .clip(CircleShape)
-                        .clickable(enabled = !isRefreshing) { viewModel.refresh() },
+                        .expressiveClickable(enabled = !isRefreshing) { viewModel.refresh() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -234,11 +238,7 @@ fun GradesScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(42.dp),
-                                    strokeWidth = 4.dp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
+                                LoadingIndicator(modifier = Modifier.size(48.dp))
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
                                     "Đang tải bảng điểm từ portal TNUT...",
@@ -272,7 +272,7 @@ fun GradesScreen(
                         ) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
+                                shape = MaterialTheme.shapes.extraLarge,
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isDark) Color(0xFF1F242D) else Color.White,
                                 ),
@@ -290,7 +290,7 @@ fun GradesScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
                                         "Không thể tải bảng điểm",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurface,
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
@@ -302,9 +302,9 @@ fun GradesScreen(
                                     )
                                     Spacer(modifier = Modifier.height(20.dp))
                                     Button(
+                shapes = ButtonDefaults.shapes(),
                                         onClick = { viewModel.refresh() },
-                                        shape = RoundedCornerShape(12.dp),
-                                    ) {
+                                        ) {
                                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("Thử lại")
@@ -346,11 +346,7 @@ fun GradesScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(42.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 4.dp,
-                    )
+                    LoadingIndicator(modifier = Modifier.size(48.dp))
                 }
             }
         }
@@ -378,11 +374,12 @@ fun GradesScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = viewModel::dismissError) {
+                    TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = viewModel::dismissError) {
                         Text("Đóng")
                     }
                 },
-                shape = RoundedCornerShape(22.dp),
+                shape = MaterialTheme.shapes.extraLarge,
             )
         }
     }
@@ -438,7 +435,7 @@ private fun GradeContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.medium)
                         .background(
                             if (isDark) Color(0xFF2C2415) else Color(0xFFFEF3C7)
                         )
@@ -482,6 +479,7 @@ private fun GradeContent(
         // Ô tìm kiếm môn học
         item {
             OutlinedTextField(
+                    shape = MaterialTheme.shapes.large,
                 value = searchQuery,
                 onValueChange = onUpdateSearch,
                 modifier = Modifier.fillMaxWidth(),
@@ -497,7 +495,7 @@ private fun GradeContent(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedContainerColor = if (isDark) Color(0xFF1B2028).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
                     focusedContainerColor = if (isDark) Color(0xFF1B2028) else Color.White,
@@ -578,8 +576,8 @@ private fun SemesterSelectCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { showDialog = true },
-        shape = RoundedCornerShape(16.dp),
+            .expressiveClickable { showDialog = true },
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
         ),
@@ -602,7 +600,7 @@ private fun SemesterSelectCard(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -712,7 +710,7 @@ private fun SemesterSelectionDialog(
                 )
                 Text(
                     text = "Chọn học kỳ",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                 )
             }
         },
@@ -754,11 +752,12 @@ private fun SemesterSelectionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                shapes = ButtonDefaults.shapes(),onClick = onDismiss) {
                 Text("Đóng")
             }
         },
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         containerColor = if (isDark) Color(0xFF1E242E) else Color.White,
     )
 }
@@ -773,7 +772,7 @@ private fun SemesterOptionItem(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         color = if (isSelected) {
             MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
         } else {
@@ -856,7 +855,7 @@ private fun OverviewGpaCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp),
     ) {
@@ -866,7 +865,7 @@ private fun OverviewGpaCard(
                 .border(
                     1.dp,
                     if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF60A5FA).copy(alpha = 0.25f),
-                    RoundedCornerShape(22.dp),
+                    MaterialTheme.shapes.extraLarge,
                 )
                 .padding(20.dp),
         ) {
@@ -894,7 +893,7 @@ private fun OverviewGpaCard(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Tích lũy toàn khóa",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -902,9 +901,9 @@ private fun OverviewGpaCard(
                     if (xepLoai.isNotBlank() && xepLoai != "Chưa xếp loại") {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
+                                .clip(MaterialTheme.shapes.extraLarge)
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), MaterialTheme.shapes.extraLarge)
                                 .padding(horizontal = 10.dp, vertical = 4.dp),
                         ) {
                             Text(
@@ -965,7 +964,7 @@ private fun MetricColumn(
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(
+                style = MaterialTheme.typography.headlineSmallEmphasized.copy(
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = FontFamily.SansSerif,
                 ),
@@ -991,7 +990,7 @@ private fun SemesterHeaderCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF171B22) else Color(0xFFF1F5F9),
         ),
@@ -999,7 +998,7 @@ private fun SemesterHeaderCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = semester.tenHocKy,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             val hasStats = (semester.dtbHk4.isNotBlank() && semester.dtbHk4 != "-") ||
@@ -1063,7 +1062,7 @@ private fun CourseGradeCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
         ),
@@ -1071,7 +1070,7 @@ private fun CourseGradeCard(
     ) {
         Column(
             modifier = Modifier
-                .clickable(onClick = onToggle)
+                .expressiveClickable(onClick = onToggle)
                 .padding(16.dp),
         ) {
             // Tiêu đề môn học: Mã môn, Nhóm tổ, Số tín chỉ và Badge điểm chữ
@@ -1087,7 +1086,7 @@ private fun CourseGradeCard(
                     // Mã môn học
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(MaterialTheme.shapes.extraSmall)
                             .background(if (isDark) Color(0xFF2A313E) else Color(0xFFE2E8F0))
                             .padding(horizontal = 7.dp, vertical = 3.dp),
                     ) {
@@ -1129,7 +1128,7 @@ private fun CourseGradeCard(
                 ) {
                     Text(
                         text = course.diemChu.ifBlank { "-" },
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.ExtraBold),
                         color = gradeColor,
                     )
                 }
@@ -1150,7 +1149,7 @@ private fun CourseGradeCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(if (isDark) Color(0xFF222834) else Color(0xFFF8FAFC))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1222,7 +1221,7 @@ private fun CourseGradeCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(if (isDark) Color(0xFF151921) else Color(0xFFF1F5F9))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),

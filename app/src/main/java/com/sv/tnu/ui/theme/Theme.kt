@@ -3,6 +3,9 @@ package com.sv.tnu.ui.theme
 import android.app.Activity
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -21,6 +24,19 @@ private val AccentGreen = Color(0xFF30D158)
 private val LightBackground = Color(0xFFF2F4F8)
 private val LightSurface = Color(0xFFFFFFFF)
 private val LightSurfaceVariant = Color(0xFFE5E9F0)
+
+ // Expressive shape scale shared across Compose screens; Glass colors/surfaces are unchanged.
+private val TkbExpressiveShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    largeIncreased = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(30.dp),
+    extraLargeIncreased = RoundedCornerShape(34.dp),
+    extraExtraLarge = RoundedCornerShape(40.dp),
+)
+
 
 @Composable
 fun TkbTheme(
@@ -71,6 +87,7 @@ fun TkbTheme(
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
         motionScheme = MotionScheme.expressive(),
+        shapes = TkbExpressiveShapes,
     ) {
         LiquidGlassTheme(
             dark = darkTheme,

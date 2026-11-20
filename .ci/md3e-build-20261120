@@ -2,3 +2,4 @@ TKB SV Material 3 Expressive one-shot build marker. Only this file activates the
 Retry marker: sdkmanager explicit path fix, 2026-11-20.
 Retry: use published Android SDK 37.0 package name.
 Follow-up: visibly expressive navigation, calendar days, learning cards; keep glass.
+Full Compose screen Expressive migration: shape, emphasized type, morphing buttons, press feedback, progress, preserve Liquid Glass.

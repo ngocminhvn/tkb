@@ -77,6 +77,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sv.tnu.ui.expressive.expressiveClickable
 import com.sv.tnu.data.AuthStore
 import com.sv.tnu.grades.GradeRepository
 import com.sv.tnu.grades.GradeViewModel
@@ -349,7 +350,7 @@ private fun MoreScreen(
                             CircleShape,
                         )
                         .clip(CircleShape)
-                        .clickable(onClick = onBack),
+                        .expressiveClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -363,7 +364,7 @@ private fun MoreScreen(
                 Column {
                     Text(
                         text = "Thêm",
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.headlineSmallEmphasized.copy(fontWeight = FontWeight.Bold),
                     )
                 }
             }
@@ -392,8 +393,8 @@ private fun MoreScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onOpenGrades),
-                shape = RoundedCornerShape(28.dp),
+                    .expressiveClickable(onClick = onOpenGrades),
+                shape = MaterialTheme.shapes.extraExtraLarge,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -412,7 +413,7 @@ private fun MoreScreen(
                     Box(
                         modifier = Modifier
                             .size(52.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(MaterialTheme.shapes.largeIncreased)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -430,13 +431,13 @@ private fun MoreScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "Xem điểm",
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleLargeEmphasized,
                                 fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(MaterialTheme.shapes.small)
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
@@ -470,8 +471,8 @@ private fun MoreScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onOpenQuiz),
-                shape = RoundedCornerShape(28.dp),
+                    .expressiveClickable(onClick = onOpenQuiz),
+                shape = MaterialTheme.shapes.extraExtraLarge,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF1B2029) else Color.White,
                 ),
@@ -490,7 +491,7 @@ private fun MoreScreen(
                     Box(
                         modifier = Modifier
                             .size(52.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(MaterialTheme.shapes.largeIncreased)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -507,7 +508,7 @@ private fun MoreScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Ôn tập",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLargeEmphasized,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -531,7 +532,7 @@ private fun MoreScreen(
             // Tip card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isDark) Color(0xFF171B22) else Color(0xFFF1F5F9),
                 ),
