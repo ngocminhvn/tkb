@@ -153,16 +153,17 @@ fun MainScreen(
         showGrades = false
     }
 
+    val expressiveMotionScheme = MaterialTheme.motionScheme
     Box(modifier = Modifier.fillMaxSize()) {
         // Tab content
         AnimatedContent(
             targetState = selectedIndex,
             transitionSpec = {
                 val direction = if (targetState > initialState) 1 else -1
-                (slideInHorizontally(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) { it / 5 * direction } +
-                    fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec())) togetherWith
-                    (slideOutHorizontally(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) { -it / 6 * direction } +
-                        fadeOut(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()))
+                (slideInHorizontally(animationSpec = expressiveMotionScheme.defaultSpatialSpec()) { it / 5 * direction } +
+                    fadeIn(animationSpec = expressiveMotionScheme.defaultEffectsSpec())) togetherWith
+                    (slideOutHorizontally(animationSpec = expressiveMotionScheme.defaultSpatialSpec()) { -it / 6 * direction } +
+                        fadeOut(animationSpec = expressiveMotionScheme.defaultEffectsSpec()))
             },
             label = "expressiveTabTransition",
         ) { tabIndex ->

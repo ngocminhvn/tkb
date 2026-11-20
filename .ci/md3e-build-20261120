@@ -6,3 +6,4 @@ Full Compose screen Expressive migration: shape, emphasized type, morphing butto
 Fix duplicated shape argument in GradesScreen search field.
 Restore #395 rounded rectangles; Compose BOM 2026.11.01, M3E 1.5.0 and compact loading.
 Resolve Compose 1.13 AAR SDK metadata: AGP 9.2 compileSdk release 37 minorApiLevel 1 and SDK 37.1.
+Capture M3E motion outside AnimatedContent transitionSpec (non-composable callback).
