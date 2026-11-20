@@ -75,7 +75,15 @@ jobs:
           gradle-version: "9.4.1"
 
       - name: Install API 37 and build tools
-        run: sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
+        shell: bash
+        run: |
+          # The hosted runner has sdkmanager, but cmdline-tools is not on PATH.
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n1)"
+          fi
+          test -n "$sdkmanager" && test -x "$sdkmanager"
+          "$sdkmanager" --sdk_root="$ANDROID_HOME" --install "platforms;android-37" "build-tools;36.0.0"
 
       - name: Bump version
         run: |
