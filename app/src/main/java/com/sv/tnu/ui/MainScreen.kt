@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
+import com.sv.tnu.ui.glass.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -384,7 +385,7 @@ private fun MoreScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -405,7 +406,7 @@ private fun MoreScreen(
             )
 
             // HÀNG ĐẦU TIÊN: Xem điểm (Grades)
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenGrades),
@@ -484,7 +485,7 @@ private fun MoreScreen(
             }
 
             // HÀNG THỨ HAI: Ôn tập (Quiz)
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .expressiveClickable(onClick = onOpenQuiz),
@@ -547,7 +548,7 @@ private fun MoreScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Tip card
-            Card(
+            GlassCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(

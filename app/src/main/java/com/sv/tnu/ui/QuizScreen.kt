@@ -41,8 +41,9 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import com.sv.tnu.ui.glass.GlassButton as Button
 import androidx.compose.material3.Card
+import com.sv.tnu.ui.glass.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -50,7 +51,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.sv.tnu.ui.glass.GlassOutlinedButton as OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -451,7 +452,7 @@ fun QuizScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { scaffoldPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(scaffoldPadding).padding(contentPadding)) {
             if (error != null) {
@@ -474,7 +475,7 @@ fun QuizScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Card(
+                            GlassCard(
                                 modifier = Modifier
                                     .weight(1f)
                                     .expressiveClickable(enabled = !busy) { filePicker.launch(arrayOf("*/*")) },
@@ -509,7 +510,7 @@ fun QuizScreen(
                                 }
                             }
 
-                            Card(
+                            GlassCard(
                                 modifier = Modifier
                                     .weight(1f)
                                     .expressiveClickable(enabled = !busy) {
@@ -552,7 +553,7 @@ fun QuizScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         // 2. Tùy chọn làm bài: 4 checkbox cân đối 2x2
-                        Card(
+                        GlassCard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
@@ -623,7 +624,7 @@ fun QuizScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         if (decks.isEmpty()) {
-                            Card(
+                            GlassCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
@@ -810,7 +811,7 @@ fun QuizScreen(
                             val unanswered = value.questions.count { it.correct.isEmpty() }
                             val answered = value.questions.size - unanswered
 
-                            Card(
+                            GlassCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(

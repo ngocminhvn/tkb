@@ -52,13 +52,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import com.sv.tnu.ui.glass.GlassButton as Button
 import androidx.compose.material3.Card
+import com.sv.tnu.ui.glass.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import com.sv.tnu.ui.glass.GlassIconButton as IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -211,7 +212,7 @@ fun GradesScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) { padding ->
         Box(
             modifier = Modifier
@@ -270,7 +271,7 @@ fun GradesScreen(
                                 .padding(horizontal = 24.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Card(
+                            GlassCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = CardDefaults.cardColors(
@@ -571,7 +572,7 @@ private fun SemesterSelectCard(
         else -> "Học kỳ $selectedSemesterId"
     }
 
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .expressiveClickable { showDialog = true },
@@ -850,7 +851,7 @@ private fun OverviewGpaCard(
         }
     }
 
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -985,7 +986,7 @@ private fun SemesterHeaderCard(
     semester: GradeSemester,
     isDark: Boolean,
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
