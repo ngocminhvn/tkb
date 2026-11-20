@@ -20,11 +20,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.sv.tnu.ui.glass.LiquidGlassTheme
 
-// HyperOS-inspired midnight blue, softened for reading and comfortable cards.
-private val DarkBackground = Color(0xFF16243B)
-private val DarkSurface = Color(0xFF253750)
-private val DarkSurfaceVariant = Color(0xFF304762)
-private val DarkAccentBlue = Color(0xFF78B2FF)
+// Near-black Dark Mode with a very subtle blue glow; Light Mode is unchanged.
+private val DarkBackground = Color(0xFF0B0E15)
+private val DarkSurface = Color(0xFF171D29)
+private val DarkSurfaceVariant = Color(0xFF212B3A)
+private val DarkAccentBlue = Color(0xFF74A9EF)
 private val AccentBlue = Color(0xFF0A84FF)
 private val AccentGreen = Color(0xFF30D158)
 
@@ -45,18 +45,18 @@ fun TkbTheme(
             background = DarkBackground,
             surface = DarkSurface,
             surfaceVariant = DarkSurfaceVariant,
-            onBackground = Color(0xFFF2F6FF),
-            onSurface = Color(0xFFF2F6FF),
-            onSurfaceVariant = Color(0xFFBACADD),
-            outline = Color(0xFF607797),
-            outlineVariant = Color(0xFF415875),
-            surfaceDim = Color(0xFF1B2941),
-            surfaceBright = Color(0xFF344964),
-            surfaceContainerLowest = Color(0xFF1A2A42),
-            surfaceContainerLow = Color(0xFF203049),
-            surfaceContainer = Color(0xFF253750),
-            surfaceContainerHigh = Color(0xFF2C405B),
-            surfaceContainerHighest = Color(0xFF344B67),
+            onBackground = Color(0xFFEDF2FA),
+            onSurface = Color(0xFFEDF2FA),
+            onSurfaceVariant = Color(0xFFAAB7CC),
+            outline = Color(0xFF4B5B73),
+            outlineVariant = Color(0xFF303D51),
+            surfaceDim = Color(0xFF0D121B),
+            surfaceBright = Color(0xFF29374C),
+            surfaceContainerLowest = Color(0xFF0F141D),
+            surfaceContainerLow = Color(0xFF131A25),
+            surfaceContainer = Color(0xFF171E2A),
+            surfaceContainerHigh = Color(0xFF1D2737),
+            surfaceContainerHighest = Color(0xFF243148),
             errorContainer = Color(0xFF5C1B1B),
             onErrorContainer = Color(0xFFFFDAD6),
         )
@@ -102,7 +102,7 @@ fun TkbTheme(
                     val radius = maxOf(size.width, size.height)
                     val topGlow = Brush.radialGradient(
                         colors = listOf(
-                            colorScheme.primary.copy(alpha = if (darkTheme) 0.20f else 0.09f),
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.11f else 0.09f),
                             Color.Transparent,
                         ),
                         center = Offset(size.width * 0.12f, size.height * 0.06f),
@@ -110,7 +110,7 @@ fun TkbTheme(
                     )
                     val bottomGlow = Brush.radialGradient(
                         colors = listOf(
-                            colorScheme.primary.copy(alpha = if (darkTheme) 0.10f else 0.055f),
+                            colorScheme.primary.copy(alpha = if (darkTheme) 0.045f else 0.055f),
                             Color.Transparent,
                         ),
                         center = Offset(size.width * 0.94f, size.height * 0.92f),

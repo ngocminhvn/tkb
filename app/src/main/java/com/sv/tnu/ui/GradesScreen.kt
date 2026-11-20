@@ -495,8 +495,8 @@ private fun GradeContent(
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = if (isDark) Color(0xFF253850).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
-                    focusedContainerColor = if (isDark) Color(0xFF253850) else Color.White,
+                    unfocusedContainerColor = if (isDark) Color(0xFF171D29).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
+                    focusedContainerColor = if (isDark) Color(0xFF171D29) else Color.White,
                     unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f),
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                 ),
@@ -750,7 +750,7 @@ private fun SemesterSelectionDialog(
             }
         },
         shape = RoundedCornerShape(20.dp),
-        containerColor = if (isDark) Color(0xFF263951) else Color.White,
+        containerColor = if (isDark) Color(0xFF19212E) else Color.White,
     )
 }
 
@@ -768,7 +768,7 @@ private fun SemesterOptionItem(
         color = if (isSelected) {
             MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
         } else {
-            if (isDark) Color(0xFF2F435D) else Color(0xFFF8FAFC)
+            if (isDark) Color(0xFF1D2736) else Color(0xFFF8FAFC)
         },
         border = BorderStroke(
             1.dp,
@@ -831,8 +831,8 @@ private fun OverviewGpaCard(
         if (isDark) {
             Brush.linearGradient(
                 listOf(
-                    Color(0xFF2E4767),
-                    Color(0xFF21344F),
+                    Color(0xFF1B293D),
+                    Color(0xFF111927),
                 ),
             )
         } else {
@@ -1076,7 +1076,7 @@ private fun CourseGradeCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (isDark) Color(0xFF344B67) else Color(0xFFE2E8F0))
+                            .background(if (isDark) Color(0xFF233249) else Color(0xFFE2E8F0))
                             .padding(horizontal = 7.dp, vertical = 3.dp),
                     ) {
                         Text(
@@ -1139,7 +1139,7 @@ private fun CourseGradeCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDark) Color(0xFF2F435D) else Color(0xFFF8FAFC))
+                    .background(if (isDark) Color(0xFF1D2736) else Color(0xFFF8FAFC))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1211,7 +1211,7 @@ private fun CourseGradeCard(
                             .fillMaxWidth()
                             .padding(top = 10.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) Color(0xFF1D2D43) else Color(0xFFF1F5F9))
+                            .background(if (isDark) Color(0xFF111A28) else Color(0xFFF1F5F9))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {

@@ -57,7 +57,7 @@ object AppCardDefaults {
         val dark = LocalGlassConfig.current.dark
         return BorderStroke(
             1.dp,
-            if (dark) Color(0xFF95B5DE).copy(alpha = if (subtle) 0.16f else 0.22f)
+            if (dark) Color(0xFF8DA9CA).copy(alpha = if (subtle) 0.10f else 0.16f)
             else Color.Black.copy(alpha = if (subtle) 0.06f else 0.08f),
         )
     }

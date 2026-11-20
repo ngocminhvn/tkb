@@ -651,9 +651,9 @@ fun QuizScreen(
                                         colors = CardDefaults.cardColors(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                                             containerColor = if (isSelected) {
-                                                if (isDark) Color(0xFF314A69) else Color(0xFFEAF1FF)
+                                                if (isDark) Color(0xFF22334B) else Color(0xFFEAF1FF)
                                             } else {
-                                                if (isDark) Color(0xFF253850) else Color.White
+                                                if (isDark) Color(0xFF171D29) else Color.White
                                             },
                                         ),
                                         border = BorderStroke(
@@ -984,7 +984,7 @@ fun QuizScreen(
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(16.dp),
-                                        color = if (isDark) Color(0xFF262D3D) else Color(0xFFE8EEF9),
+                                        color = if (isDark) Color(0xFF1C2635) else Color(0xFFE8EEF9),
                                         border = BorderStroke(
                                             1.dp,
                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
@@ -1053,46 +1053,6 @@ fun QuizScreen(
                                     Text("Kiểm tra đáp án", fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
-                            }
-
-                            if (markedCorrect != null) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (markedCorrect == true) {
-                                        if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
-                                    } else {
-                                        if (isDark) Color(0xFF381B1B) else Color(0xFFFFEBEE)
-                                    },
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (markedCorrect == true) Color(0xFF2E7D32).copy(alpha = 0.5f)
-                                        else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                    ),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Icon(
-                                            imageVector = if (markedCorrect == true) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
-                                            contentDescription = null,
-                                            tint = if (markedCorrect == true) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(20.dp),
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (markedCorrect == true) "Chính xác!" else
-                                                "Chưa đúng. Đáp án: " +
-                                                    question.correct.joinToString(", ") { ('A' + it).toString() },
-                                            color = if (markedCorrect == true) Color(0xFF2E7D32)
-                                            else MaterialTheme.colorScheme.error,
-                                            fontWeight = FontWeight.SemiBold,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(14.dp))
                             }
 
                             Row(
@@ -1251,7 +1211,7 @@ private fun QuizQuestionCard(
                 val rowBgColor = when {
                     isCorrectAnswer -> if (isDark) Color(0xFF1B3820) else Color(0xFFE8F5E9)
                     isWrongSelection -> if (isDark) Color(0xFF381B1B) else Color(0xFFFFEBEE)
-                    isSelected -> if (isDark) Color(0xFF314A69) else Color(0xFFEAF1FF)
+                    isSelected -> if (isDark) Color(0xFF22334B) else Color(0xFFEAF1FF)
                     else -> Color.Transparent
                 }
 

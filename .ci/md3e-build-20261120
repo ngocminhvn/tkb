@@ -20,3 +20,4 @@ Rebuild: restore pre-LiquidGlass UI while keeping only upstream Liquid Glass bot
 UI update: practice timer placement and primary light/dark background gradient.
 Dark mode readable ink, softened midnight gradient, refined card surfaces.
 Centralize card visuals in AppCardDefaults for shared dark/light theme maintenance.
+Near-black Dark Mode with blue glow; remove redundant answer-result card while retaining option highlights.

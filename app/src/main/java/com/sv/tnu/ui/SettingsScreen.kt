@@ -180,8 +180,8 @@ fun SettingsScreen(
         if (isDark) {
             Brush.linearGradient(
                 listOf(
-                    Color(0xFF2E4767),
-                    Color(0xFF21344F),
+                    Color(0xFF1B293D),
+                    Color(0xFF111927),
                 ),
             )
         } else {
@@ -638,7 +638,7 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
                 shape = RoundedCornerShape(20.dp),
-                containerColor = if (isDark) Color(0xFF263951) else Color.White,
+                containerColor = if (isDark) Color(0xFF19212E) else Color.White,
                 title = {
                     Text(
                         text = "Đăng xuất tài khoản",
@@ -678,7 +678,7 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showExamDialog = false },
                 shape = RoundedCornerShape(20.dp),
-                containerColor = if (isDark) Color(0xFF263951) else Color.White,
+                containerColor = if (isDark) Color(0xFF19212E) else Color.White,
                 title = {
                     Text(
                         text = "Lịch thi học kỳ ${timetableViewModel.hocKy}",
@@ -887,7 +887,7 @@ private fun StatItem(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (isDark) Color(0xFF2A405A).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
+            .background(if (isDark) Color(0xFF1F2B3B).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.75f))
             .border(
                 1.dp,
                 if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFF60A5FA).copy(alpha = 0.20f),
