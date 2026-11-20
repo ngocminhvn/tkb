@@ -207,4 +207,4 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 
 - Các hàng Tiện ích/Cài đặt giữ `heightIn(min = 72.dp)` để gọn, vẫn tự giãn khi chữ dài/scale lớn; không dùng `height(72.dp)` cứng.
 
-- Expressive experimental UI: `SettingsScreen.kt` dùng Compose TimePickerDialog + connected ToggleButton group, `QuizScreen.kt` có SplitButton Import nhanh. Revert một commit thử nghiệm sẽ không đổi chiều cao hàng Cài đặt 72dp hoặc điều hướng tab.
+- Expressive experimental UI: `SettingsScreen.kt` dùng Compose TimePickerDialog + connected ToggleButton group, `QuizScreen.kt` giữ thẻ Import đề gốc (đã gỡ SplitButton trùng chức năng). Điều hướng tab và chiều cao hàng Cài đặt không thay đổi.

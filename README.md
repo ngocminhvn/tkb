@@ -182,5 +182,5 @@ Trình nhập DOCX tách nhãn A/B/C/D kể cả khi nhãn đứng trên một d
 ### MD3 Expressive experimental controls (revert-safe)
 - Compose TimePickerDialog 24h cho giờ nhắc hôm nay/ngày mai, chuyển đồng hồ/bàn phím; lưu dữ liệu vào AuthStore và gọi ScheduleReminders.syncAll giống trước.
 - Connected ToggleButton group cho chế độ Sáng/Tối, vẫn lưu trong AuthStore; chiều cao nút 40dp.
-- SplitButton Import nhanh ở màn Ôn tập cho chọn mọi file, PDF hoặc Word; bộ đọc QuizImporter và ô import cũ giữ nguyên.
+- Màn Ôn tập chỉ giữ một thẻ **Import đề**, sử dụng cùng trình chọn file và `QuizImporter` cho DOC/DOCX/PDF; không có nút Import nhanh trùng chức năng.
 - Các thay đổi thử nghiệm nằm riêng một commit, có thể git revert mà không ảnh hưởng commit vuốt tab hoặc thẻ Cài đặt gọn 72dp.
