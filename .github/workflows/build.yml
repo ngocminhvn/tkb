@@ -74,22 +74,17 @@ jobs:
         with:
           gradle-version: "9.4.1"
 
-      - name: Install API 37 and build tools
+      - name: Install Android 17 API 37.1 and build tools
         shell: bash
         run: |
-          # The hosted runner has sdkmanager, but cmdline-tools is not on PATH.
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [[ ! -x "$sdkmanager" ]]; then
             sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n1)"
           fi
           test -n "$sdkmanager" && test -x "$sdkmanager"
-          # Android 17 preview SDK is published as android-37.0, not android-37.
-          "$sdkmanager" --sdk_root="$ANDROID_HOME" --channel=3 --install "platforms;android-37.0" "build-tools;36.0.0"
-          test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
-          # Support SDK resolvers that still look for the unsuffixed platform directory.
-          if [[ ! -e "$ANDROID_HOME/platforms/android-37" ]]; then
-            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
-          fi
+          # Compose 1.13 AAR metadata requires 37.1, not android-37.0.
+          "$sdkmanager" --sdk_root="$ANDROID_HOME" --channel=3 --install "platforms;android-37.1" "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-37.1/android.jar"
 
       - name: Bump version
         run: |

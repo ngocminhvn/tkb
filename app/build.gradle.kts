@@ -5,8 +5,13 @@ plugins {
 
 android {
     namespace = "com.sv.tnu"
-    // Compose 1.12 requires API 37; targetSdk remains 35.
-    compileSdk = 37
+    // Compose 1.13 from the November 2026 BOM requires Android API 37.1.
+    // Keep targetSdk at 35 to preserve the app's runtime compatibility.
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
 
     defaultConfig {
         applicationId = "com.tkb.sv"
