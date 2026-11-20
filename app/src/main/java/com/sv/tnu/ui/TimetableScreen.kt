@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sv.tnu.ui
 
 import android.util.Log
@@ -46,6 +48,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -947,7 +950,7 @@ fun TimetableScreen(
                         .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    LoadingIndicator(modifier = Modifier.size(36.dp))
                 }
             } else if (displayedGrouped.isEmpty()) {
                 Box(

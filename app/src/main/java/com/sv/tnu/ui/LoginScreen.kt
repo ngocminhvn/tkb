@@ -1,6 +1,9 @@
 package com.sv.tnu.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -106,6 +110,13 @@ fun LoginScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
+    val loginInteraction = remember { MutableInteractionSource() }
+    val loginPressed by loginInteraction.collectIsPressedAsState()
+    val loginScale by animateFloatAsState(
+        targetValue = if (loginPressed) 0.97f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "expressiveLoginPress",
+    )
 
     // Navigation is a side-effect, not work to do during composition.
     // A login on a clean install must create the main screen only after
@@ -245,10 +256,12 @@ fun LoginScreen(
                 Button(
                     onClick = { viewModel.login(username, password) },
                     enabled = state !is LoginUiState.Loading,
+                    interactionSource = loginInteraction,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(50.dp)
+                        .graphicsLayer { scaleX = loginScale; scaleY = loginScale },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White,

@@ -13,7 +13,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -86,7 +86,7 @@ fun UpdateDialog(
                     downloading -> {
                         Spacer(modifier = Modifier.height(4.dp))
                         if (progress != null) {
-                            LinearProgressIndicator(
+                            LinearWavyProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -106,7 +106,7 @@ fun UpdateDialog(
                                 )
                             }
                         } else {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
                             Text(
                                 text = AppUpdateManager.formatBytes(downloadedBytes),
                                 style = MaterialTheme.typography.bodySmall,

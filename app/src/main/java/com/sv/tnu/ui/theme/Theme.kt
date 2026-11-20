@@ -1,7 +1,8 @@
 package com.sv.tnu.ui.theme
 
 import android.app.Activity
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -67,8 +68,9 @@ fun TkbTheme(
         }
     }
 
-    MaterialTheme(
+    MaterialExpressiveTheme(
         colorScheme = colorScheme,
+        motionScheme = MotionScheme.expressive(),
     ) {
         LiquidGlassTheme(
             dark = darkTheme,

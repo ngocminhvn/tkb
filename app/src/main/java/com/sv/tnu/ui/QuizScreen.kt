@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.sv.tnu.ui
 
 import android.content.Context
@@ -44,6 +46,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -527,11 +530,7 @@ fun QuizScreen(
                                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(42.dp),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            strokeWidth = 4.dp,
-                                        )
+                                        LoadingIndicator(modifier = Modifier.size(42.dp))
                                     }
                                 } else {
                                     Column(
@@ -673,11 +672,7 @@ fun QuizScreen(
                                             ),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(42.dp),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            strokeWidth = 4.dp,
-                                        )
+                                        LoadingIndicator(modifier = Modifier.size(42.dp))
                                     }
                                 }
                             }

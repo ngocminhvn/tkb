@@ -1,6 +1,7 @@
 package com.sv.tnu.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -145,7 +146,12 @@ fun MainScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Tab content
-        when (NavigationTab.entries[selectedIndex]) {
+        Crossfade(
+            targetState = selectedIndex,
+            animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+            label = "expressiveTabTransition",
+        ) { tabIndex ->
+            when (NavigationTab.entries[tabIndex]) {
             NavigationTab.TIMETABLE -> {
                 // Equivalent to leaving and reopening this tab once after the
                 // first successful sync; preserves the ViewModel and Room data.
@@ -196,6 +202,7 @@ fun MainScreen(
                     onBack = { selectedIndex = 0 },
                     contentPadding = PaddingValues(bottom = 96.dp),
                 )
+            }
             }
         }
 

@@ -2,6 +2,11 @@ name: Build TKB APK
 
 on:
   workflow_dispatch:
+  # A single migration marker triggers this build; other commits stay manual.
+  push:
+    branches: [main]
+    paths:
+      - ".ci/md3e-build-20261120"
 
 permissions:
   contents: write
@@ -64,10 +69,13 @@ jobs:
           java-version: "17"
           distribution: temurin
 
-      - name: Set up Gradle 8.11
+      - name: Set up Gradle 9.4.1
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.11"
+          gradle-version: "9.4.1"
+
+      - name: Install API 37 and build tools
+        run: sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
 
       - name: Bump version
         run: |
@@ -91,14 +99,14 @@ jobs:
         run: |
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s app/build/outputs/mapping/release/mapping.txt
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
-          ! "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | grep -q '^application-debuggable$'
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$apk"
+          ! "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -q '^application-debuggable$'
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
             unzip -Z -1 "$apk" | grep -Fx "lib/$abi/libtkb_core.so"
           done
           # Check the signature against the keystore used by previous builds.
-          actual="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" |
+          actual="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1)"
           expected="$(keytool -list -v -keystore tkb-release.keystore -alias tkb \
             -storepass "${{ secrets.TKB_KEYSTORE_PASSWORD }}" |
@@ -110,7 +118,7 @@ jobs:
           # different signature. A missing old download only emits a warning.
           if curl -fsSL --connect-timeout 10 --max-time 45 \
             https://ngocminhvn.github.io/tkb/TKB-SV.apk -o previous-TKB-SV.apk; then
-            previous="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs previous-TKB-SV.apk |
+            previous="$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs previous-TKB-SV.apk |
               sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1)"
             test -n "$previous"
             test "${actual,,}" = "${previous,,}" || {
