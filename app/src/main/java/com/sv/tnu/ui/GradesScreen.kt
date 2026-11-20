@@ -495,7 +495,6 @@ private fun GradeContent(
                     }
                 },
                 singleLine = true,
-                shape = MaterialTheme.shapes.medium,
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedContainerColor = if (isDark) Color(0xFF1B2028).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f),
                     focusedContainerColor = if (isDark) Color(0xFF1B2028) else Color.White,
