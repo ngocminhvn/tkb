@@ -58,7 +58,7 @@ Gốc Kotlin dưới `app/src/main/java/com/sv/tnu/`. Các đường dẫn bắt
 | `.../rust/RustPortalCore.kt` | JNI Android bridge nhận raw HTTP bytes; `PortalBinaryDecoder` đọc `TKB1` thành Entity | Retrofit, Compose |
 | `.../rust/RustScheduleCore.kt` | Wrapper JNI gọi trực tiếp `libtkb_core.so` cho ngày/tuần/tháng/giờ | Room transaction |
 | `.../ui/LoginScreen.kt` | Compose login, `LoginViewModel` và thông báo đăng nhập | OkHttp interceptor |
-| `.../ui/MainScreen.kt` | Khung điều hướng, animation chỉ một composition; GlassTabBar sở hữu lớp kính chọn tab; mở cài đặt và update | TNUT parsing |
+| `.../ui/MainScreen.kt` | Khung điều hướng, animation chỉ một composition; GlassTabBar sở hữu lớp kính chọn tab (chỉ một animation trên mỗi thay đổi); các hàng Tiện ích/Cài đặt có minHeight 88dp để giữ nội dung khi tăng cỡ chữ; mở cài đặt và update | TNUT parsing |
 | `.../ui/GradesScreen.kt` | Màn hình xem điểm, GPA tích lũy, điểm học kỳ, điểm thành phần và bộ lọc học kỳ | Gọi HTTP trực tiếp |
 | `.../grades/` | `GradeModels.kt`, `GradeRepository.kt`, `GradeViewModel.kt`: parse điểm portal và cache qua Rust/TKB1G | Hardcode giao diện |
 | `.../ui/TimetableScreen.kt` | `TimetableViewModel`, snapshot tuần/lịch/thi và ánh xạ chỉ số timeline từ Rust, Compose list, state chọn ngày, scroll, gesture, thẻ buổi học và ghi chú | HTTP transport và schema DB |
@@ -200,3 +200,5 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Đối với OOXML `w:numPr`, bản nhập tái tạo nhãn `a.` cho các đoạn Word dùng automatic numbering thay vì `w:t`.
 - Rust `quiz.rs` chấp nhận `a.` đứng riêng rồi các dòng code, `a` đơn lẻ, câu thiếu dấu sau chỉ số, câu `491.` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
 - Hồi quy bằng tài liệu Tin học kỹ thuật có 500 câu và định dạng kết hợp: kiểm tra 500 câu, 4 lựa chọn mỗi câu, 2 câu thiếu đáp án màu đỏ và 2 câu nhiều lựa chọn màu đỏ theo nguồn; không commit tài liệu riêng của người dùng vào repo.
+
+- Điều hướng cử chỉ: `EdgeTabSwipeHandle` của `MainScreen.kt` chỉ nhận vuốt hướng vào từ dải mép 24dp ở vùng giữa màn hình (chừa 104dp trên/dưới), mỗi lần chuyển một tab. Giữ nguyên swipe đổi ngày và cử chỉ hệ thống ở những vùng khác.

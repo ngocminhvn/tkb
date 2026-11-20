@@ -8,3 +8,5 @@ Restore #395 rounded rectangles; Compose BOM 2026.11.01, M3E 1.5.0 and compact l
 Resolve Compose 1.13 AAR SDK metadata: AGP 9.2 compileSdk release 37 minorApiLevel 1 and SDK 37.1.
 Capture M3E motion outside AnimatedContent transitionSpec (non-composable callback).
 Fix feedback from screenshots/video: one active tab composition; remove duplicate blue pill; circular 36dp day; compact More/Settings; primary-blue loading.
+Fix tab bounce/jitter via single tweened glass lens and subtle fade; normalize More/Settings rows at 88dp; drop Chạm xem.
+Edge inward swipe between adjacent tabs (24dp sides, 56dp threshold) without interfering center timetable gestures.

@@ -2,11 +2,13 @@ package com.sv.tnu.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -64,6 +68,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -83,9 +88,7 @@ import com.sv.tnu.ui.components.UserAvatar
 import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 import com.sv.tnu.vmFactory
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -151,23 +154,31 @@ fun MainScreen(
         showGrades = false
     }
 
-    // Animate only the active tab's graphics layer: never compose two heavy screens together.
-    val expressiveMotionScheme = MaterialTheme.motionScheme
-    val tabOpacity = remember { Animatable(1f) }
-    val tabSlidePx = remember { Animatable(0f) }
-    var previousTabIndex by remember { mutableIntStateOf(selectedIndex) }
-    val tabTravelPx = with(LocalDensity.current) { 14.dp.toPx() }
+    // Share navigation semantics between edge gestures and GlassTabBar taps.
+    fun selectNavigationTab(index: Int) {
+        if (index !in NavigationTab.entries.indices) return
+        selectedIndex = index
+        if (index != NavigationTab.MORE.ordinal) {
+            showQuiz = false
+            showGrades = false
+        }
+        if (index == NavigationTab.TIMETABLE.ordinal) {
+            timetableViewModel.requestReturnToToday()
+        }
+    }
 
+    // One active screen at a time. A short non-spring fade avoids horizontal
+    // jitter and a second expensive timetable layout during fast tab switching.
+    val tabOpacity = remember { Animatable(1f) }
+    var previousTabIndex by remember { mutableIntStateOf(selectedIndex) }
     LaunchedEffect(selectedIndex) {
         if (previousTabIndex != selectedIndex) {
-            val direction = if (selectedIndex > previousTabIndex) 1f else -1f
             previousTabIndex = selectedIndex
-            tabOpacity.snapTo(0.92f)
-            tabSlidePx.snapTo(direction * tabTravelPx)
-            coroutineScope {
-                launch { tabOpacity.animateTo(1f, expressiveMotionScheme.fastEffectsSpec()) }
-                launch { tabSlidePx.animateTo(0f, expressiveMotionScheme.fastSpatialSpec()) }
-            }
+            tabOpacity.snapTo(0.96f)
+            tabOpacity.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+            )
         }
     }
 
@@ -175,10 +186,7 @@ fun MainScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    alpha = tabOpacity.value
-                    translationX = tabSlidePx.value
-                },
+                .graphicsLayer { alpha = tabOpacity.value },
         ) {
             when (NavigationTab.entries[selectedIndex]) {
             NavigationTab.TIMETABLE -> {
@@ -235,6 +243,27 @@ fun MainScreen(
             }
         }
 
+        // Edge-only gestures: narrow side strips, excluding the header and the
+        // floating navigation area, so ordinary timetable swipes and taps remain.
+        if (selectedIndex > NavigationTab.TIMETABLE.ordinal) {
+            EdgeTabSwipeHandle(
+                fromLeft = true,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(top = 104.dp, bottom = 104.dp),
+                onSwipe = { selectNavigationTab(selectedIndex - 1) },
+            )
+        }
+        if (selectedIndex < NavigationTab.entries.lastIndex) {
+            EdgeTabSwipeHandle(
+                fromLeft = false,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 104.dp, bottom = 104.dp),
+                onSwipe = { selectNavigationTab(selectedIndex + 1) },
+            )
+        }
+
         // Floating Liquid Glass Navigation Bar
         val selectedColor = MaterialTheme.colorScheme.primary
         val unselectedColor = if (isDark) Color(0xFF9EA7B8) else Color(0xFF5E6573)
@@ -242,17 +271,7 @@ fun MainScreen(
         GlassTabBar(
             itemCount = NavigationTab.entries.size,
             selectedIndex = selectedIndex,
-            onSelected = { tab ->
-                selectedIndex = tab
-                if (tab != NavigationTab.MORE.ordinal) {
-                    showQuiz = false
-                    showGrades = false
-                }
-                // Works even when TKB is already the selected tab.
-                if (tab == NavigationTab.TIMETABLE.ordinal) {
-                    timetableViewModel.requestReturnToToday()
-                }
-            },
+            onSelected = ::selectNavigationTab,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 24.dp, vertical = 12.dp)
@@ -261,12 +280,6 @@ fun MainScreen(
         ) { index, isSelected ->
             val tab = NavigationTab.entries[index]
             val tint = if (isSelected) selectedColor else unselectedColor
-            val iconScale by animateFloatAsState(
-                targetValue = if (isSelected) 1.06f else 1f,
-                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-                label = "expressiveNavigationIconScale",
-            )
-
             Column(
                 modifier = Modifier.fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -276,15 +289,13 @@ fun MainScreen(
                     imageVector = tab.icon,
                     contentDescription = tab.title,
                     tint = tint,
-                    modifier = Modifier
-                        .size(23.dp)
-                        .graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+                    modifier = Modifier.size(23.dp),
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.Medium,
                     color = tint,
                 )
             }
@@ -310,6 +321,50 @@ fun MainScreen(
             )
         }
     }
+}
+
+/**
+ * A narrow edge handle for switching adjacent tabs without hijacking the
+ * timetable's full-width date swipe or Android's top/back navigation controls.
+ * A completed inward drag is required; accidental taps have no effect.
+ */
+@Composable
+private fun EdgeTabSwipeHandle(
+    fromLeft: Boolean,
+    modifier: Modifier = Modifier,
+    onSwipe: () -> Unit,
+) {
+    val latestSwipe by rememberUpdatedState(onSwipe)
+    val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
+    Box(
+        modifier = modifier
+            .width(24.dp)
+            .fillMaxHeight()
+            .pointerInput(fromLeft, thresholdPx) {
+                var dragDistance = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { dragDistance = 0f },
+                    onDragCancel = { dragDistance = 0f },
+                    onDragEnd = {
+                        if ((fromLeft && dragDistance >= thresholdPx) ||
+                            (!fromLeft && dragDistance <= -thresholdPx)
+                        ) {
+                            latestSwipe()
+                        }
+                        dragDistance = 0f
+                    },
+                    onHorizontalDrag = { change, dragAmount ->
+                        // Only inward drags count; do not consume outward swipes.
+                        dragDistance += dragAmount
+                        if ((fromLeft && dragDistance > 0f && dragAmount > 0f) ||
+                            (!fromLeft && dragDistance < 0f && dragAmount < 0f)
+                        ) {
+                            change.consume()
+                        }
+                    },
+                )
+            },
+    )
 }
 
 /**
@@ -410,7 +465,8 @@ private fun MoreScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .heightIn(min = 88.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
@@ -488,7 +544,8 @@ private fun MoreScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .heightIn(min = 88.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(

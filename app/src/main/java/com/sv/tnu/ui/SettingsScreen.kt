@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -374,6 +375,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 88.dp)
                         .expressiveClickable {
                             showExamDialog = true
                             timetableViewModel.fetchExamsOnly(force = true)
@@ -403,9 +405,9 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (!showExamsOnHome) "Đang tắt trên trang chủ • Chạm để xem chi tiết"
+                            text = if (!showExamsOnHome) "Đang tắt trên trang chủ"
                             else if (exams.isEmpty()) "Chưa có lịch thi trong SQL"
-                            else "${exams.count { !it.isHoanThi }} buổi thi • Hiện cùng TKB • Chạm xem",
+                            else "${exams.count { !it.isHoanThi }} buổi thi • Hiện cùng TKB",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                         )
@@ -461,6 +463,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 88.dp)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -820,6 +823,7 @@ private fun ReminderSettingCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 88.dp)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -932,6 +936,7 @@ private fun ActionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 88.dp)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -45,3 +45,19 @@
 - Kiểm tra tĩnh: không còn AnimatedContent toàn màn, không còn nền xanh trùng, ngày chọn tròn 36dp, card Thêm 18dp/44dp, loading lấy màu primary.
 - GitHub Actions: build Release, R8, chữ ký APK, 4 ABI Rust JNI. Kết quả xem tại trang Actions của commit sửa lỗi.
 - Cần xác minh thủ công: đổi tab nhanh liên tục, cuộn TKB khi mở lịch tháng, dark/light, bật/tắt nhắc lịch, loading đồng bộ/import, và chạm/kéo lens trong thanh tab.
+
+## Bổ sung điều chỉnh chiều cao và animation — 20/11/2026
+
+- Bỏ trượt ngang màn hình ở tab để không gây cảm giác rung/trôi khi vào/ra TKB; chỉ dùng fade 160ms không spring, một composition.
+- Loại bỏ animation scale icon được chọn và thay đổi font weight liên tục.
+- Lens kính: dùng tween 220ms không overshoot; chỉ một luồng animate cho lần chuyển tab, giữ gesture kéo kính và hold/drag.
+- Các Row trong nhóm Tiện ích & Cài đặt cùng minHeight 88dp, với hỗ trợ nội dung mở rộng khi font scale cao. Card Thêm cũng có minHeight 88dp.
+- Bỏ cụm "Chạm xem"/"Chạm để xem chi tiết" trong thông tin lịch thi, giữ thao tác mở chi tiết bằng chạm hàng và công tắc bật/tắt.
+- Thử nghiệm nên kiểm tra tab TKB ⇄ Thêm ⇄ Cài đặt nhiều lần liên tục, thao tác giữ/kéo kính và các văn bản có font scale lớn.
+
+## Vuốt đổi tab từ hai mép màn hình
+
+- Thêm `EdgeTabSwipeHandle` dùng nhận diện kéo ngang trên dải mép 24dp ở hai bên; chỉ kích hoạt khi cử chỉ đi vào trong ít nhất 56dp.
+- Vuốt từ mép phải sang trái → tab kế tiếp, từ mép trái sang phải → tab trước; giới hạn ở ba tab TKB, Thêm, Cài đặt.
+- Không áp dụng lên toàn màn hình: vùng đầu trang và vùng thanh Liquid Glass được chừa 104dp để giảm xung đột với cuộn/ngày lịch, nút Back và các nút tab.
+- Cử chỉ cạnh màn hình Android (Back gesture) vẫn có thể được ưu tiên ở một số chế độ điều hướng của hệ điều hành; không yêu cầu quyền đặc biệt hoặc ghi đè thanh hệ thống.

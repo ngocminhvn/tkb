@@ -1,6 +1,8 @@
 package com.sv.tnu.ui.glass
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -191,6 +193,7 @@ fun GlassTabBar(
 
     val currentItemCount by rememberUpdatedState(itemCount)
     val currentOnSelected by rememberUpdatedState(onSelected)
+    val currentSelectedIndex by rememberUpdatedState(selectedIndex)
 
     BoxWithConstraints(
         modifier = modifier
@@ -224,18 +227,18 @@ fun GlassTabBar(
 
         // Hiệu ứng phình to / dãn nở đàn hồi khi bấm giữ (liquid swelling)
         val lensScaleX by animateFloatAsState(
-            targetValue = if (isHolding) 1.15f else 1f,
-            animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+            targetValue = if (isHolding) 1.06f else 1f,
+            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
             label = "lensScaleX",
         )
         val lensScaleY by animateFloatAsState(
-            targetValue = if (isHolding) 1.08f else 1f,
-            animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+            targetValue = if (isHolding) 1.03f else 1f,
+            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
             label = "lensScaleY",
         )
         val lensElevation by animateFloatAsState(
-            targetValue = if (isHolding) 8f else 4f,
-            animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+            targetValue = if (isHolding) 6f else 4f,
+            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
             label = "lensElevation",
         )
 
@@ -244,10 +247,7 @@ fun GlassTabBar(
             if (!isDragging && !isHolding && tabWidthPx > 0f) {
                 lensOffsetAnim.animateTo(
                     targetValue = selectedIndex * tabWidthPx,
-                    animationSpec = spring(
-                        dampingRatio = 0.68f,
-                        stiffness = 450f,
-                    ),
+                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 )
                 activePreviewIndex = selectedIndex
             }
@@ -324,16 +324,22 @@ fun GlassTabBar(
                                 }
 
                                 activePreviewIndex = finalTab
+                                val isSameTab = finalTab == currentSelectedIndex
                                 currentOnSelected(finalTab)
 
-                                launch {
-                                    lensOffsetAnim.animateTo(
-                                        targetValue = finalTab * widthPx,
-                                        animationSpec = spring(
-                                            dampingRatio = 0.65f,
-                                            stiffness = 420f,
-                                        ),
-                                    )
+                                // A changed tab is animated by LaunchedEffect(selectedIndex).
+                                // Only an unchanged tab needs a snap-back after drag.
+                                // Running both paths concurrently caused the glass lens to jitter.
+                                if (isSameTab) {
+                                    launch {
+                                        lensOffsetAnim.animateTo(
+                                            targetValue = finalTab * widthPx,
+                                            animationSpec = tween(
+                                                durationMillis = 220,
+                                                easing = FastOutSlowInEasing,
+                                            ),
+                                        )
+                                    }
                                 }
                             }
                         }
