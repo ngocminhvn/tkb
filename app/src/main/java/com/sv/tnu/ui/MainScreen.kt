@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -243,14 +244,15 @@ fun MainScreen(
             }
         }
 
-        // Edge-only gestures: narrow side strips, excluding the header and the
-        // floating navigation area, so ordinary timetable swipes and taps remain.
+        // Edge-only gestures: short thumb-reachable zones above the floating glass bar.
+        // A 180dp system gesture exclusion per side allows tab swipes even with
+        // Android gesture navigation, while preserving Back in the rest of the edge.
         if (selectedIndex > NavigationTab.TIMETABLE.ordinal) {
             EdgeTabSwipeHandle(
                 fromLeft = true,
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(top = 104.dp, bottom = 104.dp),
+                    .align(Alignment.BottomStart)
+                    .padding(bottom = 104.dp),
                 onSwipe = { selectNavigationTab(selectedIndex - 1) },
             )
         }
@@ -258,8 +260,8 @@ fun MainScreen(
             EdgeTabSwipeHandle(
                 fromLeft = false,
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(top = 104.dp, bottom = 104.dp),
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 104.dp),
                 onSwipe = { selectNavigationTab(selectedIndex + 1) },
             )
         }
@@ -324,8 +326,8 @@ fun MainScreen(
 }
 
 /**
- * A narrow edge handle for switching adjacent tabs without hijacking the
- * timetable's full-width date swipe or Android's top/back navigation controls.
+ * A short edge handle for adjacent tabs, bounded to 180dp of each lower
+ * screen edge so Android's Back gesture remains available everywhere else.
  * A completed inward drag is required; accidental taps have no effect.
  */
 @Composable
@@ -339,7 +341,8 @@ private fun EdgeTabSwipeHandle(
     Box(
         modifier = modifier
             .width(24.dp)
-            .fillMaxHeight()
+            .height(180.dp)
+            .systemGestureExclusion()
             .pointerInput(fromLeft, thresholdPx) {
                 var dragDistance = 0f
                 detectHorizontalDragGestures(

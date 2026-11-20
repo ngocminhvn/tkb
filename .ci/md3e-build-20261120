@@ -10,3 +10,4 @@ Capture M3E motion outside AnimatedContent transitionSpec (non-composable callba
 Fix feedback from screenshots/video: one active tab composition; remove duplicate blue pill; circular 36dp day; compact More/Settings; primary-blue loading.
 Fix tab bounce/jitter via single tweened glass lens and subtle fade; normalize More/Settings rows at 88dp; drop Chạm xem.
 Edge inward swipe between adjacent tabs (24dp sides, 56dp threshold) without interfering center timetable gestures.
+Bound edge swipe to 180dp thumb zones with Compose systemGestureExclusion (Android Back preserved outside).

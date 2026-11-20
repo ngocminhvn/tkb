@@ -57,7 +57,7 @@
 
 ## Vuốt đổi tab từ hai mép màn hình
 
-- Thêm `EdgeTabSwipeHandle` dùng nhận diện kéo ngang trên dải mép 24dp ở hai bên; chỉ kích hoạt khi cử chỉ đi vào trong ít nhất 56dp.
+- Thêm `EdgeTabSwipeHandle` dùng nhận diện kéo ngang trên dải mép 24dp, cao 180dp, ở hai góc dưới ngay trên thanh GlassTabBar; chỉ kích hoạt khi cử chỉ đi vào trong ít nhất 56dp.
 - Vuốt từ mép phải sang trái → tab kế tiếp, từ mép trái sang phải → tab trước; giới hạn ở ba tab TKB, Thêm, Cài đặt.
-- Không áp dụng lên toàn màn hình: vùng đầu trang và vùng thanh Liquid Glass được chừa 104dp để giảm xung đột với cuộn/ngày lịch, nút Back và các nút tab.
-- Cử chỉ cạnh màn hình Android (Back gesture) vẫn có thể được ưu tiên ở một số chế độ điều hướng của hệ điều hành; không yêu cầu quyền đặc biệt hoặc ghi đè thanh hệ thống.
+- Không áp dụng lên toàn màn hình: để trống đầu trang và 104dp cuối dành cho kính Liquid Glass, không ảnh hưởng thao tác cuộn hay bấm tab. Chỉ đặt systemGestureExclusion trong hai vùng vuốt 180dp, để cử chỉ Back Android vẫn hoạt động ở các mép còn lại.
+- System Back có thể vẫn được hệ điều hành ưu tiên trong vùng bắt buộc (mandatory system gestures) trên một số phiên bản/ROM; không ghi đè Back trên toàn bộ cạnh.

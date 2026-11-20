@@ -201,4 +201,4 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Rust `quiz.rs` chấp nhận `a.` đứng riêng rồi các dòng code, `a` đơn lẻ, câu thiếu dấu sau chỉ số, câu `491.` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
 - Hồi quy bằng tài liệu Tin học kỹ thuật có 500 câu và định dạng kết hợp: kiểm tra 500 câu, 4 lựa chọn mỗi câu, 2 câu thiếu đáp án màu đỏ và 2 câu nhiều lựa chọn màu đỏ theo nguồn; không commit tài liệu riêng của người dùng vào repo.
 
-- Điều hướng cử chỉ: `EdgeTabSwipeHandle` của `MainScreen.kt` chỉ nhận vuốt hướng vào từ dải mép 24dp ở vùng giữa màn hình (chừa 104dp trên/dưới), mỗi lần chuyển một tab. Giữ nguyên swipe đổi ngày và cử chỉ hệ thống ở những vùng khác.
+- Điều hướng cử chỉ: `EdgeTabSwipeHandle` của `MainScreen.kt` chỉ nhận vuốt hướng vào từ dải mép 24dp cao 180dp ở hai góc dưới phía trên thanh GlassTabBar, dùng systemGestureExclusion cục bộ, mỗi lần chuyển một tab. Giữ nguyên swipe đổi ngày và cử chỉ hệ thống ở những vùng khác.
