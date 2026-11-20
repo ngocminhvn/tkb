@@ -83,7 +83,13 @@ jobs:
             sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n1)"
           fi
           test -n "$sdkmanager" && test -x "$sdkmanager"
-          "$sdkmanager" --sdk_root="$ANDROID_HOME" --install "platforms;android-37" "build-tools;36.0.0"
+          # Android 17 preview SDK is published as android-37.0, not android-37.
+          "$sdkmanager" --sdk_root="$ANDROID_HOME" --channel=3 --install "platforms;android-37.0" "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          # Support SDK resolvers that still look for the unsuffixed platform directory.
+          if [[ ! -e "$ANDROID_HOME/platforms/android-37" ]]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
 
       - name: Bump version
         run: |
