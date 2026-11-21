@@ -25,3 +25,4 @@ Synchronize GlassTabBar indicator with the root page after edge swipe and Back t
 Smooth edge-swipe navigation without remounting Liquid Glass; subtly darker Dark Mode.
 Disable tab-switch bounce, lens deformation and selection haptics.
 Restore upstream Liquid Glass motion and keep haptics disabled only.
+Improve edge tab swipe: capture original down point, horizontal-intent lock, 80dp hit area, 42dp distance threshold and limited 180dp system gesture exclusion; no new transition animation; 2026-11-21.

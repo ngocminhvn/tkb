@@ -201,9 +201,7 @@ Không tạo PR, chạy release thủ công, xóa workflow, đổi application I
 - Rust `quiz.rs` chấp nhận `a.` đứng riêng rồi các dòng code, `a` đơn lẻ, câu thiếu dấu sau chỉ số, câu `491.` không có tiền tố Câu, và lựa chọn B trước A. Giữ nguyên ngắt dòng code C++; không được loại bỏ câu chỉ vì nhãn nằm trên đoạn khác.
 - Hồi quy bằng tài liệu Tin học kỹ thuật có 500 câu và định dạng kết hợp: kiểm tra 500 câu, 4 lựa chọn mỗi câu, 2 câu thiếu đáp án màu đỏ và 2 câu nhiều lựa chọn màu đỏ theo nguồn; không commit tài liệu riêng của người dùng vào repo.
 
-- Điều hướng cử chỉ: `EdgeTabSwipeHandle` của `MainScreen.kt` chỉ nhận vuốt hướng vào từ dải mép 24dp cao 180dp ở hai góc dưới phía trên thanh GlassTabBar, dùng systemGestureExclusion cục bộ, mỗi lần chuyển một tab. Giữ nguyên swipe đổi ngày và cử chỉ hệ thống ở những vùng khác.
-
-- Navigation gesture: `MainScreen.kt` nhận kéo ngang trên vùng nội dung 3 tab, threshold 64dp, đổi tab qua cùng `selectNavigationTab()` như GlassTabBar; không đặt overlay mép. `TimetableScreen.kt` không giữ `detectHorizontalDragGestures` đổi ngày nữa. `WeekDatePicker.kt` chỉ kéo dọc để mở/thu tháng, chạm ngày vẫn giữ. Không intercept ngang trên các màn Quiz/Grades con.
+- Navigation gesture: `MainScreen.kt` nhận vuốt tab từ hai cạnh bằng pointer input mức thấp, lưu đúng vị trí DOWN và chỉ nhận khi kéo ngang vượt touch slop (không tranh cuộn dọc). Vùng cạnh rộng 80dp, ngưỡng chuyển tab 42dp; `systemGestureExclusion` chỉ áp dụng dải cao 180dp ở giữa mỗi cạnh để giữ Android Back ở phần trên/dưới. Chỉ chuyển một tab qua `selectNavigationTab()`; không thêm animation chuyển cảnh hoặc rung. `TimetableScreen.kt` giữ nguyên logic ngày/scroll; Quiz và Grades không bị bắt gesture cạnh.
 
 - Các hàng Tiện ích/Cài đặt giữ `heightIn(min = 72.dp)` để gọn, vẫn tự giãn khi chữ dài/scale lớn; không dùng `height(72.dp)` cứng.
 

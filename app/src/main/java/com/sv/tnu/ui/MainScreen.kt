@@ -10,8 +10,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,12 +67,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,6 +94,7 @@ import com.sv.tnu.ui.glass.GlassTabBar
 import com.sv.tnu.update.AppUpdateViewModel
 import com.sv.tnu.vmFactory
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     TIMETABLE("TKB", Icons.Default.DateRange),
@@ -183,48 +189,95 @@ fun MainScreen(
         }
     }
 
+    val density = LocalDensity.current
+    val edgeSwipeWidthPx = with(density) { 80.dp.toPx() }
+    val edgeSwipeThresholdPx = with(density) { 42.dp.toPx() }
+    val edgeSystemExclusionHeightPx = with(density) { 180.dp.toPx() }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                // Keep Android Back everywhere except a small, predictable
+                // 180dp-high strip on each side. This lets edge-tab swipes
+                // start close to the physical edge without stealing Back globally.
+                .systemGestureExclusion { coordinates ->
+                    val height = coordinates.size.height.toFloat()
+                    val top = ((height - edgeSystemExclusionHeightPx) / 2f).coerceAtLeast(0f)
+                    Rect(
+                        left = 0f,
+                        top = top,
+                        right = edgeSwipeWidthPx.coerceAtMost(coordinates.size.width.toFloat()),
+                        bottom = (top + edgeSystemExclusionHeightPx).coerceAtMost(height),
+                    )
+                }
+                .systemGestureExclusion { coordinates ->
+                    val width = coordinates.size.width.toFloat()
+                    val height = coordinates.size.height.toFloat()
+                    val top = ((height - edgeSystemExclusionHeightPx) / 2f).coerceAtLeast(0f)
+                    Rect(
+                        left = (width - edgeSwipeWidthPx).coerceAtLeast(0f),
+                        top = top,
+                        right = width,
+                        bottom = (top + edgeSystemExclusionHeightPx).coerceAtMost(height),
+                    )
+                }
                 .pointerInput(selectedIndex, showQuiz, showGrades) {
-                    // Only gestures starting at either outer edge change the
-                    // root tab. Leave inner horizontal drags to timetable,
-                    // scrolling and Material components.
                     if (showQuiz || showGrades) return@pointerInput
-                    var swipeDistance = 0f
-                    var edgeSwipe = false
-                    val edgeWidth = 56.dp.toPx()
-                    val swipeThreshold = 64.dp.toPx()
-                    detectHorizontalDragGestures(
-                        onDragStart = { start ->
-                            swipeDistance = 0f
-                            edgeSwipe = start.x <= edgeWidth ||
-                                start.x >= size.width - edgeWidth
-                        },
-                        onDragCancel = {
-                            swipeDistance = 0f
-                            edgeSwipe = false
-                        },
-                        onDragEnd = {
-                            val next = if (edgeSwipe) when {
-                                swipeDistance <= -swipeThreshold -> selectedIndex + 1
-                                swipeDistance >= swipeThreshold -> selectedIndex - 1
-                                else -> selectedIndex
-                            } else selectedIndex
-                            swipeDistance = 0f
-                            edgeSwipe = false
+
+                    val touchSlop = viewConfiguration.touchSlop
+                    awaitEachGesture {
+                        // Record the original DOWN position. detectHorizontalDragGestures
+                        // reports its start after touch slop, which can move the
+                        // reported point outside a narrow edge hit area.
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial,
+                        )
+                        val startsAtEdge = down.position.x <= edgeSwipeWidthPx ||
+                            down.position.x >= size.width - edgeSwipeWidthPx
+                        if (!startsAtEdge) return@awaitEachGesture
+
+                        var totalX = 0f
+                        var totalY = 0f
+                        var horizontalDragStarted = false
+
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            val deltaX = change.position.x - change.previousPosition.x
+                            val deltaY = change.position.y - change.previousPosition.y
+                            totalX += deltaX
+                            totalY += deltaY
+
+                            if (!horizontalDragStarted) {
+                                val absX = abs(totalX)
+                                val absY = abs(totalY)
+                                when {
+                                    absY > touchSlop && absY > absX -> break
+                                    absX > touchSlop && absX > absY * 1.15f -> {
+                                        horizontalDragStarted = true
+                                        change.consume()
+                                    }
+                                }
+                            } else {
+                                change.consume()
+                            }
+
+                            if (!change.pressed) break
+                        }
+
+                        if (horizontalDragStarted && abs(totalX) >= edgeSwipeThresholdPx) {
+                            val next = if (totalX < 0f) {
+                                selectedIndex + 1
+                            } else {
+                                selectedIndex - 1
+                            }
                             if (next in NavigationTab.entries.indices && next != selectedIndex) {
                                 selectNavigationTab(next)
                             }
-                        },
-                        onHorizontalDrag = { change, amount ->
-                            if (edgeSwipe) {
-                                swipeDistance += amount
-                                change.consume()
-                            }
-                        },
-                    )
+                        }
+                    }
                 }
                 .graphicsLayer { alpha = pageOpacity.value },
         ) {
