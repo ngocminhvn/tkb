@@ -159,18 +159,162 @@ fn save_question(
     *active_option = None;
 }
 
+fn is_standalone_page_number_or_footer(text: &str) -> bool {
+    let t = text.trim();
+    if t.is_empty() {
+        return true;
+    }
+    if t.chars().all(|c| c.is_ascii_digit()) {
+        return true;
+    }
+    let lower = t.to_lowercase();
+    if lower.starts_with("trang") || lower.starts_with("page") {
+        return true;
+    }
+    if (t.starts_with('-') && t.ends_with('-')) || (t.starts_with('[') && t.ends_with(']')) {
+        let inner = t[1..t.len() - 1].trim();
+        if inner.chars().all(|c| c.is_ascii_digit() || c == '/' || c == ' ') {
+            return true;
+        }
+    }
+    if let Some((l, r)) = t.split_once('/') {
+        if l.trim().chars().all(|c| c.is_ascii_digit()) && r.trim().chars().all(|c| c.is_ascii_digit()) {
+            return true;
+        }
+    }
+    false
+}
+
+fn append_to_prompt(prompt: &mut String, text: &str) {
+    if prompt.is_empty() {
+        prompt.push_str(text);
+        return;
+    }
+    if prompt.ends_with('-') && !prompt.ends_with(" -") && !prompt.ends_with("--") {
+        prompt.pop();
+        prompt.push_str(text);
+        return;
+    }
+    let trimmed = prompt.trim_end();
+    let ends_with_block = trimmed.ends_with(':')
+        || trimmed.ends_with(';')
+        || trimmed.ends_with('{')
+        || trimmed.ends_with('}');
+
+    let is_code_line = text.starts_with("#include")
+        || text.starts_with("int ")
+        || text.starts_with("float ")
+        || text.starts_with("double ")
+        || text.starts_with("char ")
+        || text.starts_with("void ")
+        || text.starts_with("struct ")
+        || text.starts_with("for(")
+        || text.starts_with("for ")
+        || text.starts_with("while(")
+        || text.starts_with("while ")
+        || text.starts_with("if(")
+        || text.starts_with("if ")
+        || text.starts_with("return ")
+        || text.starts_with("cout")
+        || text.starts_with("cin")
+        || text.starts_with("printf")
+        || text.starts_with("scanf");
+
+    if ends_with_block || is_code_line {
+        prompt.push('\n');
+    } else {
+        prompt.push(' ');
+    }
+    prompt.push_str(text);
+}
+
+fn append_to_option(option: &mut String, text: &str) {
+    if option.is_empty() {
+        option.push_str(text);
+        return;
+    }
+    let trimmed = option.trim_end();
+    let is_code = trimmed.ends_with(';')
+        || trimmed.ends_with('{')
+        || trimmed.ends_with('}')
+        || text.starts_with('{')
+        || text.starts_with('}')
+        || text.starts_with("for(")
+        || text.starts_with("for ")
+        || text.starts_with("while(")
+        || text.starts_with("while ")
+        || text.starts_with("if(")
+        || text.starts_with("if ")
+        || text.starts_with("return ")
+        || text.starts_with("int ")
+        || text.starts_with("float ")
+        || text.starts_with("double ")
+        || text.starts_with("bool ");
+
+    if is_code {
+        option.push('\n');
+    } else {
+        option.push(' ');
+    }
+    option.push_str(text);
+}
+
+fn split_inline_source_lines(lines: &[SourceLine]) -> Vec<SourceLine> {
+    let mut result = Vec::with_capacity(lines.len());
+    for line in lines {
+        let text = line.text.trim();
+        if text.is_empty() {
+            continue;
+        }
+        let chars: Vec<char> = text.chars().collect();
+        let text_len = chars.len();
+        let mut cuts = vec![0];
+        for i in 0..text_len {
+            let c = chars[i];
+            if c.is_ascii_alphabetic() {
+                let upper = c.to_ascii_uppercase();
+                if ('A'..='H').contains(&upper) && i + 1 < text_len && chars[i + 1] == '.' {
+                    let is_space = if i + 2 < text_len {
+                        chars[i + 2].is_whitespace() || chars[i + 2] == '\u{00a0}'
+                    } else {
+                        true
+                    };
+                    if is_space && i > 0 {
+                        cuts.push(i);
+                    }
+                }
+            }
+        }
+        cuts.push(text_len);
+        cuts.sort_unstable();
+        cuts.dedup();
+        for w in cuts.windows(2) {
+            let chunk: String = chars[w[0]..w[1]].iter().collect();
+            let trimmed = chunk.trim();
+            if !trimmed.is_empty() {
+                result.push(SourceLine {
+                    text: trimmed.to_string(),
+                    red: line.red,
+                });
+            }
+        }
+    }
+    result
+}
+
 /// Core question parser from parsed source lines with red formatting metadata.
 pub fn parse_source_lines(lines: &[SourceLine]) -> Result<Vec<QuizQuestion>, String> {
     if lines.len() > 100_000 {
         return Err("Tệp quá nhiều dòng".into());
     }
+    let preprocessed = split_inline_source_lines(lines);
     let mut questions = Vec::new();
     let mut prompt = String::new();
     let mut options: Vec<Option<String>> = Vec::new();
     let mut correct = BTreeSet::new();
     let mut active_option = None;
 
-    for line in lines {
+    for line in &preprocessed {
         let text = line.text.trim();
         if text.is_empty() {
             continue;
@@ -210,21 +354,21 @@ pub fn parse_source_lines(lines: &[SourceLine]) -> Result<Vec<QuizQuestion>, Str
                 }
             }
         }
+
+        // Filter out page numbers or header/footer noise
+        if !prompt.is_empty() && is_standalone_page_number_or_footer(text) {
+            continue;
+        }
+
         if let Some(index) = active_option {
             if let Some(Some(option)) = options.get_mut(index) {
-                if !option.is_empty() {
-                    option.push('\n');
-                }
-                option.push_str(text);
+                append_to_option(option, text);
                 if line.red {
                     correct.insert(index);
                 }
             }
         } else {
-            if !prompt.is_empty() {
-                prompt.push('\n');
-            }
-            prompt.push_str(text);
+            append_to_prompt(&mut prompt, text);
         }
     }
     save_question(

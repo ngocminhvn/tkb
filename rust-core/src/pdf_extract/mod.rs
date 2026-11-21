@@ -2454,6 +2454,8 @@ pub struct SourceLinesOutput {
     current_line: String,
     current_line_red: bool,
     current_is_red: bool,
+    current_line_y: f64,
+    page_height: f64,
     last_end: f64,
     last_y: f64,
     first_char: bool,
@@ -2467,16 +2469,53 @@ impl SourceLinesOutput {
             current_line: String::new(),
             current_line_red: false,
             current_is_red: false,
-            last_end: 100000.,
+            current_line_y: 0.,
+            page_height: 0.,
+            last_end: 100_000.,
             last_y: 0.,
             first_char: false,
             flip_ctm: Transform2D::identity(),
         }
     }
 
+    fn is_header_or_page_number(&self, text: &str) -> bool {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+        let in_margin = self.current_line_y < 55.0
+            || (self.page_height > 100.0 && self.current_line_y > self.page_height - 65.0);
+        if !in_margin {
+            return false;
+        }
+        if trimmed.chars().all(|c| c.is_ascii_digit()) {
+            return true;
+        }
+        let lower = trimmed.to_lowercase();
+        if lower.starts_with("trang") || lower.starts_with("page") {
+            return true;
+        }
+        if (trimmed.starts_with('-') && trimmed.ends_with('-'))
+            || (trimmed.starts_with('[') && trimmed.ends_with(']'))
+        {
+            let inner = trimmed[1..trimmed.len() - 1].trim();
+            if inner.chars().all(|c| c.is_ascii_digit() || c == '/' || c == ' ') {
+                return true;
+            }
+        }
+        if let Some((l, r)) = trimmed.split_once('/') {
+            if l.trim().chars().all(|c| c.is_ascii_digit())
+                && r.trim().chars().all(|c| c.is_ascii_digit())
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     fn flush_line(&mut self) {
         let trimmed = self.current_line.trim();
-        if !trimmed.is_empty() {
+        if !trimmed.is_empty() && !self.is_header_or_page_number(trimmed) {
             self.lines.push(crate::quiz::SourceLine {
                 text: trimmed.to_string(),
                 red: self.current_line_red,
@@ -2484,17 +2523,27 @@ impl SourceLinesOutput {
         }
         self.current_line.clear();
         self.current_line_red = false;
+        self.current_line_y = 0.;
     }
 }
 
 impl OutputDev for SourceLinesOutput {
     fn begin_page(&mut self, _page_num: u32, media_box: &MediaBox, _: Option<ArtBox>) -> Result<(), OutputError> {
-        self.flip_ctm = Transform2D::row_major(1., 0., 0., -1., 0., media_box.ury - media_box.lly);
+        let height = media_box.ury - media_box.lly;
+        self.page_height = height;
+        self.flip_ctm = Transform2D::row_major(1., 0., 0., -1., 0., height);
+        self.last_end = 100_000.;
+        self.last_y = 0.;
+        self.first_char = false;
+        self.current_line_y = 0.;
         Ok(())
     }
 
     fn end_page(&mut self) -> Result<(), OutputError> {
         self.flush_line();
+        self.last_end = 100_000.;
+        self.last_y = 0.;
+        self.first_char = false;
         Ok(())
     }
 
@@ -2518,6 +2567,10 @@ impl OutputDev for SourceLinesOutput {
             } else if x > self.last_end + transformed_font_size * 0.1 {
                 self.current_line.push(' ');
             }
+        }
+
+        if self.current_line.is_empty() {
+            self.current_line_y = y;
         }
 
         if !char.trim().is_empty() && self.current_is_red {
