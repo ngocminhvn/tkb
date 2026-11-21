@@ -168,19 +168,17 @@ fun MainScreen(
         showGrades = false
     }
 
-    // Single-screen lightweight translation on tab changes. No crossfade of
-    // two large timetable trees, no glass remount, and no spring overshoot.
-    val pageEnter = remember { Animatable(1f) }
+    // Keep only a near-imperceptible opacity handoff. No lateral movement,
+    // spring or overshoot on tab taps, Back, or edge-swipe navigation.
+    val pageOpacity = remember { Animatable(1f) }
     var previousTabIndex by remember { mutableIntStateOf(selectedIndex) }
-    var pageDirection by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedIndex) {
         if (previousTabIndex != selectedIndex) {
-            pageDirection = if (selectedIndex > previousTabIndex) 1 else -1
             previousTabIndex = selectedIndex
-            pageEnter.snapTo(0f)
-            pageEnter.animateTo(
+            pageOpacity.snapTo(0.985f)
+            pageOpacity.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
             )
         }
     }
@@ -228,11 +226,7 @@ fun MainScreen(
                         },
                     )
                 }
-                .graphicsLayer {
-                    val remaining = 1f - pageEnter.value
-                    translationX = pageDirection * remaining * 12.dp.toPx()
-                    alpha = 1f - remaining * 0.035f
-                },
+                .graphicsLayer { alpha = pageOpacity.value },
         ) {
             when (NavigationTab.entries[selectedIndex]) {
             NavigationTab.TIMETABLE -> {
