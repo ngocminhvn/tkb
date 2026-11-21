@@ -116,31 +116,43 @@ impl Database {
         Ok(CachedTimetable { weeks, lessons })
     }
     pub fn lessons_on(&self, date: &str) -> Result<Vec<Lesson>> {
+        let start_date = crate::normalize_date(date);
+        let next_date = crate::move_calendar_day(&start_date, 1)
+            .unwrap_or_else(|| format!("{start_date}\u{ffff}"));
         query(
             &self.connection,
-            "WHERE ngayHoc LIKE ?1 || '%' ORDER BY tietBatDau ASC",
-            [date],
+            "WHERE ngayHoc >= ?1 AND ngayHoc < ?2 ORDER BY tietBatDau ASC",
+            params![start_date, next_date],
         )
     }
     pub fn exams_on(&self, date: &str) -> Result<Vec<Exam>> {
+        let start_date = crate::normalize_date(date);
+        let next_date = crate::move_calendar_day(&start_date, 1)
+            .unwrap_or_else(|| format!("{start_date}\u{ffff}"));
         query(
             &self.connection,
-            "WHERE ngayThi LIKE ?1 || '%' AND isHoanThi=0 ORDER BY gioBatDau ASC",
-            [date],
+            "WHERE ngayThi >= ?1 AND ngayThi < ?2 AND isHoanThi=0 ORDER BY gioBatDau ASC",
+            params![start_date, next_date],
         )
     }
     pub fn reminder_lessons_on(&self, semester: i32, date: &str) -> Result<Vec<Lesson>> {
+        let start_date = crate::normalize_date(date);
+        let next_date = crate::move_calendar_day(&start_date, 1)
+            .unwrap_or_else(|| format!("{start_date}\u{ffff}"));
         query(
             &self.connection,
-            "WHERE hocKy=?1 AND ngayHoc LIKE ?2 || '%' ORDER BY tietBatDau ASC",
-            params![semester, date],
+            "WHERE hocKy=?1 AND ngayHoc >= ?2 AND ngayHoc < ?3 ORDER BY tietBatDau ASC",
+            params![semester, start_date, next_date],
         )
     }
     pub fn reminder_exams_on(&self, semester: i32, date: &str) -> Result<Vec<Exam>> {
+        let start_date = crate::normalize_date(date);
+        let next_date = crate::move_calendar_day(&start_date, 1)
+            .unwrap_or_else(|| format!("{start_date}\u{ffff}"));
         query(
             &self.connection,
-            "WHERE hocKy=?1 AND ngayThi LIKE ?2 || '%' AND isHoanThi=0 ORDER BY gioBatDau ASC",
-            params![semester, date],
+            "WHERE hocKy=?1 AND ngayThi >= ?2 AND ngayThi < ?3 AND isHoanThi=0 ORDER BY gioBatDau ASC",
+            params![semester, start_date, next_date],
         )
     }
     pub fn exams(&self, semester: i32) -> Result<Vec<Exam>> {
@@ -364,3 +376,5 @@ fn validate_schema(connection: &Connection) -> Result<()> {
     }
     Ok(())
 }
+
+

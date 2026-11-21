@@ -188,7 +188,9 @@ pub(super) fn read_exams(bytes: &[u8]) -> Result<Vec<Exam>> {
     Ok(result)
 }
 pub(super) fn timetable(p: &[Period], w: &[Week], l: &[Lesson]) -> Result<Vec<u8>> {
-    let mut out = b"TKB1T".to_vec();
+    let estimated = 5 + 12 + p.len() * 64 + w.len() * 128 + l.len() * 256;
+    let mut out = Vec::with_capacity(estimated);
+    out.extend_from_slice(b"TKB1T");
     count(&mut out, p.len())?;
     for r in p {
         write_period(&mut out, r)?
@@ -204,7 +206,9 @@ pub(super) fn timetable(p: &[Period], w: &[Week], l: &[Lesson]) -> Result<Vec<u8
     Ok(out)
 }
 pub(super) fn exams(rows: &[Exam]) -> Result<Vec<u8>> {
-    let mut out = b"TKB1E".to_vec();
+    let estimated = 5 + 12 + rows.len() * 256;
+    let mut out = Vec::with_capacity(estimated);
+    out.extend_from_slice(b"TKB1E");
     int(&mut out, 0);
     count(&mut out, rows.len())?;
     count(&mut out, rows.len())?;

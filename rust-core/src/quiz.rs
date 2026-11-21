@@ -3,8 +3,9 @@
 use rusqlite::{params, Connection, Result as SqlResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use crate::portal::{binary_count, binary_header, binary_i32, binary_i64, binary_str};
@@ -612,66 +613,46 @@ fn unescape_xml(input: &str) -> String {
         return input.to_string();
     }
     let mut out = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '&' {
-            let mut entity = String::new();
-            let mut closed = false;
-            for _ in 0..10 {
-                if let Some(&next_c) = chars.peek() {
-                    chars.next();
-                    if next_c == ';' {
-                        closed = true;
-                        break;
-                    }
-                    entity.push(next_c);
-                } else {
-                    break;
-                }
-            }
-            if closed {
-                match entity.as_str() {
-                    "lt" => out.push('<'),
-                    "gt" => out.push('>'),
-                    "amp" => out.push('&'),
-                    "quot" => out.push('"'),
-                    "apos" => out.push('\''),
-                    "nbsp" => out.push('\u{00a0}'),
+    let bytes = input.as_bytes();
+    let len = bytes.len();
+    let mut last = 0;
+    let mut i = 0;
+    while i < len {
+        if bytes[i] == b'&' {
+            let limit = (i + 11).min(len);
+            if let Some(pos) = bytes[i + 1..limit].iter().position(|&b| b == b';') {
+                let entity_end = i + 1 + pos;
+                let entity = &input[i + 1..entity_end];
+                let decoded = match entity {
+                    "lt" => Some('<'),
+                    "gt" => Some('>'),
+                    "amp" => Some('&'),
+                    "quot" => Some('"'),
+                    "apos" => Some('\''),
+                    "nbsp" => Some('\u{00a0}'),
                     s if s.starts_with("#x") || s.starts_with("#X") => {
-                        if let Ok(code) = u32::from_str_radix(&s[2..], 16) {
-                            if let Some(ch) = char::from_u32(code) {
-                                out.push(ch);
-                                continue;
-                            }
-                        }
-                        out.push('&');
-                        out.push_str(&entity);
-                        out.push(';');
+                        u32::from_str_radix(&s[2..], 16).ok().and_then(char::from_u32)
                     }
                     s if s.starts_with('#') => {
-                        if let Ok(code) = s[1..].parse::<u32>() {
-                            if let Some(ch) = char::from_u32(code) {
-                                out.push(ch);
-                                continue;
-                            }
-                        }
-                        out.push('&');
-                        out.push_str(&entity);
-                        out.push(';');
+                        s[1..].parse::<u32>().ok().and_then(char::from_u32)
                     }
-                    _ => {
-                        out.push('&');
-                        out.push_str(&entity);
-                        out.push(';');
-                    }
+                    _ => None,
+                };
+                if let Some(ch) = decoded {
+                    out.push_str(&input[last..i]);
+                    out.push(ch);
+                    i = entity_end + 1;
+                    last = i;
+                    continue;
                 }
-            } else {
-                out.push('&');
-                out.push_str(&entity);
             }
+            i += 1;
         } else {
-            out.push(c);
+            i += 1;
         }
+    }
+    if last < len {
+        out.push_str(&input[last..]);
     }
     out
 }
@@ -1287,6 +1268,26 @@ impl QuizPrng {
     }
 }
 
+fn quiz_pool() -> &'static Mutex<HashMap<String, QuizDatabase>> {
+    static POOL: OnceLock<Mutex<HashMap<String, QuizDatabase>>> = OnceLock::new();
+    POOL.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn with_quiz_db<T>(
+    db_path: &str,
+    f: impl FnOnce(&mut QuizDatabase) -> SqlResult<T>,
+) -> Result<T, String> {
+    let mut pool = quiz_pool()
+        .lock()
+        .map_err(|_| "Lỗi khóa quiz connection pool".to_string())?;
+    if !pool.contains_key(db_path) {
+        let db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
+        pool.insert(db_path.to_string(), db);
+    }
+    let db = pool.get_mut(db_path).expect("checked above");
+    f(db).map_err(|e| format!("{e}"))
+}
+
 pub fn prepare_practice_session(
     db_path: &str,
     deck_id: i64,
@@ -1295,8 +1296,8 @@ pub fn prepare_practice_session(
     shuffle_options: bool,
     seed: u64,
 ) -> Result<Vec<u8>, String> {
-    let db = QuizDatabase::open(db_path).map_err(|e| e.to_string())?;
-    let mut questions = db.load_questions(deck_id, wrong_only).map_err(|e| e.to_string())?;
+    let mut questions = with_quiz_db(db_path, |db| db.load_questions(deck_id, wrong_only))
+        .map_err(|e| format!("Lỗi đọc câu hỏi: {e}"))?;
     if questions.is_empty() {
         return Err("Không có câu hỏi hợp lệ trong bộ đề".into());
     }
@@ -1336,9 +1337,7 @@ pub fn prepare_practice_session(
 }
 
 pub fn list_decks_wire(db_path: &str) -> Result<Vec<u8>, String> {
-    let db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
-    let decks = db
-        .list_decks()
+    let decks = with_quiz_db(db_path, |db| db.list_decks())
         .map_err(|e| format!("Lỗi đọc danh sách bộ đề: {e}"))?;
     encode_decks_wire(&decks)
 }
@@ -1348,17 +1347,14 @@ pub fn load_questions_wire(
     deck_id: i64,
     wrong_only: bool,
 ) -> Result<Vec<u8>, String> {
-    let db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
-    let questions = db
-        .load_questions(deck_id, wrong_only)
+    let questions = with_quiz_db(db_path, |db| db.load_questions(deck_id, wrong_only))
         .map_err(|e| format!("Lỗi đọc câu hỏi: {e}"))?;
     encode_quiz_questions_wire("", &questions)
 }
 
 pub fn save_deck_wire(db_path: &str, title: &str, questions_bytes: &[u8]) -> Result<i64, String> {
     let questions = decode_quiz_questions_wire(questions_bytes)?;
-    let mut db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
-    db.save_deck(title, &questions)
+    with_quiz_db(db_path, |db| db.save_deck(title, &questions))
         .map_err(|e| format!("Lỗi lưu bộ đề: {e}"))
 }
 
@@ -1367,13 +1363,11 @@ pub fn save_answer_wire(
     question_id: i64,
     selected: &[usize],
 ) -> Result<bool, String> {
-    let mut db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
-    db.save_answer(question_id, selected)
+    with_quiz_db(db_path, |db| db.save_answer(question_id, selected))
         .map_err(|e| format!("Lỗi lưu đáp án: {e}"))
 }
 
 pub fn delete_deck_wire(db_path: &str, deck_id: i64) -> Result<(), String> {
-    let mut db = QuizDatabase::open(db_path).map_err(|e| format!("Lỗi mở quiz.db: {e}"))?;
-    db.delete_deck(deck_id)
+    with_quiz_db(db_path, |db| db.delete_deck(deck_id))
         .map_err(|e| format!("Lỗi xóa bộ đề: {e}"))
 }

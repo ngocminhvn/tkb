@@ -42,7 +42,9 @@ fn encode_lessonnote(out: &mut Vec<u8>, row: &LessonNote) -> Result<()> {
 }
 pub(super) fn cache(db: &mut Database, semester: i32) -> Result<Vec<u8>> {
     let snapshot = db.cached_timetable(semester)?;
-    let mut out = b"TKB1T".to_vec();
+    let estimated = 5 + 8 + snapshot.weeks.len() * 128 + snapshot.lessons.len() * 256;
+    let mut out = Vec::with_capacity(estimated);
+    out.extend_from_slice(b"TKB1T");
     int(&mut out, 0); // cache contract contains weeks and lessons, no period query
     int(
         &mut out,
@@ -62,7 +64,8 @@ pub(super) fn cache(db: &mut Database, semester: i32) -> Result<Vec<u8>> {
 }
 pub(super) fn notes(db: &Database) -> Result<Vec<u8>> {
     let rows = db.lesson_notes()?;
-    let mut out = b"TKB1N".to_vec();
+    let mut out = Vec::with_capacity(5 + 4 + rows.len() * 96);
+    out.extend_from_slice(b"TKB1N");
     int(
         &mut out,
         i32::try_from(rows.len()).map_err(|_| rusqlite::Error::InvalidQuery)?,
