@@ -9,7 +9,7 @@ fn string(out: &mut Vec<u8>, value: &str) -> Result<()> {
     out.extend_from_slice(value.as_bytes());
     Ok(())
 }
-fn encode_week(out: &mut Vec<u8>, row: &Week) -> Result<()> {
+pub(super) fn encode_week(out: &mut Vec<u8>, row: &Week) -> Result<()> {
     int(out, row.hoc_ky);
     int(out, row.tuan_hoc_ky);
     string(out, &row.ngay_bat_dau)?;
@@ -17,7 +17,7 @@ fn encode_week(out: &mut Vec<u8>, row: &Week) -> Result<()> {
     string(out, &row.thong_tin_tuan)?;
     Ok(())
 }
-fn encode_lesson(out: &mut Vec<u8>, row: &Lesson) -> Result<()> {
+pub(super) fn encode_lesson(out: &mut Vec<u8>, row: &Lesson) -> Result<()> {
     string(out, &row.id_tkb)?;
     int(out, row.hoc_ky);
     int(out, row.tuan_hoc_ky);

@@ -851,12 +851,12 @@ pub fn import_quiz(
     let multiple = questions.iter().filter(|q| q.correct.len() > 1).count();
     let mut note = format!("Đã nhận {} câu. ", questions.len());
     if missing > 0 {
-        note.push_str(&format!("{missing} câu chưa có đáp án, hãy chọn trước khi lưu. "));
+        use std::fmt::Write as _;
+        let _ = write!(note, "{missing} câu chưa có đáp án, hãy chọn trước khi lưu. ");
     }
     if multiple > 0 {
-        note.push_str(&format!(
-            "{multiple} câu có nhiều đáp án được đánh dấu, nên kiểm tra lại. "
-        ));
+        use std::fmt::Write as _;
+        let _ = write!(note, "{multiple} câu có nhiều đáp án được đánh dấu, nên kiểm tra lại. ");
     }
     if file_ext.eq_ignore_ascii_case("pdf") {
         note.push_str("PDF chỉ đọc lớp chữ; chưa tự xác định màu đỏ.");
@@ -1273,10 +1273,10 @@ pub fn import_quiz_wire(
 struct QuizPrng(u64);
 impl QuizPrng {
     fn new(seed: u64) -> Self {
-        Self(if seed == 0 { 0x853c49e6748fea9b } else { seed })
+        Self(if seed == 0 { 0x853c_49e6_748f_ea9b } else { seed })
     }
     fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
         self.0
     }
     fn shuffle<T>(&mut self, slice: &mut [T]) {

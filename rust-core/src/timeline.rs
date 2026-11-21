@@ -49,15 +49,22 @@ pub fn calculate_extended_day_count(
     if target_date <= last_loaded_day {
         return current_loaded_count;
     }
-    let mut cursor = last_loaded_day.to_string();
+    use chrono::NaiveDate;
+    let last_norm = crate::normalize_date(last_loaded_day);
+    let target_norm = crate::normalize_date(target_date);
+    if let (Ok(last), Ok(target)) = (
+        NaiveDate::parse_from_str(&last_norm, "%Y-%m-%d"),
+        NaiveDate::parse_from_str(&target_norm, "%Y-%m-%d"),
+    ) {
+        let delta = (target - last).num_days().max(0) as i32;
+        return current_loaded_count.saturating_add(delta).saturating_add(7).min(1000);
+    }
+    // Fallback: step one day at a time (malformed date strings)
+    let mut cursor = last_norm;
     let mut count = current_loaded_count;
-    while cursor.as_str() < target_date && count < 1000 {
-        let Some(next) = crate::move_calendar_day(&cursor, 1) else {
-            break;
-        };
-        if next <= cursor {
-            break;
-        }
+    while cursor.as_str() < target_norm.as_str() && count < 1000 {
+        let Some(next) = crate::move_calendar_day(&cursor, 1) else { break };
+        if next <= cursor { break; }
         cursor = next;
         count += 1;
     }
@@ -68,18 +75,16 @@ pub fn generate_date_window(start_ymd: &str, count: i32) -> Vec<String> {
     if count <= 0 {
         return Vec::new();
     }
+    use chrono::NaiveDate;
+    let iso = crate::normalize_date(start_ymd);
+    let Some(mut date) = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok() else {
+        return Vec::new();
+    };
     let mut dates = Vec::with_capacity(count as usize);
-    let mut current = crate::normalize_date(start_ymd);
-    dates.push(current.clone());
-    for _ in 1..count {
-        let Some(next) = crate::move_calendar_day(&current, 1) else {
-            break;
-        };
-        if next <= current {
-            break;
-        }
-        current = next;
-        dates.push(current.clone());
+    for _ in 0..count {
+        dates.push(date.format("%Y-%m-%d").to_string());
+        let Some(next) = date.succ_opt() else { break };
+        date = next;
     }
     dates
 }
@@ -90,9 +95,9 @@ pub fn find_week_number(weeks: &[WeekSpan<'_>], date_ymd: &str) -> Option<i32> {
     }
     let date_norm = crate::normalize_date(date_ymd);
     weeks.iter().find_map(|w| {
-        let start = crate::normalize_date(w.start);
-        let end = crate::normalize_date(w.end);
-        if date_norm >= start && date_norm <= end {
+        if date_norm >= crate::normalize_date(w.start)
+            && date_norm <= crate::normalize_date(w.end)
+        {
             Some(w.tuan_hoc_ky)
         } else {
             None
@@ -105,29 +110,22 @@ pub fn current_week_number(weeks: &[WeekSpan<'_>], today_ymd: &str) -> Option<i3
         return None;
     }
     let today_norm = crate::normalize_date(today_ymd);
-    let mut normalized: Vec<(String, String, i32)> = weeks
-        .iter()
-        .map(|w| {
-            (
-                crate::normalize_date(w.start),
-                crate::normalize_date(w.end),
-                w.tuan_hoc_ky,
-            )
-        })
-        .collect();
-    normalized.sort_by(|a, b| a.0.cmp(&b.0));
-
-    normalized
-        .iter()
-        .find(|(start, end, _)| today_norm >= *start && today_norm <= *end)
-        .map(|(_, _, tuan)| *tuan)
-        .or_else(|| {
-            if today_norm < normalized[0].0 {
-                Some(normalized[0].2)
-            } else {
-                Some(normalized.last()?.2)
-            }
-        })
+    // weeks arrive ORDER BY tuanHocKy ASC from the DB; no re-sort needed.
+    // Normalize start/end once per span rather than allocating a sorted Vec.
+    let found = weeks.iter().find(|w| {
+        today_norm >= crate::normalize_date(w.start)
+            && today_norm <= crate::normalize_date(w.end)
+    });
+    if let Some(w) = found {
+        return Some(w.tuan_hoc_ky);
+    }
+    // Before first week → first week; after last week → last week.
+    let first_start = crate::normalize_date(weeks[0].start);
+    if today_norm < first_start {
+        Some(weeks[0].tuan_hoc_ky)
+    } else {
+        weeks.last().map(|w| w.tuan_hoc_ky)
+    }
 }
 
 pub fn adjacent_timetable_day(
@@ -140,9 +138,7 @@ pub fn adjacent_timetable_day(
     }
     let next = crate::move_calendar_day(selected_ymd, direction)?;
     let week = weeks.iter().find(|w| {
-        let start = crate::normalize_date(w.start);
-        let end = crate::normalize_date(w.end);
-        next >= start && next <= end
+        next >= crate::normalize_date(w.start) && next <= crate::normalize_date(w.end)
     })?;
     Some((next, week.tuan_hoc_ky))
 }

@@ -4,23 +4,16 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use crate::portal::{binary_count, binary_header, binary_i32, binary_i64, binary_str};
 
-fn default_symbols() -> HashMap<String, String> {
-    let mut m = HashMap::new();
-    let defs = [
-        ("CC", "Chuyên cần"),
-        ("KT", "Kiểm tra"),
-        ("GK", "Giữa kỳ"),
-        ("TH", "Thực hành"),
-        ("BT", "Bài tập"),
-        ("K1", "Kiểm tra"),
-        ("T1", "Điểm thi"),
-        ("T2", "Thi lại"),
-    ];
-    for (k, v) in defs {
-        m.insert(k.to_string(), v.to_string());
-    }
-    m
-}
+const DEFAULT_SYMBOLS: &[(&str, &str)] = &[
+    ("CC", "Chuyên cần"),
+    ("KT", "Kiểm tra"),
+    ("GK", "Giữa kỳ"),
+    ("TH", "Thực hành"),
+    ("BT", "Bài tập"),
+    ("K1", "Kiểm tra"),
+    ("T1", "Điểm thi"),
+    ("T2", "Thi lại"),
+];
 
 fn format_hoc_ky_name(code: &str) -> String {
     let trimmed = code.trim();
@@ -84,7 +77,10 @@ fn val_to_str<'a>(val: Option<&'a Value>) -> Cow<'a, str> {
 
 /// Parse symbols JSON into a key-value mapping with full resilience against null/numeric fields.
 pub fn parse_symbols(symbols_payload: &[u8]) -> HashMap<String, String> {
-    let mut map = default_symbols();
+    let mut map: HashMap<String, String> = DEFAULT_SYMBOLS
+        .iter()
+        .map(|&(k, v)| (k.to_string(), v.to_string()))
+        .collect();
     if symbols_payload.is_empty() {
         return map;
     }

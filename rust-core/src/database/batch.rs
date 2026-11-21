@@ -90,12 +90,7 @@ fn read_week(r: &mut Reader<'_>) -> Result<Week> {
     })
 }
 fn write_week(out: &mut Vec<u8>, r: &Week) -> Result<()> {
-    int(out, r.hoc_ky);
-    int(out, r.tuan_hoc_ky);
-    string(out, &r.ngay_bat_dau)?;
-    string(out, &r.ngay_ket_thuc)?;
-    string(out, &r.thong_tin_tuan)?;
-    Ok(())
+    super::wire::encode_week(out, r)
 }
 fn read_lesson(r: &mut Reader<'_>) -> Result<Lesson> {
     Ok(Lesson {
@@ -116,21 +111,7 @@ fn read_lesson(r: &mut Reader<'_>) -> Result<Lesson> {
     })
 }
 fn write_lesson(out: &mut Vec<u8>, r: &Lesson) -> Result<()> {
-    string(out, &r.id_tkb)?;
-    int(out, r.hoc_ky);
-    int(out, r.tuan_hoc_ky);
-    string(out, &r.ngay_hoc)?;
-    int(out, r.thu_kieu_so);
-    int(out, r.tiet_bat_dau);
-    int(out, r.so_tiet);
-    string(out, &r.ma_mon)?;
-    string(out, &r.ten_mon)?;
-    string(out, &r.so_tin_chi)?;
-    string(out, &r.ma_phong)?;
-    string(out, &r.ten_giang_vien)?;
-    string(out, &r.ten_lop)?;
-    string(out, &r.ma_nhom)?;
-    Ok(())
+    super::wire::encode_lesson(out, r)
 }
 fn read_exam(r: &mut Reader<'_>) -> Result<Exam> {
     Ok(Exam {
