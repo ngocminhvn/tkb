@@ -5,7 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wexpa.liquidglass.GlassTabBarStyle
@@ -38,10 +41,24 @@ fun GlassTabBar(
     height: Dp = 64.dp,
     item: @Composable (index: Int, isSelected: Boolean) -> Unit,
 ) {
-    com.wexpa.liquidglass.GlassTabBar(
-        itemCount = itemCount, selectedIndex = selectedIndex,
-        onSelected = onSelected, modifier = modifier,
-        style = GlassTabBarStyle.Calm(isDark).copy(height = height),
-        item = item,
-    )
+    // TKB uses a calm, static selector: no deforming lens/gel/fling,
+    // no bar lift or icon pulse, and no selection haptic on either input path.
+    CompositionLocalProvider(LocalHapticFeedback provides SilentHapticFeedback) {
+        com.wexpa.liquidglass.GlassTabBar(
+            itemCount = itemCount, selectedIndex = selectedIndex,
+            onSelected = onSelected, modifier = modifier,
+            style = GlassTabBarStyle.Calm(isDark).copy(
+                height = height,
+                touchLift = false,
+                tapTintFade = 0f,
+                tapSelectedScale = 1f,
+            ),
+            motionEnabled = false,
+            item = item,
+        )
+    }
+}
+
+private object SilentHapticFeedback : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }
