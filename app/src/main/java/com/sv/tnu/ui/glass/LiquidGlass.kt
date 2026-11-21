@@ -30,7 +30,7 @@ fun LiquidGlassTheme(
     }
 }
 
-/** Official drag, touch and refraction physics, existing TKB navigation contract. */
+/** Keep the upstream Liquid Glass motion; suppress only tab-bar haptic feedback. */
 @Composable
 fun GlassTabBar(
     itemCount: Int,
@@ -41,19 +41,11 @@ fun GlassTabBar(
     height: Dp = 64.dp,
     item: @Composable (index: Int, isSelected: Boolean) -> Unit,
 ) {
-    // TKB uses a calm, static selector: no deforming lens/gel/fling,
-    // no bar lift or icon pulse, and no selection haptic on either input path.
     CompositionLocalProvider(LocalHapticFeedback provides SilentHapticFeedback) {
         com.wexpa.liquidglass.GlassTabBar(
             itemCount = itemCount, selectedIndex = selectedIndex,
             onSelected = onSelected, modifier = modifier,
-            style = GlassTabBarStyle.Calm(isDark).copy(
-                height = height,
-                touchLift = false,
-                tapTintFade = 0f,
-                tapSelectedScale = 1f,
-            ),
-            motionEnabled = false,
+            style = GlassTabBarStyle.Calm(isDark).copy(height = height),
             item = item,
         )
     }
