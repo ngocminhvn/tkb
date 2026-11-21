@@ -54,18 +54,27 @@ fn option_prefix(text: &str) -> Option<(usize, &str)> {
     if index >= 8 {
         return None;
     }
-    // Some Word answer lists contain a standalone "a" without punctuation.
+    // Standalone single letters in Word lists: only 'a'/'b' can be an option marker.
+    // Letters like 'g', 'h', 'n' are code variables or wrap remnants.
     if bytes.len() == 1 {
-        return Some((index, ""));
+        if index <= 1 {
+            return Some((index, ""));
+        } else {
+            return None;
+        }
     }
     if !matches!(bytes[1], b'.' | b')' | b':' | b'-') {
         return None;
     }
-    // Prevent snippets such as "e) {" from being treated as extra choices.
+    // Prevent snippets such as "e) {" or trailing single-letter punctuation from being treated as choices.
     if index >= 4 && bytes[1] != b'.' {
         return None;
     }
-    Some((index, text[2..].trim()))
+    let rest = text[2..].trim();
+    if index >= 4 && rest.is_empty() {
+        return None;
+    }
+    Some((index, rest))
 }
 
 fn question_header(text: &str) -> Option<&str> {
@@ -85,15 +94,20 @@ fn question_header(text: &str) -> Option<&str> {
             return Some(tail[digits..].trim_start_matches(['.', ':', ')', '-', ' ']).trim());
         }
     }
-    // Đối với câu không có tiền tố "Câu": chỉ nhận dạng nếu là "<số>." với số > 0 (ví dụ "491. ...")
-    // Tránh nhận nhầm code C++ như "0) sum += i;"
+    // Đối với câu không có tiền tố "Câu": chỉ nhận dạng nếu là "<số>. <chữ>" với số > 0 (ví dụ "491. Thuật toán...")
+    // Tránh nhận nhầm số float C++ như "10.10f};" hay "12.0};"
     let digits = text.bytes().take_while(u8::is_ascii_digit).count();
     if digits > 0 && text.as_bytes().get(digits) == Some(&b'.') {
         if let Ok(num) = text[..digits].parse::<usize>() {
             if num > 0 {
-                let remainder = text[digits + 1..].trim();
-                if !remainder.is_empty() {
-                    return Some(remainder);
+                let has_space_after_dot = text.as_bytes().get(digits + 1).is_some_and(|&b| b == b' ' || b == b'\t');
+                let remainder = text[digits + 1..].trim_start();
+                let starts_with_letter = remainder.chars().next().is_some_and(char::is_alphabetic);
+                if has_space_after_dot && starts_with_letter {
+                    let clean = remainder.trim();
+                    if !clean.is_empty() {
+                        return Some(clean);
+                    }
                 }
             }
         }
@@ -135,23 +149,19 @@ fn save_question(
     correct: &mut BTreeSet<usize>,
     active_option: &mut Option<usize>,
 ) {
-    if let Some(last_index) = options.iter().rposition(Option::is_some) {
-        let count = last_index + 1;
-        if !prompt.trim().is_empty()
-            && count >= 2
-            && options[..count]
+    let count = options
+        .iter()
+        .take_while(|item| item.as_ref().is_some_and(|s| !s.trim().is_empty()))
+        .count();
+    if !prompt.trim().is_empty() && count >= 2 {
+        questions.push(QuizQuestion {
+            prompt: prompt.trim().to_string(),
+            options: options[..count]
                 .iter()
-                .all(|item| item.as_ref().is_some_and(|s| !s.trim().is_empty()))
-        {
-            questions.push(QuizQuestion {
-                prompt: prompt.trim().to_string(),
-                options: options[..count]
-                    .iter()
-                    .map(|item| item.as_ref().expect("checked above").trim().to_string())
-                    .collect(),
-                correct: correct.iter().copied().filter(|index| *index < count).collect(),
-            });
-        }
+                .map(|item| item.as_ref().expect("checked above").trim().to_string())
+                .collect(),
+            correct: correct.iter().copied().filter(|index| *index < count).collect(),
+        });
     }
     prompt.clear();
     options.clear();
@@ -336,27 +346,42 @@ pub fn parse_source_lines(lines: &[SourceLine]) -> Result<Vec<QuizQuestion>, Str
         }
         if let Some((index, content)) = option_prefix(text) {
             if !prompt.is_empty() && index < 8 {
-                // Bare letters can also be code variables. Treat them as an
-                // answer label only when there is no active answer yet.
-                let bare_letter = text.len() == 1;
-                if !(bare_letter && active_option.is_some()) {
-                    if options.len() <= index {
-                        options.resize(index + 1, None);
-                    }
-                    if options[index].is_none() {
-                        options[index] = Some(content.to_string());
-                        active_option = Some(index);
-                        if line.red {
-                            correct.insert(index);
+                let has_any_option = options.iter().any(Option::is_some);
+                let valid_start = if !has_any_option {
+                    index <= 1
+                } else {
+                    let max_existing = options.iter().rposition(Option::is_some).unwrap_or(0);
+                    index <= max_existing + 2
+                };
+
+                if valid_start {
+                    // Bare letters can also be code variables. Treat them as an
+                    // answer label only when there is no active answer yet.
+                    let bare_letter = text.len() == 1;
+                    if !(bare_letter && active_option.is_some()) {
+                        if options.len() <= index {
+                            options.resize(index + 1, None);
                         }
-                        continue;
+                        if options[index].is_none() {
+                            options[index] = Some(content.to_string());
+                            active_option = Some(index);
+                            if line.red {
+                                correct.insert(index);
+                            }
+                            continue;
+                        }
                     }
                 }
             }
         }
 
-        // Filter out page numbers or header/footer noise
-        if !prompt.is_empty() && is_standalone_page_number_or_footer(text) {
+        // Filter out page numbers or header/footer noise, BUT do not drop answer numbers when an option is waiting for content
+        let active_option_empty = active_option
+            .and_then(|idx| options.get(idx))
+            .and_then(|opt| opt.as_ref())
+            .is_some_and(|s| s.trim().is_empty());
+
+        if !prompt.is_empty() && !active_option_empty && is_standalone_page_number_or_footer(text) {
             continue;
         }
 
