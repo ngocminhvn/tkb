@@ -27,3 +27,4 @@ Disable tab-switch bounce, lens deformation and selection haptics.
 Restore upstream Liquid Glass motion and keep haptics disabled only.
 Improve edge tab swipe: capture original down point, horizontal-intent lock, 80dp hit area, 42dp distance threshold and limited 180dp system gesture exclusion; no new transition animation; 2026-11-21.
 Rebuild requested: restore exact application source from build #421, 2026-11-21.
+CI build: verify rust-core query range index, binary preallocation and quiz pool (cf7c6eb), 2026-11-21.
