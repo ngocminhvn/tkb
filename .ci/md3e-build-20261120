@@ -24,3 +24,4 @@ Near-black Dark Mode with blue glow; remove redundant answer-result card while r
 Synchronize GlassTabBar indicator with the root page after edge swipe and Back transitions.
 Smooth edge-swipe navigation without remounting Liquid Glass; subtly darker Dark Mode.
 Disable tab-switch bounce, lens deformation and selection haptics.
+Restore upstream Liquid Glass motion and keep haptics disabled only.
